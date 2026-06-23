@@ -1,0 +1,9 @@
+{
+  "name": "Client Default",
+  "slug": "client-default",
+  "version": "0.1.0",
+  "cms": ">=0.1.0",
+  "author": "Reklamova",
+  "type": "client-theme"
+}
+

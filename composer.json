@@ -1,0 +1,32 @@
+{
+  "name": "reklamova/cms",
+  "description": "Self-hosted Reklamova CMS core.",
+  "type": "project",
+  "require": {
+    "php": "^8.3",
+    "ext-json": "*",
+    "ext-openssl": "*",
+    "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "ext-curl": "*",
+    "ext-zip": "*",
+    "ext-mbstring": "*",
+    "ext-sodium": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "Reklamova\\Cms\\": "app/core/"
+    }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "@php tools/check-requirements.php"
+    ]
+  },
+  "config": {
+    "platform": {
+      "php": "8.3.0"
+    },
+    "sort-packages": true
+  }
+}

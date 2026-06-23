@@ -1,0 +1,19 @@
+{
+  "cms_version": "0.1.0",
+  "install_mode": "zip",
+  "update_channel": "stable",
+  "protected_paths": [
+    "app/config",
+    "app/themes",
+    "app/modules/custom",
+    "public/uploads",
+    "app/storage/backups",
+    "app/storage/logs"
+  ],
+  "core_paths": [
+    "app/core",
+    "app/migrations/core",
+    "public/assets/core"
+  ]
+}
+
