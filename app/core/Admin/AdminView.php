@@ -1,0 +1,50 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Reklamova\Cms\Admin;
+
+use Reklamova\Cms\Auth\Csrf;
+
+final class AdminView
+{
+    public function render(string $title, string $content, array $user = null): void
+    {
+        header('Content-Type: text/html; charset=utf-8');
+
+        $nav = $user ? $this->navigation() : '';
+        $account = $user ? '<form method="post" action="/admin/logout" class="logout">' . Csrf::field() . '<span>' . htmlspecialchars($user['name'] ?: $user['email'], ENT_QUOTES) . '</span><button>Wyloguj</button></form>' : '';
+
+        echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            . '<title>' . htmlspecialchars($title, ENT_QUOTES) . ' - Reklamova CMS</title>'
+            . '<link rel="stylesheet" href="/assets/core/admin.css">'
+            . '</head><body><div class="layout">'
+            . $nav
+            . '<main class="main"><header class="topbar"><h1>' . htmlspecialchars($title, ENT_QUOTES) . '</h1>' . $account . '</header>'
+            . '<section class="content">' . $content . '</section></main>'
+            . '</div></body></html>';
+    }
+
+    private function navigation(): string
+    {
+        $items = [
+            '/admin' => 'Dashboard',
+            '/admin/pages' => 'Strony',
+            '/admin/media' => 'Media',
+            '/admin/settings' => 'Ustawienia',
+            '/admin/modules' => 'Moduly',
+            '/admin/themes' => 'Motyw',
+            '/admin/updates' => 'Aktualizacje',
+            '/admin/health' => 'Health',
+        ];
+
+        $links = '';
+        foreach ($items as $href => $label) {
+            $links .= '<a href="' . $href . '">' . htmlspecialchars($label, ENT_QUOTES) . '</a>';
+        }
+
+        return '<aside class="sidebar"><strong>Reklamova CMS</strong><nav>' . $links . '</nav></aside>';
+    }
+}
+

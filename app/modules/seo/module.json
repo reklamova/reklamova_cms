@@ -1,0 +1,10 @@
+{
+  "name": "SEO",
+  "slug": "seo",
+  "version": "0.1.0",
+  "cms": ">=0.1.0",
+  "source": "official",
+  "enabled": false,
+  "migrations": false
+}
+

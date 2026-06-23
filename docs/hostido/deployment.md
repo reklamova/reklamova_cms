@@ -41,3 +41,34 @@ https://klient.pl/cron/{secret}
 Domyslny tryb aktualizacji na Hostido to ZIP.
 
 Git/Composer pozostaje trybem opcjonalnym tylko dla kont hostingowych, ktore realnie wspieraja te narzedzia.
+
+## Uruchomienie panelu na mero.pl
+
+Minimalny zakres do startu:
+
+- wgrany kod z aktualnego repozytorium,
+- document root domeny ustawiony na `public`,
+- utworzona baza MySQL/MariaDB,
+- zapisywalne `app/storage` i `public/uploads`,
+- wejscie na `https://mero.pl/admin`,
+- przejscie instalatora,
+- utworzenie konta administratora.
+
+Po instalacji panel udostepnia:
+
+- dashboard,
+- zarzadzanie stronami,
+- upload mediow,
+- podglad ustawien,
+- liste modulow,
+- liste motywow,
+- status aktualizacji,
+- health check hostingu.
+
+Do wdrozenia produkcyjnego przed publikacja klientowi nalezy jeszcze dopiac:
+
+- docelowy motyw `mero`,
+- docelowe moduly biznesowe klienta,
+- finalny update server `updates.reklamova.pl`,
+- production site key,
+- pelny backup bazy przez mysqldump albo PDO dumper.

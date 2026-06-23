@@ -69,6 +69,21 @@ Ten szkielet zawiera:
 - migrator bazy,
 - zasady dla modulow i motywow.
 
+## Aktualny MVP panelu
+
+Panel `/admin` zawiera:
+
+- instalator webowy,
+- logowanie administratora,
+- dashboard,
+- strony,
+- media,
+- ustawienia,
+- moduly,
+- motywy,
+- aktualizacje,
+- health check.
+
 ## Hostido
 
 Docelowy tryb wdrozenia na Hostido:
@@ -79,4 +94,3 @@ Docelowy tryb wdrozenia na Hostido:
 4. Wprowadzenie danych MySQL/MariaDB.
 5. Wklejenie site key wygenerowanego w panelu Reklamova.
 6. Automatyczny health check i rejestracja instalacji w `updates.reklamova.pl`.
-

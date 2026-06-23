@@ -7,7 +7,6 @@ Options -Indexes
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    RewriteRule ^admin/?$ admin/index.php [L]
+    RewriteRule ^admin(/.*)?$ admin/index.php [L]
     RewriteRule ^ index.php [L]
 </IfModule>
-

@@ -1,0 +1,10 @@
+{
+  "name": "Pages",
+  "slug": "pages",
+  "version": "0.1.0",
+  "cms": ">=0.1.0",
+  "source": "core",
+  "enabled": true,
+  "migrations": true
+}
+

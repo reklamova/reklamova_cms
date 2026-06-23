@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Reklamova\Cms\Http;
 
+use Reklamova\Cms\Admin\AdminController;
+use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Health\HealthCheck;
+use Reklamova\Cms\Install\InstallController;
 use Reklamova\Cms\Install\Installer;
+use Reklamova\Cms\Support\Config;
 use Reklamova\Cms\Updates\UpdateClient;
 
 final class Application
@@ -16,40 +20,59 @@ final class Application
 
     public function handlePublic(): void
     {
-        if (!(new Installer($this->container))->isInstalled()) {
-            $this->respondHtml('Reklamova CMS installer', 'Instalacja nie jest jeszcze skonfigurowana.');
+        $installer = new Installer($this->container);
+        if (!$installer->isInstalled()) {
+            (new InstallController($this->container))->handle();
             return;
         }
 
-        $this->respondHtml('Reklamova CMS', 'Publiczny frontend CMS dziala.');
+        $this->renderPage();
     }
 
     public function handleAdmin(): void
     {
-        $health = (new HealthCheck($this->container))->run();
-        $updates = (new UpdateClient($this->container))->localStatus();
+        if (!(new Installer($this->container))->isInstalled()) {
+            (new InstallController($this->container))->handle();
+            return;
+        }
 
-        $body = '<h1>Reklamova CMS Admin</h1>'
-            . '<h2>Status systemu</h2><pre>' . htmlspecialchars(json_encode($health, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), ENT_QUOTES) . '</pre>'
-            . '<h2>Aktualizacje</h2><pre>' . htmlspecialchars(json_encode($updates, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), ENT_QUOTES) . '</pre>';
-
-        $this->respondRawHtml('Reklamova CMS Admin', $body);
+        (new AdminController($this->container))->handle();
     }
 
-    private function respondHtml(string $title, string $message): void
+    private function renderPage(): void
     {
-        $this->respondRawHtml($title, '<h1>' . htmlspecialchars($title, ENT_QUOTES) . '</h1><p>' . htmlspecialchars($message, ENT_QUOTES) . '</p>');
+        $config = new Config($this->container);
+        $slug = trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/');
+        $slug = $slug === '' ? 'home' : $slug;
+
+        $pdo = (new ConnectionFactory($this->container))->make();
+        $statement = $pdo->prepare('SELECT title, content FROM cms_pages WHERE slug = ? AND status = "published" LIMIT 1');
+        $statement->execute([$slug]);
+        $page = $statement->fetch();
+
+        if (!$page) {
+            http_response_code(404);
+            $page = [
+                'title' => 'Nie znaleziono',
+                'content' => '<p>Strona nie zostala jeszcze opublikowana.</p>',
+            ];
+        }
+
+        $this->respondRawHtml(
+            (string) $page['title'],
+            '<h1>' . htmlspecialchars((string) $page['title'], ENT_QUOTES) . '</h1><article>' . (string) $page['content'] . '</article>',
+            (string) $config->get('app', 'name', 'Reklamova CMS')
+        );
     }
 
-    private function respondRawHtml(string $title, string $body): void
+    private function respondRawHtml(string $title, string $body, string $siteName = 'Reklamova CMS'): void
     {
         header('Content-Type: text/html; charset=utf-8');
 
         echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>' . htmlspecialchars($title, ENT_QUOTES) . '</title>'
-            . '<style>body{font-family:system-ui,sans-serif;margin:40px;line-height:1.5;color:#1f2933}pre{background:#f4f6f8;padding:16px;overflow:auto}</style>'
-            . '</head><body>' . $body . '</body></html>';
+            . '<style>body{font-family:system-ui,sans-serif;margin:40px;line-height:1.5;color:#1f2933;max-width:920px}header{margin-bottom:40px}pre{background:#f4f6f8;padding:16px;overflow:auto}</style>'
+            . '</head><body><header><strong>' . htmlspecialchars($siteName, ENT_QUOTES) . '</strong></header>' . $body . '</body></html>';
     }
 }
-
