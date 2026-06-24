@@ -42,6 +42,22 @@ return new class {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
 
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS mero_cookie_consents (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                consent_version VARCHAR(40) NULL,
+                privacy_policy_version VARCHAR(40) NULL,
+                necessary TINYINT(1) NOT NULL DEFAULT 1,
+                functional TINYINT(1) NOT NULL DEFAULT 0,
+                analytics TINYINT(1) NOT NULL DEFAULT 0,
+                marketing TINYINT(1) NOT NULL DEFAULT 0,
+                source VARCHAR(80) NULL,
+                ip_address VARCHAR(64) NULL,
+                user_agent VARCHAR(500) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+
         $pdo->exec('INSERT INTO cms_modules (slug, version, enabled, source, installed_at) VALUES ("mero", "0.1.0", 1, "custom", CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE enabled = 1, version = VALUES(version), source = "custom"');
 
         $settings = [
@@ -83,6 +99,8 @@ return new class {
                 'kostka_brukowa' => 30000,
             ],
             'admin_email' => 'biuro@mero.pl',
+            'phone' => '720 446 446',
+            'facebook_url' => 'https://www.facebook.com/merobielany',
         ];
 
         $statement = $pdo->prepare('INSERT INTO cms_settings (setting_key, setting_value) VALUES ("mero.calculator", ?) ON DUPLICATE KEY UPDATE setting_value = setting_value');
@@ -97,8 +115,8 @@ return new class {
             ['Realizacje', 'realizacje', '<p>Miejsce na realizacje i zakresy wykonanych prac.</p>'],
             ['Hurtownia materialow budowlanych', 'hurtownia-materialow-budowlanych', '<p>Zaplecze materialowe MERO, dostawy i doradztwo techniczne.</p>'],
             ['Poradnik', 'poradnik', '<p>Lista poradnikowych wpisow jest zarzadzana w module MERO.</p>'],
-            ['Kontakt', 'kontakt', '<p>Skontaktuj sie z MERO w sprawie budowy domu, materialow lub wyceny.</p><div data-mero-contact></div>'],
-            ['Polityka prywatnosci', 'polityka-prywatnosci', '<p>Opis przetwarzania danych z formularzy, kalkulatora, cookies i kontaktu.</p>'],
+            ['Kontakt', 'kontakt', '<p>Skontaktuj sie z MERO w sprawie budowy domu, materialow lub wyceny. Telefon: 720 446 446.</p><div data-mero-contact></div>'],
+            ['Polityka prywatnosci i cookies', 'polityka-prywatnosci', '<p>Administratorem danych jest MERO. Dane z formularzy kontaktowych, kalkulatora i zapytan materialowych sa przetwarzane w celu obslugi zapytania, przygotowania kontaktu zwrotnego oraz prowadzenia korespondencji zwiazanej z uslugami budowy domow i materialami budowlanymi.</p><p>Formularze wymagaja potwierdzenia zapoznania sie z polityka prywatnosci. Zgody marketingowe sa dobrowolne. Strona korzysta z niezbednych cookies, a dodatkowe kategorie cookies sa uruchamiane zgodnie z wyborem uzytkownika w panelu zgody.</p><p>Kontakt: biuro@mero.pl, telefon 720 446 446.</p>'],
         ];
 
         $statement = $pdo->prepare('INSERT IGNORE INTO cms_pages (title, slug, content, status) VALUES (?, ?, ?, "published")');
@@ -119,6 +137,7 @@ return new class {
 
     public function down(PDO $pdo): void
     {
+        $pdo->exec('DROP TABLE IF EXISTS mero_cookie_consents');
         $pdo->exec('DROP TABLE IF EXISTS mero_articles');
         $pdo->exec('DROP TABLE IF EXISTS mero_leads');
         $pdo->exec('DELETE FROM cms_settings WHERE setting_key = "mero.calculator"');

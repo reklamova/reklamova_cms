@@ -135,7 +135,7 @@ final class InstallController
             . '<form method="post">' . Csrf::field()
             . '<label>Nazwa strony<input name="site_name" value="Mero"></label>'
             . '<label>Nazwa klienta w panelu<input name="client_name" value="MERO"></label>'
-            . '<label>Logo klienta w panelu<input name="client_logo" placeholder="/assets/client/logo.svg"></label>'
+            . '<label>Logo klienta w panelu<input name="client_logo" value="/assets/client/mero-logo.svg" placeholder="/assets/client/logo.svg"></label>'
             . '<label>Adres strony<input name="site_url" value="https://mero.pl"></label>'
             . '<label>Host bazy<input name="db_host" value="localhost"></label>'
             . '<label>Port bazy<input name="db_port" value="3306"></label>'
