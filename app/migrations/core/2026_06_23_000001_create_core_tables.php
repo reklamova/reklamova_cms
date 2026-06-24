@@ -1,7 +1,5 @@
 <?php
 
-use PDO;
-
 return new class {
     public function up(PDO $pdo): void
     {

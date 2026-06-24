@@ -25,7 +25,7 @@ final class InstallController
         }
 
         $error = null;
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!Csrf::verify($_POST['_csrf'] ?? null)) {
                 $error = 'Sesja formularza wygasla. Sprobuj ponownie.';
             } else {

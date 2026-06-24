@@ -36,7 +36,7 @@ final class AdminController
             return;
         }
 
-        if ($path === '/admin/logout' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($path === '/admin/logout' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (Csrf::verify($_POST['_csrf'] ?? null)) {
                 $this->auth->logout();
             }
@@ -66,7 +66,7 @@ final class AdminController
     {
         $error = null;
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!Csrf::verify($_POST['_csrf'] ?? null)) {
                 $error = 'Sesja formularza wygasla.';
             } elseif ($this->auth->attempt((string) ($_POST['email'] ?? ''), (string) ($_POST['password'] ?? ''))) {
@@ -121,7 +121,7 @@ final class AdminController
     {
         $id = isset($_GET['id']) ? (int) $_GET['id'] : null;
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
             $title = trim((string) $_POST['title']);
             $slug = trim((string) $_POST['slug']) ?: $this->slugify($title);
             $content = (string) $_POST['content'];
@@ -157,7 +157,7 @@ final class AdminController
 
     private function media(array $user): void
     {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && Csrf::verify($_POST['_csrf'] ?? null) && isset($_FILES['upload'])) {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null) && isset($_FILES['upload'])) {
             $this->storeUpload($_FILES['upload']);
             Url::redirect('/admin/media');
         }
