@@ -21,9 +21,8 @@ $rootPath = dirname(__DIR__);
 $container = [
     'root_path' => $rootPath,
     'app_path' => $rootPath . '/app',
-    'public_path' => $rootPath . '/public',
+    'public_path' => is_dir($rootPath . '/public_html') ? $rootPath . '/public_html' : $rootPath . '/public',
     'storage_path' => $rootPath . '/app/storage',
     'config_path' => $rootPath . '/app/config',
     'cms_version' => '0.1.0',
 ];
-
