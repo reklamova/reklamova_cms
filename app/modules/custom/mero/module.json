@@ -1,0 +1,7 @@
+{
+  "slug": "mero",
+  "name": "MERO CMS",
+  "version": "0.1.0",
+  "source": "custom",
+  "description": "Client module for mero.pl: calculator settings, leads and investor guide."
+}

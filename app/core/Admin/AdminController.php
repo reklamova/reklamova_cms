@@ -19,11 +19,13 @@ final class AdminController
     private \PDO $pdo;
     private AuthManager $auth;
     private AdminView $view;
+    private ModuleManager $modules;
 
     public function __construct(private array $container)
     {
         $this->pdo = (new ConnectionFactory($container))->make();
         $this->auth = new AuthManager($this->pdo);
+        $this->modules = new ModuleManager($container);
         $this->view = new AdminView();
     }
 
@@ -48,6 +50,9 @@ final class AdminController
             Url::redirect('/admin/login');
         }
 
+        $extensions = $this->modules->adminExtensions($this->pdo);
+        $this->view = new AdminView($extensions['nav'] ?? []);
+
         match ($path) {
             '/admin', '/admin/' => $this->dashboard($user),
             '/admin/pages' => $this->pages($user),
@@ -58,7 +63,7 @@ final class AdminController
             '/admin/themes' => $this->themes($user),
             '/admin/updates' => $this->updates($user),
             '/admin/health' => $this->health($user),
-            default => $this->notFound($user),
+            default => $this->handleModuleRoute($path, $user, $extensions['routes'] ?? []),
         };
     }
 
@@ -223,6 +228,17 @@ final class AdminController
     {
         http_response_code(404);
         $this->view->render('Nie znaleziono', '<section class="panel"><p>Nie znaleziono ekranu panelu.</p></section>', $user);
+    }
+
+    private function handleModuleRoute(string $path, array $user, array $routes): void
+    {
+        $handler = $routes[$path] ?? null;
+        if (is_callable($handler)) {
+            $handler($this->view, $user);
+            return;
+        }
+
+        $this->notFound($user);
     }
 
     private function metric(string $label, string $value): string

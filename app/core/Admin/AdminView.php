@@ -8,6 +8,10 @@ use Reklamova\Cms\Auth\Csrf;
 
 final class AdminView
 {
+    public function __construct(private array $extraNavigation = [])
+    {
+    }
+
     public function render(string $title, string $content, array $user = null): void
     {
         header('Content-Type: text/html; charset=utf-8');
@@ -38,6 +42,7 @@ final class AdminView
             '/admin/updates' => 'Aktualizacje',
             '/admin/health' => 'Health',
         ];
+        $items = array_merge($items, $this->extraNavigation);
 
         $links = '';
         foreach ($items as $href => $label) {

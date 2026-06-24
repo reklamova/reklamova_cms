@@ -6,5 +6,5 @@ return [
     'timezone' => 'Europe/Warsaw',
     'debug' => false,
     'active_theme' => 'client-default',
+    'active_modules' => [],
 ];
-

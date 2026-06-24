@@ -9,7 +9,9 @@ use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Health\HealthCheck;
 use Reklamova\Cms\Install\InstallController;
 use Reklamova\Cms\Install\Installer;
+use Reklamova\Cms\Modules\ModuleManager;
 use Reklamova\Cms\Support\Config;
+use Reklamova\Cms\Support\Url;
 use Reklamova\Cms\Updates\UpdateClient;
 
 final class Application
@@ -23,6 +25,15 @@ final class Application
         $installer = new Installer($this->container);
         if (!$installer->isInstalled()) {
             (new InstallController($this->container))->handle();
+            return;
+        }
+
+        $pdo = (new ConnectionFactory($this->container))->make();
+        $path = Url::path();
+        $extensions = (new ModuleManager($this->container))->publicExtensions($pdo);
+        $handler = $extensions['routes'][$path] ?? null;
+        if (is_callable($handler)) {
+            $handler();
             return;
         }
 
@@ -46,6 +57,13 @@ final class Application
         $slug = $slug === '' ? 'home' : $slug;
 
         $pdo = (new ConnectionFactory($this->container))->make();
+        $extensions = (new ModuleManager($this->container))->publicExtensions($pdo);
+        foreach ($extensions['fallbacks'] ?? [] as $fallback) {
+            if (is_callable($fallback) && $fallback($slug)) {
+                return;
+            }
+        }
+
         $statement = $pdo->prepare('SELECT title, content FROM cms_pages WHERE slug = ? AND status = "published" LIMIT 1');
         $statement->execute([$slug]);
         $page = $statement->fetch();

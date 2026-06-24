@@ -11,6 +11,8 @@ configuration and domain.
 ## Core Modification Policy
 
 The CMS core must not be modified for a single client.
+The admin panel visual theme is part of the shared core and must stay identical
+for all client installations.
 
 Do not place client-specific logic inside:
 
@@ -26,6 +28,10 @@ Client-specific changes must be implemented only through:
 - configuration in `/app/config`
 - database-managed settings
 - documented extension points
+
+Client modules may add admin screens and navigation items through extension
+points, but they must render inside the shared core admin shell. Do not create
+client-specific admin layouts or duplicate admin CSS.
 
 ## Protected Paths
 
@@ -98,4 +104,3 @@ Reklamova centrally maintains:
 - central installation panel.
 
 Reklamova does not centrally host all client websites in one multi-tenant app.
-

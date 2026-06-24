@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Reklamova\Cms\Database;
 
+use Reklamova\Cms\Modules\ModuleManager;
 use PDO;
 
 final class Migrator
@@ -36,6 +37,37 @@ final class Migrator
                     $pdo->rollBack();
                 }
                 throw $exception;
+            }
+        }
+    }
+
+    public function runActiveModuleMigrations(): void
+    {
+        $pdo = (new ConnectionFactory($this->container))->make();
+        $this->ensureMigrationTable($pdo);
+
+        foreach ((new ModuleManager($this->container))->activeModules($pdo) as $slug => $module) {
+            $migrationDir = ($module['_path'] ?? '') . '/migrations';
+            foreach (glob($migrationDir . '/*.php') ?: [] as $file) {
+                $name = basename($file, '.php');
+                if ($this->hasRun($pdo, $name, $slug)) {
+                    continue;
+                }
+
+                $migration = require $file;
+                $pdo->beginTransaction();
+                try {
+                    $migration->up($pdo);
+                    $this->markRun($pdo, $name, $slug);
+                    if ($pdo->inTransaction()) {
+                        $pdo->commit();
+                    }
+                } catch (\Throwable $exception) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    throw $exception;
+                }
             }
         }
     }

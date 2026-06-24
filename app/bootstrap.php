@@ -17,6 +17,8 @@ spl_autoload_register(static function (string $class): void {
 });
 
 $rootPath = dirname(__DIR__);
+$appConfigPath = $rootPath . '/app/config/app.php';
+$appConfig = is_file($appConfigPath) ? require $appConfigPath : [];
 
 $container = [
     'root_path' => $rootPath,
@@ -25,4 +27,5 @@ $container = [
     'storage_path' => $rootPath . '/app/storage',
     'config_path' => $rootPath . '/app/config',
     'cms_version' => '0.1.0',
+    'active_modules' => $appConfig['active_modules'] ?? [],
 ];

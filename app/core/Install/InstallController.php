@@ -52,8 +52,10 @@ final class InstallController
         }
 
         $this->writeConfigFiles($input);
+        $this->container['active_modules'] = $this->activeModulesFromInput($input);
         $pdo = (new ConnectionFactory($this->container))->make();
         (new Migrator($this->container))->runCoreMigrations();
+        (new Migrator($this->container))->runActiveModuleMigrations();
         $this->createAdmin($pdo, $input);
         $this->createHomePage($pdo, $input);
 
@@ -68,6 +70,7 @@ final class InstallController
             'timezone' => 'Europe/Warsaw',
             'debug' => false,
             'active_theme' => 'client-default',
+            'active_modules' => $this->activeModulesFromInput($input),
         ]);
 
         $this->writePhpConfig('database.php', [
@@ -85,6 +88,11 @@ final class InstallController
             'site_key' => trim((string) ($input['site_key'] ?? '')),
             'license_server' => 'https://updates.reklamova.pl',
         ]);
+    }
+
+    private function activeModulesFromInput(array $input): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', (string) ($input['active_modules'] ?? '')))));
     }
 
     private function writePhpConfig(string $file, array $data): void
@@ -105,7 +113,7 @@ final class InstallController
 
     private function createHomePage(PDO $pdo, array $input): void
     {
-        $statement = $pdo->prepare('INSERT INTO cms_pages (title, slug, content, status) VALUES (?, "home", ?, "published")');
+        $statement = $pdo->prepare('INSERT IGNORE INTO cms_pages (title, slug, content, status) VALUES (?, "home", ?, "published")');
         $statement->execute([
             trim((string) $input['site_name']),
             '<p>Strona zostala uruchomiona w Reklamova CMS. Tresc mozna edytowac w panelu administracyjnym.</p>',
@@ -132,6 +140,7 @@ final class InstallController
             . '<label>Haslo bazy<input type="password" name="db_password"></label>'
             . '<label>Site ID<input name="site_id"></label>'
             . '<label>Site key<input name="site_key"></label>'
+            . '<label>Aktywne moduly<input name="active_modules" placeholder="np. mero"></label>'
             . '<label>Imie administratora<input name="admin_name" value="Administrator"></label>'
             . '<label>Email administratora<input type="email" name="admin_email"></label>'
             . '<label>Haslo administratora<input type="password" name="admin_password"></label>'
