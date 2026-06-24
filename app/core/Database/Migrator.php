@@ -28,9 +28,13 @@ final class Migrator
             try {
                 $migration->up($pdo);
                 $this->markRun($pdo, $name, 'core');
-                $pdo->commit();
+                if ($pdo->inTransaction()) {
+                    $pdo->commit();
+                }
             } catch (\Throwable $exception) {
-                $pdo->rollBack();
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 throw $exception;
             }
         }
@@ -64,4 +68,3 @@ final class Migrator
         $statement->execute([$migration, $module]);
     }
 }
-
