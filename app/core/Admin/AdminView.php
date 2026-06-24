@@ -44,7 +44,6 @@ final class AdminView
             $links .= '<a href="' . $href . '">' . htmlspecialchars($label, ENT_QUOTES) . '</a>';
         }
 
-        return '<aside class="sidebar"><strong>Reklamova CMS</strong><nav>' . $links . '</nav></aside>';
+        return '<aside class="sidebar"><a class="brand" href="/admin" aria-label="Reklamova CMS"><img src="/assets/core/reklamova-logo.svg" alt="Reklamova"></a><nav>' . $links . '</nav></aside>';
     }
 }
-

@@ -3,7 +3,8 @@ body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Se
 a { color: inherit; }
 .layout { min-height: 100vh; display: grid; grid-template-columns: 236px minmax(0, 1fr); }
 .sidebar { background: #101827; color: #fff; padding: 24px 18px; }
-.sidebar strong { display: block; margin-bottom: 24px; font-size: 18px; }
+.brand { display: flex; align-items: center; width: 100%; min-height: 40px; margin-bottom: 24px; padding: 8px 10px; border-radius: 6px; background: #fff; }
+.brand img { display: block; width: 100%; max-height: 24px; object-fit: contain; }
 .sidebar nav { display: grid; gap: 4px; }
 .sidebar a { padding: 10px 12px; text-decoration: none; border-radius: 6px; color: #d7dee9; }
 .sidebar a:hover { background: #1d2a3d; color: #fff; }
@@ -35,4 +36,3 @@ button, .button { display: inline-flex; align-items: center; justify-content: ce
   .topbar { align-items: flex-start; flex-direction: column; }
   .content { padding: 18px; }
 }
-
