@@ -77,7 +77,7 @@ final class AdminController
         }
 
         $errorHtml = $error ? '<div class="error">' . htmlspecialchars($error, ENT_QUOTES) . '</div>' : '';
-        $content = '<div class="login"><section class="panel"><h1>Logowanie</h1>' . $errorHtml
+        $content = '<div class="login"><section class="panel"><img class="login-logo" src="/assets/core/reklamova-logo.svg" alt="Reklamova"><h1>Logowanie</h1>' . $errorHtml
             . '<form method="post">' . Csrf::field()
             . '<label>Email<input type="email" name="email" required></label>'
             . '<label>Haslo<input type="password" name="password" required></label>'
