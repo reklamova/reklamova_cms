@@ -66,6 +66,8 @@ final class InstallController
     {
         $this->writePhpConfig('app.php', [
             'name' => trim((string) $input['site_name']),
+            'client_name' => trim((string) ($input['client_name'] ?: $input['site_name'])),
+            'client_logo' => trim((string) ($input['client_logo'] ?? '')),
             'url' => rtrim(trim((string) $input['site_url']), '/'),
             'timezone' => 'Europe/Warsaw',
             'debug' => false,
@@ -132,6 +134,8 @@ final class InstallController
             . '<main class="login"><section class="panel"><h1>Instalacja Reklamova CMS</h1>' . $errorHtml
             . '<form method="post">' . Csrf::field()
             . '<label>Nazwa strony<input name="site_name" value="Mero"></label>'
+            . '<label>Nazwa klienta w panelu<input name="client_name" value="MERO"></label>'
+            . '<label>Logo klienta w panelu<input name="client_logo" placeholder="/assets/client/logo.svg"></label>'
             . '<label>Adres strony<input name="site_url" value="https://mero.pl"></label>'
             . '<label>Host bazy<input name="db_host" value="localhost"></label>'
             . '<label>Port bazy<input name="db_port" value="3306"></label>'

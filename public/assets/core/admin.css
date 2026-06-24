@@ -1,5 +1,15 @@
 * { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #18212f; background: #f5f7fa; }
+:root {
+  --admin-ink: #172033;
+  --admin-muted: #667386;
+  --admin-line: #dfe7f2;
+  --admin-soft: #edf4ff;
+  --admin-brand: #ff4f1f;
+  --admin-brand-strong: #f04416;
+  --admin-blue: #2563eb;
+  --admin-shadow: 0 26px 80px rgba(36, 54, 91, .18);
+}
+body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--admin-ink); background: #f5f7fa; }
 a { color: inherit; }
 .layout { min-height: 100vh; display: grid; grid-template-columns: 236px minmax(0, 1fr); }
 .sidebar { background: #101827; color: #fff; padding: 24px 18px; }
@@ -26,8 +36,137 @@ button, .button { display: inline-flex; align-items: center; justify-content: ce
 .button.secondary, button.secondary { background: #e8eef6; color: #18212f; }
 .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .logout { display: flex; align-items: center; gap: 10px; margin: 0; }
-.login { max-width: 420px; margin: 9vh auto; }
-.login-logo { display: block; width: min(260px, 100%); max-height: 48px; object-fit: contain; margin: 0 0 20px; }
+.auth-screen {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 48px 20px;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(37, 99, 235, .18), rgba(37, 99, 235, 0) 34%),
+    radial-gradient(circle at 50% 42%, rgba(255, 79, 31, .10), rgba(255, 79, 31, 0) 24%),
+    linear-gradient(180deg, #f8fbff 0%, #edf5ff 100%);
+}
+.auth-card-wrap {
+  position: relative;
+  width: min(420px, 100%);
+}
+.auth-brand {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  min-height: 46px;
+  margin-bottom: -2px;
+}
+.login-client-logo,
+.auth-reklamova-logo {
+  display: block;
+  width: auto;
+  max-width: 172px;
+  max-height: 42px;
+  object-fit: contain;
+}
+.auth-reklamova-logo { max-width: 166px; max-height: 36px; }
+.login-client-text {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  color: #1d2433;
+}
+.auth-brand-x {
+  align-self: center;
+  color: #8996aa;
+  font-size: 14px;
+  font-weight: 900;
+}
+.auth-card {
+  position: relative;
+  overflow: hidden;
+  padding: 34px 34px 32px;
+  border: 1px solid rgba(255,255,255,.8);
+  border-top: 7px solid var(--admin-brand);
+  border-radius: 8px 8px 16px 16px;
+  background: rgba(255,255,255,.92);
+  box-shadow: var(--admin-shadow);
+  backdrop-filter: blur(18px);
+}
+.auth-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: #8996aa;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .18em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.auth-card h1 {
+  margin: 0 0 26px;
+  color: #20283a;
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-align: center;
+}
+.auth-form label {
+  color: #536174;
+  font-size: 13px;
+}
+.auth-form input {
+  min-height: 46px;
+  border: 1px solid #d6e1f2;
+  background: #eaf2ff;
+  color: #1f2937;
+  font-weight: 700;
+}
+.auth-form input:focus {
+  outline: 3px solid rgba(37, 99, 235, .15);
+  border-color: #9bbcff;
+  background: #f4f8ff;
+}
+.auth-form button {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 6px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--admin-brand), var(--admin-brand-strong));
+  box-shadow: 0 18px 38px rgba(255, 79, 31, .25);
+  font-size: 15px;
+}
+.auth-forgot {
+  display: block;
+  margin-top: 20px;
+  color: #8290a4;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+  text-decoration: none;
+}
+.auth-corner {
+  position: absolute;
+  left: 28px;
+  bottom: 24px;
+  display: grid;
+  gap: 3px;
+  color: #6d7b90;
+  font-size: 12px;
+  font-weight: 800;
+}
+.auth-corner img { width: 126px; height: auto; }
+.auth-copy {
+  position: absolute;
+  right: 28px;
+  bottom: 24px;
+  color: #9aa8ba;
+  font-size: 12px;
+  font-weight: 800;
+}
 .notice { padding: 12px 14px; border-radius: 6px; background: #e8f5ee; border: 1px solid #b7e1c8; margin-bottom: 16px; }
 .error { padding: 12px 14px; border-radius: 6px; background: #fff1f0; border: 1px solid #ffccc7; margin-bottom: 16px; }
 @media (max-width: 760px) {
@@ -36,4 +175,9 @@ button, .button { display: inline-flex; align-items: center; justify-content: ce
   .sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .topbar { align-items: flex-start; flex-direction: column; }
   .content { padding: 18px; }
+  .auth-screen { align-items: start; padding-top: 72px; }
+  .auth-brand { align-items: center; gap: 9px; }
+  .login-client-logo, .auth-reklamova-logo { max-width: 132px; }
+  .auth-card { padding: 28px 22px; }
+  .auth-corner, .auth-copy { position: static; margin-top: 26px; justify-self: center; text-align: center; }
 }

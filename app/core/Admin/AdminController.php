@@ -70,6 +70,10 @@ final class AdminController
     private function login(): void
     {
         $error = null;
+        $config = new Config($this->container);
+        $siteName = (string) $config->get('app', 'name', 'Klient');
+        $clientName = (string) $config->get('app', 'client_name', $siteName);
+        $clientLogo = (string) $config->get('app', 'client_logo', '');
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!Csrf::verify($_POST['_csrf'] ?? null)) {
@@ -82,11 +86,21 @@ final class AdminController
         }
 
         $errorHtml = $error ? '<div class="error">' . htmlspecialchars($error, ENT_QUOTES) . '</div>' : '';
-        $content = '<div class="login"><section class="panel"><img class="login-logo" src="/assets/core/reklamova-logo.svg" alt="Reklamova"><h1>Logowanie</h1>' . $errorHtml
-            . '<form method="post">' . Csrf::field()
-            . '<label>Email<input type="email" name="email" required></label>'
-            . '<label>Haslo<input type="password" name="password" required></label>'
-            . '<button>Zaloguj</button></form></section></div>';
+        $clientBrand = $clientLogo !== ''
+            ? '<img class="login-client-logo" src="' . htmlspecialchars($clientLogo, ENT_QUOTES) . '" alt="' . htmlspecialchars($clientName, ENT_QUOTES) . '">'
+            : '<span class="login-client-text">' . htmlspecialchars($clientName, ENT_QUOTES) . '</span>';
+        $content = '<main class="auth-screen">'
+            . '<section class="auth-card-wrap">'
+            . '<div class="auth-brand">' . $clientBrand . '<span class="auth-brand-x">x</span><img class="auth-reklamova-logo" src="/assets/core/reklamova-logo.svg" alt="Reklamova"></div>'
+            . '<section class="auth-card"><span class="auth-eyebrow">Panel administracyjny</span><h1>Logowanie</h1>' . $errorHtml
+            . '<form method="post" class="auth-form">' . Csrf::field()
+            . '<label>Login<input type="email" name="email" autocomplete="username" required></label>'
+            . '<label>Haslo<input type="password" name="password" autocomplete="current-password" required></label>'
+            . '<button>Zaloguj -></button></form>'
+            . '<a class="auth-forgot" href="mailto:biuro@reklamova.pl?subject=Reset%20hasla%20panelu%20' . rawurlencode($siteName) . '">Nie pamietam hasla &raquo;</a></section></section>'
+            . '<div class="auth-corner"><img src="/assets/core/reklamova-logo.svg" alt="Reklamova"><span>panel administracyjny</span></div>'
+            . '<span class="auth-copy">&copy; reklamova.pl</span>'
+            . '</main>';
 
         (new AdminView())->render('Logowanie', $content);
     }

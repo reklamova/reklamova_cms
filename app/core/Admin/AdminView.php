@@ -16,8 +16,17 @@ final class AdminView
     {
         header('Content-Type: text/html; charset=utf-8');
 
+        if (!$user) {
+            echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
+                . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+                . '<title>' . htmlspecialchars($title, ENT_QUOTES) . ' - Reklamova CMS</title>'
+                . '<link rel="stylesheet" href="/assets/core/admin.css">'
+                . '</head><body>' . $content . '</body></html>';
+            return;
+        }
+
         $nav = $user ? $this->navigation() : '';
-        $account = $user ? '<form method="post" action="/admin/logout" class="logout">' . Csrf::field() . '<span>' . htmlspecialchars($user['name'] ?: $user['email'], ENT_QUOTES) . '</span><button>Wyloguj</button></form>' : '';
+        $account = '<form method="post" action="/admin/logout" class="logout">' . Csrf::field() . '<span>' . htmlspecialchars($user['name'] ?: $user['email'], ENT_QUOTES) . '</span><button>Wyloguj</button></form>';
 
         echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
