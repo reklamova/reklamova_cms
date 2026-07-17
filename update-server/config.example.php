@@ -6,6 +6,7 @@ return [
     'storage_path' => __DIR__ . '/storage',
     'packages_path' => __DIR__ . '/storage/packages',
     'licenses_path' => __DIR__ . '/storage/licenses.json',
+    'module_policies_path' => __DIR__ . '/storage/module-policies.json',
     'reports_path' => __DIR__ . '/storage/reports',
     'default_channel' => 'stable',
 ];

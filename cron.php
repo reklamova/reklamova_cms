@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Reklamova\Cms\Database\ConnectionFactory;
+use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Health\HealthCheck;
 use Reklamova\Cms\Modules\ModuleManager;
 use Reklamova\Cms\Updates\UpdateClient;
@@ -14,11 +15,17 @@ file_put_contents($container['storage_path'] . '/cron.last', date(DATE_ATOM));
 try {
     $pdo = (new ConnectionFactory($container))->make();
     $modules = [];
-    foreach ((new ModuleManager($container))->activeModules($pdo) as $slug => $module) {
+    $moduleManager = new ModuleManager($container);
+    foreach ($moduleManager->activeModules($pdo) as $slug => $module) {
         $modules[$slug] = (string) ($module['version'] ?? 'unknown');
     }
 
-    (new UpdateClient($container))->check((new HealthCheck($container))->run(), $modules);
+    $result = (new UpdateClient($container))->check((new HealthCheck($container))->run(), $modules);
+    $policy = $result['body']['module_policy'] ?? null;
+    if (is_array($policy) && !empty($policy['modules']) && is_array($policy['modules'])) {
+        $moduleManager->applyCentralPolicy($pdo, $policy);
+        (new Migrator($container))->runActiveModuleMigrations();
+    }
 } catch (Throwable $exception) {
     if (!is_dir($container['storage_path'] . '/logs')) {
         mkdir($container['storage_path'] . '/logs', 0775, true);

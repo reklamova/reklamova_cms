@@ -79,6 +79,7 @@ final class AdminView
                 $this->menuItem('/admin/account', 'Konto', 'view_dashboard', 710, true),
             ],
             'Reklamova / techniczne' => [
+                $this->menuItem('/admin/installations', 'Instalacje CMS', 'manage_installations', 870, false, true),
                 $this->menuItem('/admin/modules', 'Moduły strony', 'manage_modules', 880, false, true),
                 $this->menuItem('/admin/themes', 'Motyw strony', 'manage_themes', 890, false, true),
                 $this->menuItem('/admin/system', 'Aktualizacje CMS', 'manage_updates', 900, false, true),

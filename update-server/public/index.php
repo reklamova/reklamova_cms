@@ -41,6 +41,7 @@ function checkUpdate(array $config): array
     $channel = (string) ($license['channel'] ?? $config['default_channel'] ?? 'stable');
     $currentVersion = (string) ($payload['cms_version'] ?? '0.0.0');
     $candidate = null;
+    $modulePolicy = modulePolicyFor($config, $license);
 
     foreach ($index['packages'] ?? [] as $package) {
         if (($package['channel'] ?? 'stable') !== $channel) {
@@ -59,7 +60,11 @@ function checkUpdate(array $config): array
         'domain' => $payload['domain'] ?? '',
         'cms_version' => $currentVersion,
         'php_version' => $payload['php_version'] ?? '',
+        'database_version' => $payload['database_version'] ?? '',
         'active_modules' => $payload['active_modules'] ?? [],
+        'theme' => $payload['theme'] ?? '',
+        'core_checksum' => $payload['core_checksum'] ?? '',
+        'health' => $payload['health'] ?? [],
         'checked_at' => date(DATE_ATOM),
         'update_available' => $candidate !== null,
     ];
@@ -70,6 +75,7 @@ function checkUpdate(array $config): array
             'update_available' => false,
             'current_version' => $currentVersion,
             'latest_version' => $currentVersion,
+            'module_policy' => $modulePolicy,
         ]];
     }
 
@@ -79,7 +85,45 @@ function checkUpdate(array $config): array
         'latest_version' => $candidate['version'],
         'minimum_php' => $candidate['minimum_php'] ?? '8.3',
         'package' => publicPackagePayload($candidate),
+        'module_policy' => $modulePolicy,
     ]];
+}
+
+function modulePolicyFor(array $config, array $license): ?array
+{
+    $path = (string) ($config['module_policies_path'] ?? '');
+    if ($path === '') {
+        $path = rtrim((string) ($config['storage_path'] ?? dirname((string) ($config['licenses_path'] ?? ''))), '/\\') . '/module-policies.json';
+    }
+    if (!is_file($path)) {
+        return null;
+    }
+
+    $data = json_decode((string) file_get_contents($path), true) ?: [];
+    $siteId = (string) ($license['site_id'] ?? '');
+    $domain = (string) ($license['domain'] ?? '');
+    foreach ($data['policies'] ?? [] as $policy) {
+        if (!is_array($policy)) {
+            continue;
+        }
+        $policySite = (string) ($policy['site_id'] ?? '');
+        $policyDomain = (string) ($policy['domain'] ?? '');
+        if (($siteId !== '' && $policySite === $siteId) || ($domain !== '' && $policyDomain === $domain)) {
+            $modules = $policy['modules'] ?? [];
+            if (!is_array($modules)) {
+                $modules = [];
+            }
+
+            return [
+                'site_id' => $policySite,
+                'domain' => $policyDomain,
+                'modules' => $modules,
+                'updated_at' => (string) ($policy['updated_at'] ?? ''),
+            ];
+        }
+    }
+
+    return null;
 }
 
 function downloadPackage(array $config, string $packageId): array

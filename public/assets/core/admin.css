@@ -440,6 +440,66 @@ pre {
   background: #ecfdf3;
   color: #067647;
 }
+
+.pill.warning {
+  background: #fff7e6;
+  color: #9a5b00;
+}
+
+.central-note {
+  background:
+    radial-gradient(circle at 96% 0, rgba(59,130,246,.08), transparent 30%),
+    linear-gradient(135deg, #fff, #fbfcff);
+}
+
+.installations-table td {
+  vertical-align: middle;
+}
+
+.installations-table small {
+  color: #7b8496;
+  font-size: 12px;
+}
+
+.module-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 420px;
+}
+
+.module-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid #e4eaf3;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.module-chip small {
+  color: #98a2b3;
+  font-size: 11px;
+}
+
+.module-toggle {
+  width: max-content;
+  min-width: 132px;
+}
+
+.form-actions {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.muted {
+  color: #98a2b3;
+}
 .privacy-tabs {
   display: flex;
   gap: 8px;

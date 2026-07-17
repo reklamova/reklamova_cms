@@ -9,4 +9,5 @@ return [
     'debug' => false,
     'active_theme' => 'client-default',
     'active_modules' => [],
+    'central_update_server_path' => '',
 ];

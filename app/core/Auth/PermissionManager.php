@@ -20,6 +20,7 @@ final class PermissionManager
         'manage_basic_settings',
         'manage_basic_seo',
         'manage_advanced_seo',
+        'manage_installations',
         'manage_modules',
         'manage_themes',
         'manage_updates',

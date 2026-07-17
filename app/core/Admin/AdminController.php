@@ -7,7 +7,9 @@ namespace Reklamova\Cms\Admin;
 use Reklamova\Cms\Auth\AuthManager;
 use Reklamova\Cms\Auth\Csrf;
 use Reklamova\Cms\Auth\PermissionManager;
+use Reklamova\Cms\Central\CentralInstallationsService;
 use Reklamova\Cms\Database\ConnectionFactory;
+use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Health\HealthCheck;
 use Reklamova\Cms\Logging\ActivityLogger;
 use Reklamova\Cms\Modules\ModuleManager;
@@ -84,6 +86,8 @@ final class AdminController
             '/admin/settings' => $this->settings($user),
             '/admin/account' => $this->account($user),
             '/admin/modules' => $this->modules($user),
+            '/admin/installations' => $this->installations($user),
+            '/admin/installations/modules' => $this->installationModules($user),
             '/admin/themes' => $this->themes($user),
             '/admin/system' => $this->system($user),
             '/admin/updates' => $this->updates($user),
@@ -842,6 +846,118 @@ final class AdminController
         $this->view->render('Moduły', '<table><thead><tr><th>Nazwa</th><th>Slug</th><th>Wersja</th><th>Źródło</th></tr></thead><tbody>' . $body . '</tbody></table>', $user);
     }
 
+    private function installations(array $user): void
+    {
+        $service = new CentralInstallationsService($this->container);
+        $root = $service->updateServerRoot();
+        if ($root === null) {
+            $this->view->render('Instalacje CMS', '<section class="panel error-panel"><h2>Nie widzę update servera</h2><p>Ustaw w app/config/app.php pole <code>central_update_server_path</code> albo uruchom ten panel na hostingu, który ma dostęp do katalogu updates.reklamova.pl.</p></section>', $user);
+            return;
+        }
+
+        $rows = '';
+        foreach ($service->installations() as $installation) {
+            $siteId = (string) ($installation['site_id'] ?? '');
+            $domain = (string) ($installation['domain'] ?? '');
+            $activeModules = is_array($installation['active_modules'] ?? null) ? $installation['active_modules'] : [];
+            $policy = is_array($installation['module_policy'] ?? null) ? $installation['module_policy'] : [];
+            $lastUpdate = is_array($installation['last_update'] ?? null) ? $installation['last_update'] : null;
+            $updateLabel = !empty($installation['update_available']) ? '<span class="pill warning">Jest aktualizacja</span>' : '<span class="pill success">Aktualna</span>';
+            $license = (string) ($installation['license_status'] ?? 'active');
+            $licenseLabel = $license === 'active' ? '<span class="pill success">Aktywna</span>' : '<span class="pill">' . $this->h($license) . '</span>';
+            $panelUrl = $domain !== '' ? 'https://' . $domain . '/admin' : '';
+
+            $rows .= '<tr>'
+                . '<td><b>' . $this->h($domain !== '' ? $domain : $siteId) . '</b><br><small>' . $this->h($siteId) . '</small></td>'
+                . '<td>' . $this->h($installation['current_version'] ?? '') . '</td>'
+                . '<td>' . $this->h($installation['latest_version'] ?? '') . '</td>'
+                . '<td>' . $updateLabel . '</td>'
+                . '<td>' . $licenseLabel . '<br><small>' . $this->h($installation['channel'] ?? 'stable') . '</small></td>'
+                . '<td>' . $this->h($installation['php_version'] ?: 'brak danych') . '</td>'
+                . '<td>' . $this->moduleSummary($activeModules) . '</td>'
+                . '<td>' . ($policy ? '<span class="pill success">Ustawiona</span><br><small>' . $this->h($policy['updated_at'] ?? '') . '</small>' : '<span class="pill">Brak polityki</span>') . '</td>'
+                . '<td>' . $this->h($installation['checked_at'] ?: 'brak checku') . ($lastUpdate ? '<br><small>' . $this->h($lastUpdate['event'] ?? '') . ' ' . $this->h($lastUpdate['created_at'] ?? '') . '</small>' : '') . '</td>'
+                . '<td><div class="actions"><a class="button secondary" href="/admin/installations/modules?site_id=' . rawurlencode($siteId !== '' ? $siteId : $domain) . '">Moduły</a>'
+                . ($panelUrl !== '' ? '<a class="button secondary" href="' . $this->h($panelUrl) . '" target="_blank" rel="noopener">Panel</a>' : '')
+                . '</div></td>'
+                . '</tr>';
+        }
+
+        $content = '<section class="panel system-hero"><div><span class="eyebrow">Reklamova Central</span><h2>Instalacje CMS</h2><p>To jest lista stron podpiętych do centralnego update servera. Tutaj widzisz wersje, licencje, ostatni kontakt z serwerem i politykę modułów dla konkretnej instalacji.</p></div><a class="button secondary" href="/admin/modules">Moduły tej instalacji</a></section>'
+            . '<section class="panel central-note"><h2>Jak to działa</h2><p>Instalacje klientów cyklicznie odpytują updates.reklamova.pl. Panel centralny zapisuje politykę modułów w update serverze, a instalacja stosuje ją przy najbliższym checku lub aktualizacji. Motywy, uploady i konfiguracje klientów dalej są chronione.</p></section>'
+            . '<section class="panel"><table class="installations-table"><thead><tr><th>Instalacja</th><th>CMS</th><th>Najnowsza</th><th>Status</th><th>Licencja</th><th>PHP</th><th>Moduły aktywne</th><th>Polityka</th><th>Ostatni kontakt</th><th></th></tr></thead><tbody>'
+            . ($rows ?: '<tr><td colspan="10">Nie ma jeszcze instalacji w rejestrze update servera.</td></tr>')
+            . '</tbody></table></section>';
+
+        $this->view->render('Instalacje CMS', $content, $user);
+    }
+
+    private function installationModules(array $user): void
+    {
+        $siteId = trim((string) ($_GET['site_id'] ?? $_POST['site_id'] ?? ''));
+        $service = new CentralInstallationsService($this->container);
+        $installation = $siteId !== '' ? $service->installation($siteId) : null;
+        if (!$installation) {
+            $this->view->render('Moduły instalacji', '<section class="panel error-panel"><h2>Nie znaleziono instalacji</h2><p>Wróć do listy i wybierz stronę z rejestru update servera.</p><a class="button secondary" href="/admin/installations">Lista instalacji</a></section>', $user);
+            return;
+        }
+
+        $available = array_filter(
+            $this->modules->discover(),
+            static fn (array $module): bool => (string) ($module['source'] ?? 'official') !== 'custom'
+        );
+        uasort($available, static fn (array $a, array $b): int => ((int) ($a['sort_order'] ?? 500)) <=> ((int) ($b['sort_order'] ?? 500)));
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            if (!Csrf::verify($_POST['_csrf'] ?? null)) {
+                $this->view->render('Moduły instalacji', '<section class="panel error-panel"><h2>Sesja wygasła</h2><p>Odśwież stronę i spróbuj ponownie.</p></section>', $user);
+                return;
+            }
+
+            $policyModules = [];
+            foreach ($available as $slug => $module) {
+                if (!empty($module['locked'])) {
+                    continue;
+                }
+                $policyModules[(string) $slug] = isset($_POST['modules'][(string) $slug]);
+            }
+            $service->saveModulePolicy($siteId, $policyModules, $user);
+            $this->activity->log($user, 'central.module_policy.updated', 'installation', null, null, ['site_id' => $siteId, 'modules' => $policyModules]);
+            Url::redirect('/admin/installations/modules?site_id=' . rawurlencode($siteId) . '&saved=1');
+        }
+
+        $policy = $service->modulePolicy($siteId);
+        $policyModules = is_array($policy['modules'] ?? null) ? $policy['modules'] : [];
+        $activeModules = is_array($installation['active_modules'] ?? null) ? $installation['active_modules'] : [];
+        $saved = isset($_GET['saved']) ? '<div class="notice">Polityka modułów została zapisana. Instalacja zastosuje ją po najbliższym checku update servera albo po wejściu w aktualizacje CMS.</div>' : '';
+        $rows = '';
+        foreach ($available as $slug => $module) {
+            $locked = !empty($module['locked']);
+            $currentActive = array_key_exists((string) $slug, $activeModules);
+            $enabled = array_key_exists((string) $slug, $policyModules) ? (bool) $policyModules[(string) $slug] : $currentActive;
+            $checkbox = $locked
+                ? '<span class="pill">Systemowy</span>'
+                : '<label class="module-toggle"><input type="checkbox" name="modules[' . $this->h($slug) . ']" value="1"' . ($enabled ? ' checked' : '') . '> Aktywny</label>';
+            $rows .= '<tr>'
+                . '<td><b>' . $this->h($module['menu_label'] ?? $module['name'] ?? $slug) . '</b><br><small>' . $this->h($module['description'] ?? '') . '</small></td>'
+                . '<td><code>' . $this->h($slug) . '</code></td>'
+                . '<td>' . $this->h($module['source'] ?? 'core') . '</td>'
+                . '<td>' . ($currentActive ? '<span class="pill success">Aktywny teraz</span>' : '<span class="pill">Nieaktywny teraz</span>') . '</td>'
+                . '<td>' . (!empty($module['visible_in_client_nav']) ? 'Tak' : 'Nie') . '</td>'
+                . '<td>' . $checkbox . '</td>'
+                . '</tr>';
+        }
+
+        $content = '<section class="panel system-hero"><div><span class="eyebrow">Reklamova Central</span><h2>Moduły: ' . $this->h($installation['domain'] ?: $installation['site_id']) . '</h2><p>Ustaw tutaj, które oficjalne moduły core mają być aktywne na tej instalacji. Moduły systemowe są chronione, a moduły custom klienta nie są nadpisywane przez core.</p></div><a class="button secondary" href="/admin/installations">Wróć do instalacji</a></section>'
+            . $saved
+            . '<section class="panel central-note"><h2>Aktualny raport instalacji</h2><p><b>CMS:</b> ' . $this->h($installation['current_version'] ?? '') . ' / <b>PHP:</b> ' . $this->h($installation['php_version'] ?: 'brak danych') . ' / <b>Ostatni check:</b> ' . $this->h($installation['checked_at'] ?: 'brak danych') . '</p><p><b>Aktywne moduły zgłoszone przez instalację:</b> ' . $this->moduleSummary($activeModules) . '</p></section>'
+            . '<form method="post" class="panel">' . Csrf::field() . '<input type="hidden" name="site_id" value="' . $this->h($siteId) . '">'
+            . '<table class="installations-table"><thead><tr><th>Moduł</th><th>Slug</th><th>Typ</th><th>Status lokalny</th><th>Menu klienta</th><th>Polityka centralna</th></tr></thead><tbody>' . $rows . '</tbody></table>'
+            . '<div class="actions form-actions"><button>Zapisz politykę modułów</button><a class="button secondary" href="/admin/installations">Anuluj</a></div></form>';
+
+        $this->view->render('Moduły instalacji', $content, $user);
+    }
+
     private function themes(array $user): void
     {
         $themes = (new ThemeManager($this->container))->discover();
@@ -872,6 +988,11 @@ final class AdminController
                 $modules = $this->activeModuleVersions();
                 $check = $client->check($health, $modules);
                 $result = ['check' => $check];
+                $policy = $check['body']['module_policy'] ?? null;
+                if (is_array($policy) && !empty($policy['modules']) && is_array($policy['modules'])) {
+                    $result['module_policy'] = $this->modules->applyCentralPolicy($this->pdo, $policy);
+                    (new Migrator($this->container))->runActiveModuleMigrations();
+                }
 
                 if ($action === 'dry_run') {
                     $package = $check['body']['package'] ?? null;
@@ -1005,7 +1126,7 @@ final class AdminController
 
     private function isTechnicalRoute(string $path): bool
     {
-        return in_array($path, ['/admin/settings', '/admin/modules', '/admin/themes', '/admin/health'], true);
+        return in_array($path, ['/admin/settings', '/admin/modules', '/admin/installations', '/admin/installations/modules', '/admin/themes', '/admin/health'], true);
     }
 
     private function permissionForRoute(string $path): ?string
@@ -1016,6 +1137,7 @@ final class AdminController
             '/admin/media' => 'manage_media',
             '/admin/settings' => 'manage_basic_settings',
             '/admin/modules' => 'manage_modules',
+            '/admin/installations', '/admin/installations/modules' => 'manage_installations',
             '/admin/themes' => 'manage_themes',
             '/admin/system', '/admin/updates' => 'manage_updates',
             '/admin/health' => 'view_health',
@@ -1147,6 +1269,20 @@ HTML;
     private function metric(string $label, string $value): string
     {
         return '<div class="metric"><span>' . htmlspecialchars($label, ENT_QUOTES) . '</span><b>' . htmlspecialchars($value, ENT_QUOTES) . '</b></div>';
+    }
+
+    private function moduleSummary(array $modules): string
+    {
+        if ($modules === []) {
+            return '<span class="muted">brak danych</span>';
+        }
+
+        $items = [];
+        foreach ($modules as $slug => $version) {
+            $items[] = '<span class="module-chip">' . $this->h((string) $slug) . ($version !== '' ? ' <small>' . $this->h((string) $version) . '</small>' : '') . '</span>';
+        }
+
+        return '<div class="module-chip-list">' . implode('', array_slice($items, 0, 8)) . (count($items) > 8 ? '<span class="module-chip">+' . (count($items) - 8) . '</span>' : '') . '</div>';
     }
 
     private function activeModuleVersions(): array

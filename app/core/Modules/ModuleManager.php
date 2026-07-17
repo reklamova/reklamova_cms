@@ -48,7 +48,10 @@ final class ModuleManager
         foreach ($modules as $slug => $module) {
             $enabled = in_array($slug, $configured, true);
             if (isset($state[$slug])) {
-                $enabled = $enabled || !empty($state[$slug]['enabled']);
+                $enabled = !empty($state[$slug]['enabled']);
+                if (!$enabled && in_array($slug, $configured, true) && empty($state[$slug]['disabled_at'])) {
+                    $enabled = true;
+                }
                 $module = $this->mergeDatabaseState($module, $state[$slug]);
             } else {
                 $enabled = $enabled || !empty($module['enabled_by_default']) || !empty($module['enabled']);
@@ -103,6 +106,48 @@ final class ModuleManager
         $this->syncDiscoveredModules($pdo, $modules);
         $statement = $pdo->prepare('UPDATE cms_modules SET enabled = ?, enabled_at = IF(? = 1, CURRENT_TIMESTAMP, enabled_at), disabled_at = IF(? = 0, CURRENT_TIMESTAMP, disabled_at), updated_at = CURRENT_TIMESTAMP WHERE slug = ?');
         $statement->execute([$enabled ? 1 : 0, $enabled ? 1 : 0, $enabled ? 1 : 0, $slug]);
+    }
+
+    /**
+     * @param array<string, mixed> $policy
+     * @return array<string, mixed>
+     */
+    public function applyCentralPolicy(PDO $pdo, array $policy): array
+    {
+        $modules = $this->discover();
+        $this->syncDiscoveredModules($pdo, $modules);
+        $requested = $policy['modules'] ?? [];
+        if (!is_array($requested)) {
+            return ['applied' => [], 'skipped' => ['invalid_policy']];
+        }
+
+        $applied = [];
+        $skipped = [];
+        foreach ($requested as $slug => $enabled) {
+            $slug = (string) $slug;
+            if (!isset($modules[$slug])) {
+                $skipped[$slug] = 'unknown_module';
+                continue;
+            }
+
+            if (!(bool) $enabled && !empty($modules[$slug]['locked'])) {
+                $skipped[$slug] = 'locked_module';
+                continue;
+            }
+
+            try {
+                $this->setEnabled($pdo, $slug, (bool) $enabled);
+                $applied[$slug] = (bool) $enabled;
+            } catch (\Throwable $exception) {
+                $skipped[$slug] = $exception->getMessage();
+            }
+        }
+
+        return [
+            'policy_updated_at' => (string) ($policy['updated_at'] ?? ''),
+            'applied' => $applied,
+            'skipped' => $skipped,
+        ];
     }
 
     public function adminExtensions(PDO $pdo): array
