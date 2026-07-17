@@ -49,6 +49,7 @@ Moduły systemowe i zablokowane nie mogą zostać wyłączone centralnie.
 W `app/config/app.php` panelu centralnego Reklamova ustaw:
 
 ```php
+'central_panel_enabled' => true,
 'central_update_server_url' => 'https://updates.reklamova.pl',
 'central_update_server_token' => 'sekretny-token-centralny',
 ```
@@ -58,6 +59,8 @@ W `updates.reklamova.pl/config.php` ustaw ten sam token:
 ```php
 'central_admin_token' => 'sekretny-token-centralny',
 ```
+
+Na zwykłych instalacjach klientów `central_panel_enabled` powinno pozostać `false`. Dzięki temu ekran `/admin/installations` i zarządzanie instalacjami nie pojawiają się w panelu klienta ani na pojedynczej stronie klienta.
 
 Jeśli panel centralny działa na tym samym hostingu co update server i ma dostęp do plików, można dodatkowo ustawić:
 

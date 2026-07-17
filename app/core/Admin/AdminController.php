@@ -77,6 +77,11 @@ final class AdminController
             return;
         }
 
+        if (str_starts_with($path, '/admin/installations') && !$this->centralPanelEnabled()) {
+            $this->notFound($user);
+            return;
+        }
+
         match ($path) {
             '/admin', '/admin/' => $this->dashboard($user),
             '/admin/pages' => $this->pages($user),
@@ -231,6 +236,11 @@ final class AdminController
         return $host === 'cms.reklamova.pl' || str_starts_with($host, 'cms.reklamova.pl:');
     }
 
+    private function centralPanelEnabled(): bool
+    {
+        return $this->isCentralCmsHost() || (bool) (new Config($this->container))->get('app', 'central_panel_enabled', false);
+    }
+
     private function generateTemporaryPassword(): string
     {
         $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
@@ -280,6 +290,11 @@ final class AdminController
             $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja CMS</span><h2>Dostępna jest nowa wersja panelu</h2><p>Zawiera poprawki bezpieczeństwa i usprawnienia obsługi strony. Szczegóły techniczne są po stronie Reklamova.</p></div></section>';
         }
 
+        if (!empty($updateBody['update_available']) && !$this->permissions->can($user, 'manage_updates') && $this->permissions->can($user, 'view_update_notice')) {
+            $latest = $this->h((string) ($updateBody['latest_version'] ?? 'nowa wersja'));
+            $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja CMS</span><h2>Dost&#281;pna jest nowa wersja panelu</h2><p>Zawiera poprawki bezpiecze&#324;stwa i usprawnienia obs&#322;ugi strony. Przed aktualizacj&#261; system wykona kopi&#281; bezpiecze&#324;stwa.</p></div><a class="button" href="/admin/updates">Przejd&#378; do aktualizacji ' . $latest . '</a></section>';
+        }
+
         $content = '<section class="panel dashboard-hero"><div><span class="eyebrow">Panel strony</span><h2>Witaj, ' . $this->h($displayName) . '</h2><p>Zarządzaj treścią, mediami, zapytaniami i prywatnością serwisu ' . $this->h($siteName) . '. Techniczne ustawienia core zostają po stronie Reklamova.</p></div><div class="dashboard-hero__actions"><a class="button" href="/admin/pages">Edytuj strony</a><a class="button secondary" href="/" target="_blank" rel="noopener">Zobacz stronę</a></div></section>'
             . '<div class="grid dashboard-grid">'
             . $this->metric('Podstrony', (string) $pages)
@@ -299,8 +314,11 @@ final class AdminController
         if (!$this->permissions->can($user, 'manage_privacy')) {
             $content = preg_replace('#<a class="quick-card" href="/admin/privacy".*?</a>#s', '', $content) ?? $content;
         }
-        if (!$this->permissions->can($user, 'manage_updates')) {
-            $content = preg_replace('#<a class="quick-card" href="/admin/system".*?</a>#s', '', $content) ?? $content;
+        if (!$this->permissions->can($user, 'manage_updates') && $this->permissions->can($user, 'view_update_notice')) {
+            $content = str_replace('href="/admin/system"', 'href="/admin/updates"', $content);
+        }
+        if (!$this->permissions->can($user, 'view_update_notice')) {
+            $content = preg_replace('#<a class="quick-card" href="/admin/(?:system|updates)".*?</a>#s', '', $content) ?? $content;
         }
 
         $this->view->render('Dashboard', $content, $user);
@@ -1029,7 +1047,8 @@ final class AdminController
                     $client->report('update-finished', ['package' => $package, 'result' => $apply]);
                     $this->activity->log($user, 'cms.updated', 'update', null, ['version' => $this->container['cms_version']], ['package' => $package, 'result' => $apply]);
                     $result['apply'] = $apply;
-                    Url::redirect('/admin/system?updated=1');
+                    $redirectPath = $this->permissions->can($user, 'manage_updates') ? '/admin/system?updated=1' : '/admin/updates?updated=1';
+                    Url::redirect($redirectPath);
                 }
             } catch (\Throwable $exception) {
                 $error = $exception->getMessage();
@@ -1135,7 +1154,8 @@ final class AdminController
             '/admin/modules' => 'manage_modules',
             '/admin/installations', '/admin/installations/modules' => 'manage_installations',
             '/admin/themes' => 'manage_themes',
-            '/admin/system', '/admin/updates' => 'manage_updates',
+            '/admin/system' => 'manage_updates',
+            '/admin/updates' => 'view_update_notice',
             '/admin/health' => 'view_health',
             '/admin/account' => 'view_dashboard',
             default => null,

@@ -77,9 +77,10 @@ final class AdminView
             'Ustawienia' => [
                 $this->menuItem('/admin/settings', 'Ustawienia strony', 'manage_basic_settings', 700, true),
                 $this->menuItem('/admin/account', 'Konto', 'view_dashboard', 710, true),
+                $this->menuItem('/admin/updates', 'Aktualizacja CMS', 'view_update_notice', 720, true, false, false),
             ],
             'Reklamova / techniczne' => [
-                $this->menuItem('/admin/installations', 'Instalacje CMS', 'manage_installations', 870, false, true),
+                $this->menuItem('/admin/installations', 'Instalacje CMS', 'manage_installations', 870, false, true, $this->centralPanelEnabled()),
                 $this->menuItem('/admin/modules', 'Moduły strony', 'manage_modules', 880, false, true),
                 $this->menuItem('/admin/themes', 'Motyw strony', 'manage_themes', 890, false, true),
                 $this->menuItem('/admin/system', 'Aktualizacje CMS', 'manage_updates', 900, false, true),
@@ -125,7 +126,7 @@ final class AdminView
     /**
      * @return array<string, mixed>
      */
-    private function menuItem(string $href, string $label, string $permission, int $sortOrder, bool $clientVisible, bool $internalOnly = false): array
+    private function menuItem(string $href, string $label, string $permission, int $sortOrder, bool $clientVisible, bool $internalOnly = false, bool $adminVisible = true): array
     {
         return [
             'href' => $href,
@@ -133,7 +134,7 @@ final class AdminView
             'permission' => $permission,
             'sort_order' => $sortOrder,
             'visible_in_client_nav' => $clientVisible,
-            'visible_in_admin_nav' => true,
+            'visible_in_admin_nav' => $adminVisible,
             'internal_only' => $internalOnly,
         ];
     }
@@ -284,5 +285,12 @@ final class AdminView
         $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
 
         return $host === 'cms.reklamova.pl' || str_starts_with($host, 'cms.reklamova.pl:');
+    }
+
+    private function centralPanelEnabled(): bool
+    {
+        $config = $this->appConfig();
+
+        return $this->isCentralCmsHost() || !empty($config['central_panel_enabled']);
     }
 }

@@ -250,7 +250,7 @@ final class CentralInstallationsService
     {
         foreach ($this->updateServerCandidates() as $candidate) {
             $candidate = rtrim(str_replace('\\', '/', $candidate), '/');
-            if ($candidate !== '' && is_dir($candidate . '/storage')) {
+            if ($candidate !== '' && @is_dir($candidate . '/storage')) {
                 return $candidate;
             }
         }
@@ -275,7 +275,7 @@ final class CentralInstallationsService
         }
 
         $configPath = $root . '/config.php';
-        $config = is_file($configPath) ? require $configPath : [];
+        $config = @is_file($configPath) ? require $configPath : [];
         $config = is_array($config) ? $config : [];
 
         return array_merge([
@@ -409,7 +409,7 @@ final class CentralInstallationsService
     private function latestReports(array $config, string $type): array
     {
         $path = rtrim((string) ($config['reports_path'] ?? ''), '/\\');
-        if ($path === '' || !is_dir($path)) {
+        if ($path === '' || !@is_dir($path)) {
             return [];
         }
 
@@ -490,11 +490,11 @@ final class CentralInstallationsService
      */
     private function readJson(string $path, array $fallback): array
     {
-        if ($path === '' || !is_file($path)) {
+        if ($path === '' || !@is_file($path)) {
             return $fallback;
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true);
+        $decoded = json_decode((string) @file_get_contents($path), true);
 
         return is_array($decoded) ? $decoded : $fallback;
     }
@@ -505,7 +505,7 @@ final class CentralInstallationsService
     private function writeJson(string $path, array $data): void
     {
         $dir = dirname($path);
-        if (!is_dir($dir)) {
+        if (!@is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
         $tmp = $path . '.tmp-' . bin2hex(random_bytes(4));

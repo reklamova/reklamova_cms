@@ -1599,3 +1599,119 @@ table,
     justify-content: flex-start;
   }
 }
+
+/* Reklamova 2026 visual layer: calmer, lighter, closer to reklamova.pl. */
+:root {
+  --admin-ink: #10131f;
+  --admin-muted: #667085;
+  --admin-line: #e7ebf3;
+  --admin-bg: #f3f6fb;
+  --admin-brand: #f6b21a;
+  --admin-brand-strong: #f39a12;
+  --admin-purple: #4b25a8;
+  --admin-shadow: 0 18px 50px rgba(16, 19, 31, .07);
+}
+
+body {
+  background:
+    radial-gradient(circle at 76% -8%, rgba(75,37,168,.09), transparent 26%),
+    linear-gradient(180deg, #f8fafc 0%, #eef3f9 100%);
+  color: var(--admin-ink);
+  font-weight: 400;
+}
+
+.layout {
+  grid-template-columns: 270px minmax(0, 1fr);
+}
+
+.sidebar {
+  background: rgba(255,255,255,.94);
+  color: var(--admin-ink);
+  border-right: 1px solid var(--admin-line);
+  box-shadow: 18px 0 44px rgba(16,19,31,.045);
+}
+
+.sidebar::after {
+  color: #98a2b3;
+}
+
+.topbar {
+  min-height: 88px;
+  border-bottom: 1px solid rgba(231,235,243,.78);
+  backdrop-filter: blur(18px);
+}
+
+.topbar h1,
+.dashboard-hero h2,
+.system-hero h2 {
+  letter-spacing: 0;
+  font-weight: 650;
+}
+
+.topbar h1::after {
+  font-weight: 400;
+}
+
+.content {
+  max-width: 1480px;
+}
+
+.panel,
+.metric,
+table,
+.quick-card {
+  border-color: rgba(220,226,236,.92);
+  box-shadow: var(--admin-shadow);
+}
+
+.panel,
+.metric,
+.quick-card {
+  border-radius: 10px;
+}
+
+button,
+.button {
+  border-radius: 8px;
+  font-weight: 650;
+  box-shadow: 0 16px 34px rgba(246,178,26,.22);
+}
+
+.button.secondary,
+button.secondary,
+.logout button,
+.view-site-link {
+  background: #fff;
+  color: #182033;
+  border: 1px solid var(--admin-line);
+  box-shadow: 0 8px 22px rgba(16,19,31,.045);
+}
+
+.sidebar a {
+  min-height: 40px;
+  border-radius: 8px;
+  color: #5f687a;
+  font-weight: 520;
+}
+
+.sidebar a::before {
+  color: #b4bdcb;
+}
+
+.sidebar a[aria-current="page"] {
+  background: linear-gradient(90deg, rgba(246,178,26,.22), rgba(246,178,26,.04));
+  color: #111827;
+  box-shadow: inset 3px 0 0 var(--admin-brand), 0 10px 24px rgba(246,178,26,.12);
+}
+
+.nav-section {
+  margin-top: 22px;
+  color: #9aa4b5;
+  font-size: 11px;
+  letter-spacing: .13em;
+}
+
+.brand {
+  border-radius: 10px;
+  background: #fff;
+}
