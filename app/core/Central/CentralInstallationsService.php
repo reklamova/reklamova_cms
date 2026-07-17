@@ -15,6 +15,11 @@ final class CentralInstallationsService
      */
     public function installations(): array
     {
+        $apiRows = $this->apiInstallations();
+        if ($apiRows !== null) {
+            return $apiRows;
+        }
+
         $config = $this->updateServerConfig();
         $licenses = $this->licenses($config);
         $checks = $this->latestReports($config, 'checks');
@@ -102,9 +107,15 @@ final class CentralInstallationsService
      */
     public function modulePolicy(string $siteId): array
     {
+        $apiInstallation = $this->installation($siteId);
+        $apiPolicy = $apiInstallation['module_policy'] ?? null;
+        if (is_array($apiPolicy)) {
+            return $apiPolicy;
+        }
+
         $config = $this->updateServerConfig();
         $policies = $this->modulePolicies($config);
-        $installation = $this->installation($siteId) ?? ['site_id' => $siteId, 'domain' => ''];
+        $installation = $apiInstallation ?? ['site_id' => $siteId, 'domain' => ''];
         $key = $this->installationKey((string) ($installation['site_id'] ?? $siteId), (string) ($installation['domain'] ?? ''));
         $policy = $policies[$key] ?? $policies[$siteId] ?? [];
 
@@ -116,6 +127,10 @@ final class CentralInstallationsService
      */
     public function saveModulePolicy(string $siteId, array $modules, array $user): void
     {
+        if ($this->apiSaveModulePolicy($siteId, $modules, $user)) {
+            return;
+        }
+
         $config = $this->updateServerConfig();
         $path = $this->modulePoliciesPath($config);
         $data = $this->readJson($path, ['policies' => []]);
@@ -155,6 +170,80 @@ final class CentralInstallationsService
         $policies[] = $policy;
 
         $this->writeJson($path, ['policies' => $policies]);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function apiInstallations(): ?array
+    {
+        $response = $this->apiRequest('GET', '/api/v1/central/installations');
+        if (!is_array($response) || !is_array($response['installations'] ?? null)) {
+            return null;
+        }
+
+        return array_values(array_filter($response['installations'], 'is_array'));
+    }
+
+    /**
+     * @param array<string, bool> $modules
+     */
+    private function apiSaveModulePolicy(string $siteId, array $modules, array $user): bool
+    {
+        $response = $this->apiRequest('POST', '/api/v1/central/module-policy', [
+            'site_id' => $siteId,
+            'modules' => $modules,
+            'updated_by' => (string) ($user['email'] ?? $user['name'] ?? 'Reklamova'),
+        ]);
+
+        return is_array($response) && !empty($response['ok']);
+    }
+
+    /**
+     * @param array<string, mixed>|null $payload
+     * @return array<string, mixed>|null
+     */
+    private function apiRequest(string $method, string $path, ?array $payload = null): ?array
+    {
+        $config = $this->appConfig();
+        $token = (string) ($config['central_update_server_token'] ?? '');
+        if ($token === '' || !extension_loaded('curl')) {
+            return null;
+        }
+
+        $baseUrl = rtrim((string) ($config['central_update_server_url'] ?? 'https://updates.reklamova.pl'), '/');
+        if ($baseUrl === '') {
+            return null;
+        }
+
+        $ch = curl_init($baseUrl . $path);
+        $headers = [
+            'Accept: application/json',
+            'Authorization: Bearer ' . $token,
+        ];
+        $options = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_TIMEOUT => 20,
+        ];
+        if ($method === 'POST') {
+            $options[CURLOPT_POST] = true;
+            $options[CURLOPT_POSTFIELDS] = json_encode($payload ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $headers[] = 'Content-Type: application/json';
+            $options[CURLOPT_HTTPHEADER] = $headers;
+        }
+        curl_setopt_array($ch, $options);
+        $raw = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        unset($ch);
+
+        if (!is_string($raw) || $status < 200 || $status >= 300) {
+            return null;
+        }
+
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     public function updateServerRoot(): ?string

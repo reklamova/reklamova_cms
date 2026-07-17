@@ -849,14 +849,10 @@ final class AdminController
     private function installations(array $user): void
     {
         $service = new CentralInstallationsService($this->container);
-        $root = $service->updateServerRoot();
-        if ($root === null) {
-            $this->view->render('Instalacje CMS', '<section class="panel error-panel"><h2>Nie widzę update servera</h2><p>Ustaw w app/config/app.php pole <code>central_update_server_path</code> albo uruchom ten panel na hostingu, który ma dostęp do katalogu updates.reklamova.pl.</p></section>', $user);
-            return;
-        }
+        $installations = $service->installations();
 
         $rows = '';
-        foreach ($service->installations() as $installation) {
+        foreach ($installations as $installation) {
             $siteId = (string) ($installation['site_id'] ?? '');
             $domain = (string) ($installation['domain'] ?? '');
             $activeModules = is_array($installation['active_modules'] ?? null) ? $installation['active_modules'] : [];
@@ -886,7 +882,7 @@ final class AdminController
         $content = '<section class="panel system-hero"><div><span class="eyebrow">Reklamova Central</span><h2>Instalacje CMS</h2><p>To jest lista stron podpiętych do centralnego update servera. Tutaj widzisz wersje, licencje, ostatni kontakt z serwerem i politykę modułów dla konkretnej instalacji.</p></div><a class="button secondary" href="/admin/modules">Moduły tej instalacji</a></section>'
             . '<section class="panel central-note"><h2>Jak to działa</h2><p>Instalacje klientów cyklicznie odpytują updates.reklamova.pl. Panel centralny zapisuje politykę modułów w update serverze, a instalacja stosuje ją przy najbliższym checku lub aktualizacji. Motywy, uploady i konfiguracje klientów dalej są chronione.</p></section>'
             . '<section class="panel"><table class="installations-table"><thead><tr><th>Instalacja</th><th>CMS</th><th>Najnowsza</th><th>Status</th><th>Licencja</th><th>PHP</th><th>Moduły aktywne</th><th>Polityka</th><th>Ostatni kontakt</th><th></th></tr></thead><tbody>'
-            . ($rows ?: '<tr><td colspan="10">Nie ma jeszcze instalacji w rejestrze update servera.</td></tr>')
+            . ($rows ?: '<tr><td colspan="10">Nie ma jeszcze instalacji w rejestrze update servera albo brakuje konfiguracji <code>central_update_server_token</code>.</td></tr>')
             . '</tbody></table></section>';
 
         $this->view->render('Instalacje CMS', $content, $user);
