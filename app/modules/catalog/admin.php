@@ -220,6 +220,10 @@ return static function (array $container, PDO $pdo, array $module): array {
 
     $products = static function (AdminView $view, array $user) use ($repo, $tabs, $productForm, $statusPill, $h, $pager): void {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
+            if (($_POST['action'] ?? '') === 'duplicate') {
+                $copyId = $repo->duplicateProduct((int) ($_POST['id'] ?? 0));
+                Url::redirect('/admin/catalog/products?id=' . $copyId . '&duplicated=1');
+            }
             if (($_POST['action'] ?? '') === 'delete') {
                 $repo->deleteProduct((int) ($_POST['id'] ?? 0));
                 Url::redirect('/admin/catalog/products?deleted=1');
@@ -232,6 +236,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         if (isset($_GET['id']) || isset($_GET['new'])) {
             $edit = isset($_GET['id']) ? $repo->findProduct((int) $_GET['id']) : null;
             $notice = isset($_GET['saved']) ? '<div class="notice">Produkt został zapisany.</div>' : '';
+            $notice .= isset($_GET['duplicated']) ? '<div class="notice">Produkt został powielony jako szkic.</div>' : '';
             $view->render($edit ? 'Edytuj produkt' : 'Dodaj produkt', $notice . $productForm($edit), $user);
             return;
         }
@@ -259,7 +264,9 @@ return static function (array $container, PDO $pdo, array $module): array {
 
         $body = '';
         foreach ($slice as $product) {
-            $body .= '<tr><td><b>' . $h($product['name']) . '</b><br><small>/nasza-oferta/' . $h($product['full_path']) . '</small></td><td>' . $h($product['category_name'] ?? '') . '</td><td>' . $h($product['sku'] ?? '') . '</td><td>' . $statusPill((string) $product['status']) . '</td><td><div class="actions"><a class="button secondary" href="/admin/catalog/products?id=' . (int) $product['id'] . '">Edytuj</a><form method="post" onsubmit="return confirm(\'Usunąć produkt?\')">' . Csrf::field() . '<input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' . (int) $product['id'] . '"><button class="secondary">Usuń</button></form></div></td></tr>';
+            $productId = (int) $product['id'];
+            $duplicateForm = '<form method="post">' . Csrf::field() . '<input type="hidden" name="action" value="duplicate"><input type="hidden" name="id" value="' . $productId . '"><button class="secondary">Powiel</button></form>';
+            $body .= '<tr><td><b>' . $h($product['name']) . '</b><br><small>/nasza-oferta/' . $h($product['full_path']) . '</small></td><td>' . $h($product['category_name'] ?? '') . '</td><td>' . $h($product['sku'] ?? '') . '</td><td>' . $statusPill((string) $product['status']) . '</td><td><div class="actions"><a class="button secondary" href="/admin/catalog/products?id=' . $productId . '">Edytuj</a>' . $duplicateForm . '<form method="post" onsubmit="return confirm(\'Usunąć produkt?\')">' . Csrf::field() . '<input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' . $productId . '"><button class="secondary">Usuń</button></form></div></td></tr>';
         }
 
         $notice = isset($_GET['deleted']) ? '<div class="notice">Produkt został usunięty.</div>' : '';

@@ -1,5 +1,5 @@
 {
-  "cms_version": "0.7.4",
+  "cms_version": "0.7.5",
   "install_mode": "zip",
   "update_channel": "stable",
   "protected_paths": [

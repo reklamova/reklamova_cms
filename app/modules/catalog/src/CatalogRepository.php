@@ -194,6 +194,42 @@ final class CatalogRepository
         return $this->insert('catalog_products', $payload);
     }
 
+    public function duplicateProduct(int $id): int
+    {
+        $product = $this->findProduct($id);
+        if (!$product) {
+            throw new \InvalidArgumentException('Produkt nie istnieje.');
+        }
+
+        $categoryId = $this->nullableInt($product['category_id'] ?? null);
+        $baseSlug = $this->slugify((string) ($product['slug'] ?? $product['name'] ?? 'produkt'));
+        $slug = $this->uniqueProductSlug($baseSlug . '-kopia', $categoryId);
+        $payload = [
+            'category_id' => $categoryId,
+            'name' => trim((string) $product['name']) . ' - kopia',
+            'slug' => $slug,
+            'full_path' => $this->productFullPath($slug, $categoryId),
+            'sku' => trim((string) ($product['sku'] ?? '')),
+            'brand' => trim((string) ($product['brand'] ?? '')),
+            'model' => trim((string) ($product['model'] ?? '')),
+            'summary' => trim((string) ($product['summary'] ?? '')),
+            'description' => trim((string) ($product['description'] ?? '')),
+            'specs_json' => $this->jsonOrNull($product['specs_json'] ?? null),
+            'gallery_json' => $this->jsonOrNull($product['gallery_json'] ?? null),
+            'documents_json' => $this->jsonOrNull($product['documents_json'] ?? null),
+            'featured_image' => trim((string) ($product['featured_image'] ?? '')),
+            'status' => 'draft',
+            'is_featured' => 0,
+            'sort_order' => (int) ($product['sort_order'] ?? 100) + 1,
+            'meta_title' => trim((string) ($product['meta_title'] ?? '')),
+            'meta_description' => trim((string) ($product['meta_description'] ?? '')),
+            'og_image' => trim((string) ($product['og_image'] ?? '')),
+            'schema_json' => $this->jsonOrNull($product['schema_json'] ?? null),
+        ];
+
+        return $this->insert('catalog_products', $payload);
+    }
+
     public function deleteCategory(int $id): void
     {
         $statement = $this->pdo->prepare('DELETE FROM catalog_categories WHERE id = ?');
@@ -329,6 +365,19 @@ final class CatalogRepository
         $row = $statement->fetch(PDO::FETCH_ASSOC);
 
         return $row ?: null;
+    }
+
+    private function uniqueProductSlug(string $baseSlug, ?int $categoryId): string
+    {
+        $baseSlug = $this->slugify($baseSlug);
+        $slug = $baseSlug;
+        $counter = 2;
+        while ($this->findProductByFullPath($this->productFullPath($slug, $categoryId))) {
+            $slug = $baseSlug . '-' . $counter;
+            $counter++;
+        }
+
+        return $slug;
     }
 
     private function insert(string $table, array $payload): int

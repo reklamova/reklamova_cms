@@ -6,7 +6,7 @@ namespace Reklamova\Cms;
 
 final class Version
 {
-    public const VERSION = '0.7.4';
+    public const VERSION = '0.7.5';
 
     public static function current(): string
     {
