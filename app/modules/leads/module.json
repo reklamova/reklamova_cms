@@ -1,0 +1,15 @@
+{
+  "slug": "leads",
+  "name": "Reklamova Leads",
+  "version": "0.1.0",
+  "source": "core",
+  "enabled_by_default": false,
+  "visible_in_client_nav": true,
+  "visible_in_admin_nav": true,
+  "client_manageable": true,
+  "menu_group": "Treść",
+  "menu_label": "Formularze",
+  "sort_order": 60,
+  "permissions": ["manage_forms"],
+  "description": "Central lead inbox for contact forms, calculators, landing pages and campaign forms."
+}

@@ -1,0 +1,11 @@
+{
+  "licenses": [
+    {
+      "site_id": "demo-site",
+      "site_key": "rklv_demo_change_me",
+      "domain": "cms.reklamova.pl",
+      "channel": "stable",
+      "status": "active"
+    }
+  ]
+}

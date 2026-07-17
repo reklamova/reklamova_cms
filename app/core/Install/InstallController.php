@@ -105,7 +105,7 @@ final class InstallController
 
     private function createAdmin(PDO $pdo, array $input): void
     {
-        $statement = $pdo->prepare('INSERT INTO cms_users (email, name, password_hash, role, active) VALUES (?, ?, ?, "admin", 1)');
+        $statement = $pdo->prepare('INSERT INTO cms_users (email, name, password_hash, role, active) VALUES (?, ?, ?, "client_admin", 1)');
         $statement->execute([
             trim((string) $input['admin_email']),
             trim((string) ($input['admin_name'] ?: 'Administrator')),
@@ -118,7 +118,7 @@ final class InstallController
         $statement = $pdo->prepare('INSERT IGNORE INTO cms_pages (title, slug, content, status) VALUES (?, "home", ?, "published")');
         $statement->execute([
             trim((string) $input['site_name']),
-            '<p>Strona zostala uruchomiona w Reklamova CMS. Tresc mozna edytowac w panelu administracyjnym.</p>',
+            '<p>Strona została uruchomiona w Reklamova CMS. Treść można edytować w panelu administracyjnym.</p>',
         ]);
     }
 
@@ -133,21 +133,21 @@ final class InstallController
             . '<title>Instalacja Reklamova CMS</title><link rel="stylesheet" href="/assets/core/admin.css"></head><body>'
             . '<main class="login"><section class="panel"><h1>Instalacja Reklamova CMS</h1>' . $errorHtml
             . '<form method="post">' . Csrf::field()
-            . '<label>Nazwa strony<input name="site_name" value="Mero"></label>'
-            . '<label>Nazwa klienta w panelu<input name="client_name" value="MERO"></label>'
-            . '<label>Logo klienta w panelu<input name="client_logo" value="/assets/client/mero-logo.svg" placeholder="/assets/client/logo.svg"></label>'
-            . '<label>Adres strony<input name="site_url" value="https://mero.pl"></label>'
+            . '<label>Nazwa strony<input name="site_name" value=""></label>'
+            . '<label>Nazwa klienta w panelu<input name="client_name" value="" placeholder="np. Nazwa firmy klienta"></label>'
+            . '<label>Logo klienta w panelu<input name="client_logo" value="" placeholder="/assets/images/logo.svg"></label>'
+            . '<label>Adres strony<input name="site_url" value="https://"></label>'
             . '<label>Host bazy<input name="db_host" value="localhost"></label>'
             . '<label>Port bazy<input name="db_port" value="3306"></label>'
             . '<label>Nazwa bazy<input name="db_name"></label>'
-            . '<label>Uzytkownik bazy<input name="db_user"></label>'
-            . '<label>Haslo bazy<input type="password" name="db_password"></label>'
+            . '<label>Użytkownik bazy<input name="db_user"></label>'
+            . '<label>Hasło bazy<input type="password" name="db_password"></label>'
             . '<label>Site ID<input name="site_id"></label>'
             . '<label>Site key<input name="site_key"></label>'
             . '<label>Aktywne moduly<input name="active_modules" placeholder="np. mero"></label>'
             . '<label>Imie administratora<input name="admin_name" value="Administrator"></label>'
             . '<label>Email administratora<input type="email" name="admin_email"></label>'
-            . '<label>Haslo administratora<input type="password" name="admin_password"></label>'
+            . '<label>Hasło administratora<input type="password" name="admin_password"></label>'
             . '<button>Uruchom CMS</button></form></section>'
             . '<section class="panel"><h2>Health check</h2><pre>' . $healthHtml . '</pre></section></main></body></html>';
     }

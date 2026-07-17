@@ -16,6 +16,14 @@ spl_autoload_register(static function (string $class): void {
     }
 });
 
+foreach (glob(__DIR__ . '/modules/*/helpers.php') ?: [] as $helperFile) {
+    require_once $helperFile;
+}
+
+foreach (glob(__DIR__ . '/modules/custom/*/helpers.php') ?: [] as $helperFile) {
+    require_once $helperFile;
+}
+
 $rootPath = dirname(__DIR__);
 $appConfigPath = $rootPath . '/app/config/app.php';
 $appConfig = is_file($appConfigPath) ? require $appConfigPath : [];
@@ -26,6 +34,6 @@ $container = [
     'public_path' => is_dir($rootPath . '/public_html') ? $rootPath . '/public_html' : $rootPath . '/public',
     'storage_path' => $rootPath . '/app/storage',
     'config_path' => $rootPath . '/app/config',
-    'cms_version' => '0.1.0',
+    'cms_version' => \Reklamova\Cms\Version::current(),
     'active_modules' => $appConfig['active_modules'] ?? [],
 ];

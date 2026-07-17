@@ -10,6 +10,8 @@ use Reklamova\Cms\Health\HealthCheck;
 use Reklamova\Cms\Install\InstallController;
 use Reklamova\Cms\Install\Installer;
 use Reklamova\Cms\Modules\ModuleManager;
+use Reklamova\Cms\Pages\PageRenderer;
+use Reklamova\Cms\Pages\PageRepository;
 use Reklamova\Cms\Support\Config;
 use Reklamova\Cms\Support\Url;
 use Reklamova\Cms\Updates\UpdateClient;
@@ -64,33 +66,84 @@ final class Application
             }
         }
 
-        $statement = $pdo->prepare('SELECT title, content FROM cms_pages WHERE slug = ? AND status = "published" LIMIT 1');
-        $statement->execute([$slug]);
-        $page = $statement->fetch();
+        $repo = new PageRepository($pdo);
+        $renderer = new PageRenderer();
+        $page = $repo->findPublishedBySlug($slug);
 
         if (!$page) {
             http_response_code(404);
             $page = [
                 'title' => 'Nie znaleziono',
+                'slug' => $slug,
                 'content' => '<p>Strona nie zostala jeszcze opublikowana.</p>',
+                'status' => 'draft',
+                'template' => 'default',
             ];
         }
 
+        $siteName = (string) $config->get('app', 'name', 'Reklamova CMS');
+        $meta = $renderer->meta($page, $siteName, (string) $config->get('app', 'url', ''));
         $this->respondRawHtml(
-            (string) $page['title'],
-            '<h1>' . htmlspecialchars((string) $page['title'], ENT_QUOTES) . '</h1><article>' . (string) $page['content'] . '</article>',
-            (string) $config->get('app', 'name', 'Reklamova CMS')
+            $meta,
+            $renderer->render($page),
+            $siteName,
+            $extensions,
+            $repo->navigationPages()
         );
     }
 
-    private function respondRawHtml(string $title, string $body, string $siteName = 'Reklamova CMS'): void
+    /**
+     * @param array<string, string> $meta
+     * @param array<int, array<string, mixed>> $navigation
+     */
+    private function respondRawHtml(array $meta, string $body, string $siteName = 'Reklamova CMS', array $extensions = [], array $navigation = []): void
     {
         header('Content-Type: text/html; charset=utf-8');
+        $head = $this->renderHook($extensions['head'] ?? []);
+        $bodyStart = $this->renderHook($extensions['body_start'] ?? []);
+        $bodyEnd = $this->renderHook($extensions['body_end'] ?? []);
+        $footerLinks = $this->renderHook($extensions['footer_links'] ?? []);
+        $title = (string) ($meta['title'] ?? $siteName);
+        $description = (string) ($meta['description'] ?? '');
+        $canonical = (string) ($meta['canonical'] ?? '');
+        $robots = (string) ($meta['robots'] ?? 'index,follow');
+        $image = (string) ($meta['image'] ?? '');
+        $schema = (string) ($meta['schema'] ?? '');
+        $nav = '';
+        foreach ($navigation as $item) {
+            $slug = trim((string) ($item['slug'] ?? ''), '/');
+            $url = $slug === '' || $slug === 'home' ? '/' : '/' . $slug;
+            $label = (string) (($item['menu_label'] ?? '') ?: ($item['title'] ?? $url));
+            $nav .= '<a href="' . htmlspecialchars($url, ENT_QUOTES) . '">' . htmlspecialchars($label, ENT_QUOTES) . '</a>';
+        }
 
         echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>' . htmlspecialchars($title, ENT_QUOTES) . '</title>'
-            . '<style>body{font-family:system-ui,sans-serif;margin:40px;line-height:1.5;color:#1f2933;max-width:920px}header{margin-bottom:40px}pre{background:#f4f6f8;padding:16px;overflow:auto}</style>'
-            . '</head><body><header><strong>' . htmlspecialchars($siteName, ENT_QUOTES) . '</strong></header>' . $body . '</body></html>';
+            . ($description !== '' ? '<meta name="description" content="' . htmlspecialchars($description, ENT_QUOTES) . '">' : '')
+            . '<meta name="robots" content="' . htmlspecialchars($robots, ENT_QUOTES) . '">'
+            . ($canonical !== '' ? '<link rel="canonical" href="' . htmlspecialchars($canonical, ENT_QUOTES) . '">' : '')
+            . '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES) . '">'
+            . ($description !== '' ? '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES) . '">' : '')
+            . ($image !== '' ? '<meta property="og:image" content="' . htmlspecialchars($image, ENT_QUOTES) . '">' : '')
+            . '<link rel="stylesheet" href="/assets/core/page.css">'
+            . $schema
+            . $head
+            . '</head><body class="cms-public">' . $bodyStart . '<div class="cms-shell"><header class="cms-public-header"><a class="cms-public-brand" href="/">' . htmlspecialchars($siteName, ENT_QUOTES) . '</a>' . ($nav !== '' ? '<nav class="cms-public-nav">' . $nav . '</nav>' : '') . '</header>'
+            . $body
+            . '<footer class="cms-public-footer"><span>&copy; ' . htmlspecialchars($siteName, ENT_QUOTES) . '</span>' . ($footerLinks ? '<span>' . $footerLinks . '</span>' : '') . '</footer></div>'
+            . $bodyEnd . '</body></html>';
+    }
+
+    private function renderHook(array $callbacks): string
+    {
+        $html = '';
+        foreach ($callbacks as $callback) {
+            if (is_callable($callback)) {
+                $html .= (string) $callback();
+            }
+        }
+
+        return $html;
     }
 }

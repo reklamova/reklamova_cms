@@ -5,6 +5,13 @@
   "cms": ">=0.1.0",
   "source": "official",
   "enabled": false,
+  "enabled_by_default": false,
+  "visible_in_client_nav": true,
+  "visible_in_admin_nav": true,
+  "client_manageable": true,
+  "menu_group": "Treść",
+  "menu_label": "Formularze",
+  "sort_order": 65,
+  "permissions": ["manage_forms"],
   "migrations": false
 }
-

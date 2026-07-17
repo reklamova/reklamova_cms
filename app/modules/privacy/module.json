@@ -1,0 +1,17 @@
+{
+  "slug": "privacy",
+  "name": "Reklamova Privacy Center",
+  "version": "0.1.0",
+  "source": "core",
+  "enabled_by_default": true,
+  "system": true,
+  "locked": true,
+  "visible_in_client_nav": true,
+  "visible_in_admin_nav": true,
+  "client_manageable": true,
+  "menu_group": "Marketing",
+  "menu_label": "Prywatność i cookies",
+  "sort_order": 180,
+  "permissions": ["manage_privacy"],
+  "description": "System privacy, consent, cookie, document and script governance module for every Reklamova CMS installation."
+}

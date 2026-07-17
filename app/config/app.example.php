@@ -2,8 +2,8 @@
 
 return [
     'name' => 'Reklamova CMS',
-    'client_name' => 'MERO',
-    'client_logo' => '/assets/client/mero-logo.svg',
+    'client_name' => '',
+    'client_logo' => '',
     'url' => 'https://example.com',
     'timezone' => 'Europe/Warsaw',
     'debug' => false,

@@ -1,5 +1,5 @@
 {
-  "cms_version": "0.1.0",
+  "cms_version": "0.7.0",
   "install_mode": "zip",
   "update_channel": "stable",
   "protected_paths": [
@@ -11,9 +11,13 @@
     "app/storage/logs"
   ],
   "core_paths": [
+    "reklamova.json",
+    "app/bootstrap.php",
     "app/core",
     "app/migrations/core",
+    "app/modules",
+    "public/index.php",
+    "public/admin",
     "public/assets/core"
   ]
 }
-

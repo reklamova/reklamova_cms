@@ -15,4 +15,10 @@
 !/public/uploads/.gitkeep
 /.env
 /.env.*
-
+/build/
+/update-server/config.php
+/update-server/storage/licenses.json
+/update-server/storage/packages/*
+!/update-server/storage/packages/.gitkeep
+/update-server/storage/reports/*
+!/update-server/storage/reports/.gitkeep

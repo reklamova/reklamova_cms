@@ -1,0 +1,15 @@
+{
+  "slug": "knowledge",
+  "name": "Reklamova Knowledge Hub",
+  "version": "0.1.0",
+  "source": "core",
+  "enabled_by_default": false,
+  "visible_in_client_nav": true,
+  "visible_in_admin_nav": true,
+  "client_manageable": true,
+  "menu_group": "Treść",
+  "menu_label": "Aktualności / Poradniki",
+  "sort_order": 50,
+  "permissions": ["manage_blog"],
+  "description": "Blog, guide, news and knowledge base module with categories, authors, SEO fields and business content relations."
+}

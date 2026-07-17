@@ -1,0 +1,15 @@
+{
+  "slug": "business",
+  "name": "Reklamova Business Website Kit",
+  "version": "0.1.0",
+  "source": "core",
+  "enabled_by_default": false,
+  "visible_in_client_nav": true,
+  "visible_in_admin_nav": true,
+  "client_manageable": true,
+  "menu_group": "Treść",
+  "menu_label": "Strona główna",
+  "sort_order": 40,
+  "permissions": ["manage_pages"],
+  "description": "Core module for professional business websites: services, service areas, case studies, testimonials, FAQ, team and conversion CTAs."
+}

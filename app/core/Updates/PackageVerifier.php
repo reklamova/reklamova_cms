@@ -26,8 +26,14 @@ final class PackageVerifier
 
         $manifest = $this->readManifest($zipPath);
         $message = $actualHash . "\n" . json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $decodedSignature = base64_decode($signature, true);
+        $decodedPublicKey = base64_decode($this->publicKey, true);
 
-        if (!sodium_crypto_sign_verify_detached(base64_decode($signature, true), $message, base64_decode($this->publicKey, true))) {
+        if ($decodedSignature === false || $decodedPublicKey === false || strlen($decodedPublicKey) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
+            throw new RuntimeException('Update package signing key is not configured correctly.');
+        }
+
+        if (!sodium_crypto_sign_verify_detached($decodedSignature, $message, $decodedPublicKey)) {
             throw new RuntimeException('Update package signature is invalid.');
         }
 
@@ -51,4 +57,3 @@ final class PackageVerifier
         return json_decode($manifest, true, 512, JSON_THROW_ON_ERROR);
     }
 }
-

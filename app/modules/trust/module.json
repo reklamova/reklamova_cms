@@ -1,0 +1,15 @@
+{
+  "slug": "trust",
+  "name": "Reklamova Trust Center",
+  "version": "0.1.0",
+  "source": "core",
+  "enabled_by_default": false,
+  "visible_in_client_nav": true,
+  "visible_in_admin_nav": true,
+  "client_manageable": true,
+  "menu_group": "Marketing",
+  "menu_label": "Opinie i referencje",
+  "sort_order": 170,
+  "permissions": ["manage_pages"],
+  "description": "Trust assets module for certificates, partners, awards, business metrics and downloadable proof files."
+}

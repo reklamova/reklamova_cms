@@ -7,8 +7,13 @@ reklamova-core-0.2.0.zip
   manifest.json
   checksums.json
   files/
+    app/bootstrap.php
     app/core/
     app/migrations/core/
+    app/modules/
+    public/.htaccess
+    public/index.php
+    public/admin/
     public/assets/core/
 ```
 
@@ -66,10 +71,9 @@ Instalacja akceptuje paczke tylko gdy:
 5. staging w `app/storage/update-staging`
 6. backup core i bazy
 7. `maintenance.lock`
-8. podmiana tylko core paths
+8. podmiana tylko core paths, w tym core modules, bez `app/modules/custom`
 9. migracje
 10. czyszczenie cache
 11. health check
 12. raport do update servera
 13. rollback przy bledzie
-

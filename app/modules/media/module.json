@@ -5,6 +5,15 @@
   "cms": ">=0.1.0",
   "source": "core",
   "enabled": true,
+  "enabled_by_default": true,
+  "system": true,
+  "locked": true,
+  "visible_in_client_nav": true,
+  "visible_in_admin_nav": true,
+  "client_manageable": true,
+  "menu_group": "Treść",
+  "menu_label": "Media",
+  "sort_order": 30,
+  "permissions": ["manage_media"],
   "migrations": true
 }
-

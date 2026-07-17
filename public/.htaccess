@@ -1,13 +1,12 @@
-AddHandler application/x-httpd-alt-php83 .php
-
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    RewriteRule ^admin(/.*)?$ admin/index.php [L]
 
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    RewriteRule ^admin(/.*)?$ admin/index.php [L]
     RewriteRule ^ index.php [L]
 </IfModule>
 
