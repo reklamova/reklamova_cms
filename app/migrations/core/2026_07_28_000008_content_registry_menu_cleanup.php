@@ -163,16 +163,11 @@ return new class {
     private function columnExists(PDO $pdo, string $table, string $column): bool
     {
         try {
-            $statement = $pdo->prepare(
-                'SELECT COUNT(*)
-                 FROM INFORMATION_SCHEMA.COLUMNS
-                 WHERE TABLE_SCHEMA = DATABASE()
-                   AND TABLE_NAME = ?
-                   AND COLUMN_NAME = ?'
-            );
-            $statement->execute([$table, $column]);
+            $safeTable = str_replace('`', '', $table);
+            $statement = $pdo->prepare('SHOW COLUMNS FROM `' . $safeTable . '` LIKE ?');
+            $statement->execute([$column]);
 
-            return (int) $statement->fetchColumn() > 0;
+            return (bool) $statement->fetch(PDO::FETCH_ASSOC);
         } catch (Throwable) {
             return false;
         }

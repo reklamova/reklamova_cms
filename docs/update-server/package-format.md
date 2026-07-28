@@ -1,23 +1,33 @@
-# Signed ZIP Package Format
+# Format podpisanej paczki ZIP
 
-Paczka aktualizacji core:
+Paczka aktualizacji core może zawierać wyłącznie:
 
 ```text
-reklamova-core-0.2.0.zip
+reklamova-core-0.8.0-rc1.zip
   manifest.json
   checksums.json
   files/
-    app/bootstrap.php
     app/core/
     app/migrations/core/
-    app/modules/
-    public/.htaccess
-    public/index.php
-    public/admin/
+    app/modules/business/
+    app/modules/catalog/
+    app/modules/forms/
+    app/modules/knowledge/
+    app/modules/landing/
+    app/modules/leads/
+    app/modules/media/
+    app/modules/pages/
+    app/modules/privacy/
+    app/modules/seo/
+    app/modules/trust/
+    app/modules/updates/
     public/assets/core/
+    docs/
+    reklamova.json
+    app/config/placements.example.php
 ```
 
-Paczka nie moze zawierac:
+Paczka nie może zawierać:
 
 ```text
 app/config
@@ -28,15 +38,20 @@ app/storage/backups
 app/storage/logs
 ```
 
-## manifest.json
+`app/config/placements.example.php` jest jedynym dozwolonym wyjątkiem w
+chronionym katalogu `app/config`. Jest to przykład konfiguracji, a nie aktywna
+konfiguracja instalacji.
+
+## Manifest
 
 ```json
 {
-  "package_id": "pkg_core_0_2_0",
+  "package_id": "pkg_core_0_8_0_rc1",
   "type": "core",
-  "version": "0.2.0",
-  "from_versions": [">=0.1.0 <0.2.0"],
-  "created_at": "2026-06-23T10:00:00Z",
+  "version": "0.8.0-rc1",
+  "channel": "rc",
+  "from_versions": [">=0.1.0 <0.8.0-rc1"],
+  "created_at": "2026-07-28T10:00:00Z",
   "requires": {
     "php": ">=8.3",
     "mysql": ">=8.0 || mariadb >=10.6"
@@ -52,28 +67,39 @@ app/storage/logs
 }
 ```
 
-## Weryfikacja
+## Walidacja zakresu
 
-Instalacja akceptuje paczke tylko gdy:
+Przed podpisaniem uruchom:
 
-- SHA-256 paczki zgadza sie z API,
+```bash
+php tools/build-update-package.php --version=0.8.0-rc1 --validate-only
+```
+
+Generator ma przerwać pracę, jeśli `core_paths` zawiera ścieżkę spoza
+allowlisty albo jakikolwiek katalog `app/modules/custom`.
+
+## Weryfikacja instalacji
+
+Instalacja akceptuje paczkę tylko wtedy, gdy:
+
+- SHA-256 paczki zgadza się z API,
 - podpis Ed25519 jest poprawny,
-- wersja zrodlowa jest zgodna,
-- PHP/MySQL spelniaja wymagania,
-- paczka nie dotyka protected paths.
+- wersja źródłowa jest zgodna,
+- PHP i baza spełniają wymagania,
+- paczka nie dotyka chronionych ścieżek poza jawnym plikiem przykładowym.
 
-## Kolejnosc aktualizacji
+## Kolejność aktualizacji
 
-1. `update.lock`
-2. pobranie ZIP
-3. weryfikacja SHA-256
-4. weryfikacja podpisu
-5. staging w `app/storage/update-staging`
-6. backup core i bazy
-7. `maintenance.lock`
-8. podmiana tylko core paths, w tym core modules, bez `app/modules/custom`
-9. migracje
-10. czyszczenie cache
-11. health check
-12. raport do update servera
-13. rollback przy bledzie
+1. Utworzenie `update.lock`.
+2. Pobranie ZIP.
+3. Weryfikacja SHA-256.
+4. Weryfikacja podpisu.
+5. Rozpakowanie do `app/storage/update-staging`.
+6. Backup core i bazy.
+7. Włączenie `maintenance.lock`.
+8. Podmiana wyłącznie ścieżek z allowlisty core.
+9. Migracje.
+10. Czyszczenie cache.
+11. Health check.
+12. Raport do update servera.
+13. Rollback przy błędzie.

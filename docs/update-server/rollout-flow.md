@@ -1,39 +1,45 @@
 # Rollout aktualizacji Reklamova CMS
 
-Reklamova CMS jest self-hosted, wiec kazdy klient ma osobne pliki i baze. To nie oznacza recznego uploadu do kazdego hostingu. Aktualizacja core idzie przez centralny update server i panel klienta.
+Reklamova CMS jest systemem self-hosted. Każdy klient ma osobne pliki i bazę,
+ale aktualizacje core są publikowane centralnie przez `updates.reklamova.pl`.
 
-## Role
+## Role systemów
 
-- Repozytorium GitHub `reklamova/reklamova_cms` jest zrodlem prawdy dla core.
-- `updates.reklamova.pl` trzyma licencje, status instalacji i podpisane paczki ZIP.
-- Instalacja klienta cyklicznie pyta update server o nowa wersje.
-- Klient albo Reklamova klika `Zaktualizuj` w `/admin/updates`.
+- GitHub `reklamova/reklamova_cms` jest źródłem prawdy dla core.
+- `updates.reklamova.pl` przechowuje licencje, statusy i podpisane paczki.
+- Instalacja klienta cyklicznie pyta o nową wersję.
+- Aktualizacja chroni motyw, konfigurację, uploady i moduły custom.
 
-## Przeplyw dla 100 klientow
+## Przepływ dla wielu klientów
 
-1. Reklamova konczy zmiane core, np. Privacy Center.
-2. Reklamova buduje paczke `reklamova-core-x.y.z.zip`.
-3. Paczka zawiera tylko core paths:
-   - `app/bootstrap.php`
-   - `app/core`
-   - `app/migrations/core`
-   - `app/modules` bez `app/modules/custom`
-   - `public/.htaccess`
-   - `public/index.php`
-   - `public/admin`
-   - `public/assets/core`
-4. Paczka jest podpisana kluczem Ed25519.
-5. Update server publikuje metadane paczki dla wybranej wersji/kanalu.
+1. Reklamova kończy i testuje zmianę core.
+2. Generator waliduje ścisłą allowlistę ścieżek.
+3. Zmiany `app/modules/custom/**` otrzymują osobny patch klienta.
+4. Paczka core jest podpisywana kluczem Ed25519.
+5. Update server publikuje paczkę na wybranym kanale.
 6. Cron instalacji zapisuje status w `app/storage/cache/update-status.json`.
-7. Dashboard pokazuje komunikat o nowej wersji.
-8. Administrator wchodzi w `/admin/updates` i klika `Zaktualizuj`.
-9. Instalacja pobiera ZIP, weryfikuje SHA-256 i podpis.
-10. Instalacja robi backup core i bazy.
-11. Instalacja podmienia core paths, uruchamia migracje core i modulow.
-12. Health check potwierdza, ze strona dziala.
-13. W razie bledu updater przywraca backup.
+7. Panel pokazuje informację o nowej wersji.
+8. Uprawniony administrator uruchamia aktualizację.
+9. Instalacja weryfikuje SHA-256 i podpis.
+10. Instalacja wykonuje backup core i bazy.
+11. Updater podmienia wyłącznie dozwolone ścieżki.
+12. Migracje, cache i health check kończą proces.
+13. Błąd powoduje automatyczny rollback.
 
-## Czego update core nie rusza
+## Zakres core
+
+- `app/core`
+- `app/migrations/core`
+- jawnie wymienione moduły oficjalne z `app/modules/{slug}`
+- `public/assets/core`
+- `docs`
+- `reklamova.json`
+- `app/config/placements.example.php`
+
+Pełna lista znajduje się w `reklamova.json` oraz
+`docs/update-server/package-format.md`.
+
+## Chronione dane instalacji
 
 - `app/config`
 - `app/themes`
@@ -42,29 +48,33 @@ Reklamova CMS jest self-hosted, wiec kazdy klient ma osobne pliki i baze. To nie
 - `app/storage/backups`
 - `app/storage/logs`
 
-To pozwala aktualizowac wspolny panel, Privacy Center, update client i admin UI bez nadpisywania motywow klientow, uploadow i konfiguracji.
+## Walidacja przed buildem
 
-## Co trzeba skonfigurowac przed pelna automatyzacja
+```bash
+php tools/build-update-package.php \
+  --version=0.8.0-rc1 \
+  --validate-only
+```
 
-- produkcyjny klucz publiczny w `app/core/Updates/trusted_keys.php`,
-- prywatny klucz podpisujacy tylko po stronie Reklamova,
-- endpointy `updates.reklamova.pl`,
-- CRON na instalacjach klientow,
-- proces budowania i publikacji paczek ZIP z GitHub.
+To polecenie nie tworzy ZIP i nie wymaga prywatnego klucza.
 
-## Minimalny update server MVP
+## Budowanie po zaliczeniu RC
 
-Kod serwera jest w `update-server/`.
+```bash
+REKLAMOVA_UPDATE_PRIVATE_KEY_B64=... php tools/build-update-package.php \
+  --version=0.8.0-rc1 \
+  --channel=rc \
+  --base-url=https://updates.reklamova.pl \
+  --out=build/update-packages
+```
 
-Wdrozenie domeny `updates.reklamova.pl`:
+Prywatny klucz pozostaje poza repozytorium. Wpis
+`index-entry-pkg_core_0_8_0_rc1.json` można opublikować dopiero po zatwierdzeniu
+wyników stagingu.
 
-1. Ustaw document root na `update-server/public`.
-2. Skopiuj `update-server/config.example.php` do `update-server/config.php`.
-3. Skopiuj `update-server/storage/licenses.example.json` do `update-server/storage/licenses.json`.
-4. Dodaj licencje instalacji klientow do `licenses.json`.
-5. Wgraj paczki ZIP i `index.json` do `update-server/storage/packages`.
+## Update server MVP
 
-Endpointy MVP:
+Endpointy:
 
 - `POST /api/v1/check-update`
 - `GET /api/v1/packages/{packageId}/download`
@@ -73,56 +83,4 @@ Endpointy MVP:
 - `POST /api/v1/report-update-failed`
 - `POST /api/v1/report-health`
 
-## Klucze podpisu
-
-Generowanie pary kluczy:
-
-```bash
-php tools/generate-update-keypair.php
-```
-
-Wynik:
-
-- `REKLAMOVA_UPDATE_PRIVATE_KEY_B64` zostaje tylko u Reklamova, poza repo,
-- `TRUSTED_PUBLIC_KEY_B64` trafia do `app/core/Updates/trusted_keys.php`.
-
-## Budowanie paczki
-
-```bash
-REKLAMOVA_UPDATE_PRIVATE_KEY_B64=... php tools/build-update-package.php \
-  --version=0.1.1 \
-  --base-url=https://updates.reklamova.pl \
-  --out=build/update-packages
-```
-
-Skrypt tworzy:
-
-- `reklamova-core-0.1.1.zip`,
-- `index-entry-pkg_core_0_1_1.json`.
-
-Wpis z `index-entry-...json` nalezy dodac do:
-
-```text
-update-server/storage/packages/index.json
-```
-
-Format:
-
-```json
-{
-  "packages": [
-    {
-      "id": "pkg_core_0_1_1",
-      "type": "core",
-      "version": "0.1.1",
-      "channel": "stable",
-      "file": "reklamova-core-0.1.1.zip",
-      "url": "https://updates.reklamova.pl/api/v1/packages/pkg_core_0_1_1/download",
-      "sha256": "...",
-      "signature": "...",
-      "signature_algorithm": "ed25519",
-      "minimum_php": "8.3"
-    }
-  ]
-}
-```
+RC musi być publikowany na kanale `rc`, nigdy na `stable`.
