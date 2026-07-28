@@ -75,7 +75,7 @@ final class Application
             $page = [
                 'title' => 'Nie znaleziono',
                 'slug' => $slug,
-                'content' => '<p>Strona nie zostala jeszcze opublikowana.</p>',
+                'content' => '<p>Strona nie została jeszcze opublikowana.</p>',
                 'status' => 'draft',
                 'template' => 'default',
             ];

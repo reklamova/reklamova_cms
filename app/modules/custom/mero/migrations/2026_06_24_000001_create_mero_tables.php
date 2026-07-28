@@ -111,7 +111,7 @@ return new class {
             ['Budowa domow', 'budowa-domow', '<p>Podstrona uslugi budowy domow. Opisz zakresy, proces wspolpracy i przewagi MERO.</p>'],
             ['Kalkulator budowy domu', 'kalkulator-budowy-domu', '<p>Kalkulator korzysta z ustawien modulu MERO. Formularz zapisuje lead w bazie instalacji.</p><div data-mero-calculator></div>'],
             ['Etapy budowy', 'etapy-budowy', '<p>Opisz etapy od analizy projektu po odbior prac.</p>'],
-            ['Pakiety budowy', 'pakiety-budowy', '<p>Stan surowy otwarty, stan surowy zamkniety, stan deweloperski i dom pod klucz.</p>'],
+            ['Pakiety budowy', 'pakiety-budowy', '<p>Stan surowy otwarty, stan surowy zamknięty, stan deweloperski i dom pod klucz.</p>'],
             ['Realizacje', 'realizacje', '<p>Miejsce na realizacje i zakresy wykonanych prac.</p>'],
             ['Hurtownia materialow budowlanych', 'hurtownia-materialow-budowlanych', '<p>Zaplecze materialowe MERO, dostawy i doradztwo techniczne.</p>'],
             ['Poradnik', 'poradnik', '<p>Lista poradnikowych wpisow jest zarzadzana w module MERO.</p>'],

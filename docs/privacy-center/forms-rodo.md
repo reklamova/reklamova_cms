@@ -14,7 +14,7 @@ Modul przechowuje wersjonowane klauzule dla formularzy:
 - Obowiazek informacyjny i zgoda marketingowa musza byc oddzielne.
 - Checkbox marketingowy nie moze byc domyslnie zaznaczony.
 - Formularz powinien zapisywac wersje klauzuli obowiazujaca w chwili wyslania.
-- Tresc klauzul jest edytowalna przez panel i wersjonowana polem `version`.
+- Treść klauzul jest edytowalna przez panel i wersjonowana polem `version`.
 
 ## Integracja w formularzu custom
 

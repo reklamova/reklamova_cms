@@ -27,7 +27,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         $canManage = $permissions->can($user, 'manage_inquiries');
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
             if (!$canManage) {
-                $view->render('Zapytania', '<section class="panel error-panel"><h2>Brak uprawnieĹ„</h2><p>MoĹĽesz czytaÄ‡ zapytania, ale zmiana statusu wymaga dodatkowego uprawnienia.</p></section>', $user);
+                $view->render('Zapytania', '<section class="panel error-panel"><h2>Brak uprawnień</h2><p>Możesz czytać zapytania, ale zmiana statusu wymaga dodatkowego uprawnienia.</p></section>', $user);
                 return;
             }
             $repo->updateStatus((int) ($_POST['id'] ?? 0), (string) ($_POST['status'] ?? 'new'), (int) $user['id'], (string) ($_POST['note'] ?? ''));

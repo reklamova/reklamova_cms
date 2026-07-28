@@ -95,6 +95,8 @@ return new class {
             return;
         }
 
+        $this->ensureModuleColumns($pdo);
+
         $modules = [
             'pages' => ['Podstrony', 'Treści', 20, 1, 1, ['manage_pages']],
             'media' => ['Media', 'Treści', 30, 1, 1, ['manage_media']],
@@ -135,6 +137,17 @@ return new class {
         }
     }
 
+    private function ensureModuleColumns(PDO $pdo): void
+    {
+        $this->addColumnIfMissing($pdo, 'cms_modules', 'menu_label', 'VARCHAR(120) NULL');
+        $this->addColumnIfMissing($pdo, 'cms_modules', 'menu_group', 'VARCHAR(80) NULL');
+        $this->addColumnIfMissing($pdo, 'cms_modules', 'sort_order', 'INT NOT NULL DEFAULT 500');
+        $this->addColumnIfMissing($pdo, 'cms_modules', 'visible_in_client_nav', 'TINYINT(1) NOT NULL DEFAULT 0');
+        $this->addColumnIfMissing($pdo, 'cms_modules', 'visible_in_admin_nav', 'TINYINT(1) NOT NULL DEFAULT 1');
+        $this->addColumnIfMissing($pdo, 'cms_modules', 'permissions_json', 'JSON NULL');
+        $this->addColumnIfMissing($pdo, 'cms_modules', 'updated_at', 'TIMESTAMP NULL DEFAULT NULL');
+    }
+
     private function tableExists(PDO $pdo, string $table): bool
     {
         try {
@@ -145,5 +158,34 @@ return new class {
         } catch (Throwable) {
             return false;
         }
+    }
+
+    private function columnExists(PDO $pdo, string $table, string $column): bool
+    {
+        try {
+            $statement = $pdo->prepare(
+                'SELECT COUNT(*)
+                 FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = ?
+                   AND COLUMN_NAME = ?'
+            );
+            $statement->execute([$table, $column]);
+
+            return (int) $statement->fetchColumn() > 0;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function addColumnIfMissing(PDO $pdo, string $table, string $column, string $definition): void
+    {
+        if ($this->columnExists($pdo, $table, $column)) {
+            return;
+        }
+
+        $safeTable = str_replace('`', '', $table);
+        $safeColumn = str_replace('`', '', $column);
+        $pdo->exec('ALTER TABLE `' . $safeTable . '` ADD COLUMN `' . $safeColumn . '` ' . $definition);
     }
 };
