@@ -1,69 +1,80 @@
 # PowerTech staging Reklamova CMS 0.8.0-rc1
 
-Data raportu: 2026-07-28
+Data testu: 2026-07-28
 
-Status: ZABLOKOWANY INFRASTRUKTURALNIE
+Status: PRZYGOTOWANY PLIKOWO, ZABLOKOWANY PRZEZ BRAK BAZY
 
 ## Środowisko
 
-Planowany adres: `staging.powertechsc.pl`
+- adres: `staging.powertechsc.pl`,
+- staging root:
+  `/home/platne/serwer38522/public_html/staging.powertechsc.pl`,
+- PHP CLI: 8.3.30,
+- kanał aktualizacji: `rc`,
+- osobna licencja stagingowa działa z update API,
+- Basic Auth zwraca HTTP 401 bez uwierzytelnienia,
+- `noindex` i `robots.txt` blokują indeksację,
+- konfiguracja poczty jest wyłączona i kieruje wyłącznie do domeny `.invalid`.
 
-DNS kieruje na hosting PowerTech, ale `/` oraz `/admin/` zwracają 404. Nie
-potwierdzono oddzielnego document root, stagingowej bazy ani blokady maili.
-Działająca instalacja pod `nowastrona.powertechsc.pl` nie była modyfikowana.
+## Klon plików i ochrona produkcji
 
-## Wymagany zakres wdrożenia
+Pliki skopiowano z `nowastrona.powertechsc.pl` do niezależnego katalogu
+stagingowego. Kopia ma około 222 MB i własne uploady. Konfigurację stagingu
+zmieniono przed udostępnieniem aplikacji, więc nie może połączyć się z
+produkcyjną bazą.
 
-- commit `403534fd0afd1d4261415a0f7446321085f59b03`,
-- tylko allowlista core,
-- migracje core,
-- kanał `rc`,
-- brak patcha MERO,
-- brak `app/modules/custom/mero`.
+Produkcja pozostała bez zmian. Sprawdzono jej adres konfiguracyjny po
+klonowaniu.
 
-Przed i po wdrożeniu należy porównać sumy `app/config`, `app/themes`,
-`app/modules/custom` i `public/uploads`.
+Core wdrożono wyłącznie z allowlisty. Walidacja paczki:
 
-## Panel
+- wersja: `0.8.0-rc1`,
+- kanał: `rc`,
+- 18 ścieżek core,
+- chronione ścieżki stabilne,
+- PHP lint: 105 plików, 0 błędów.
 
-- [ ] logowanie jako `client_admin`,
-- [ ] logowanie jako `reklamova_admin`,
-- [ ] menu klienta bez ekranów technicznych,
-- [ ] menu Reklamova z ekranami technicznymi,
-- [ ] Podstrony: lista, edycja, zapis i podgląd,
-- [ ] Strona główna,
-- [ ] Media: lista, upload i wybór obrazu,
-- [ ] Produkty i Kategorie produktów, jeśli katalog jest aktywny,
-- [ ] Privacy Center,
-- [ ] `/admin/updates` zgodnie z uprawnieniem,
-- [ ] `/admin/system` tylko dla Reklamova Admin,
-- [ ] brak modułów i nazw MERO.
+Kopia produkcyjna zawierała obcy katalog `app/modules/custom/mero`. Na
+stagingu został zarchiwizowany poza document root i wykluczony. Aktualny wynik:
+0 plików MERO w PowerTech.
 
-## Katalog
+## Update server
 
-- [ ] lista produktów ma wyszukiwarkę, filtry i paginację,
-- [ ] dodanie produktu działa w osobnym widoku,
-- [ ] edycja produktu zachowuje kategorie, parametry i SEO,
-- [ ] powielenie produktu tworzy niezależny szkic,
-- [ ] lista kategorii nie renderuje jednocześnie wielkiego formularza,
-- [ ] statusy są prezentowane po polsku,
-- [ ] stare adresy panelu nadal działają albo przekierowują.
+Licencję `staging.powertechsc.pl` dodano wyłącznie do kanału `rc`. Bezpośredni
+test API z hostingu PowerTech zwrócił:
 
-## Front
+- HTTP 200,
+- aktualna wersja: `0.8.0-rc1`,
+- najnowsza wersja: `0.8.0-rc1`,
+- brak `invalid_license`,
+- brak dostępnej nowszej wersji.
 
-- [ ] strona główna,
-- [ ] podstrony,
-- [ ] drzewo kategorii,
-- [ ] lista produktów kategorii,
-- [ ] karta pojedynczego produktu,
-- [ ] formularze bez realnej wysyłki e-mail,
-- [ ] Privacy Center nie uruchamia trackerów,
-- [ ] brak odwołań do plików MERO,
-- [ ] brak błędów PHP w logu.
+## Blokada bazy
 
-## Wynik
+Na przekazanym zrzucie panel LH nadal pokazywał formularz z przyciskiem
+`UTWÓRZ`. Serwer MySQL nie rozpoznaje użytkownika `serwer38522_staging`, a
+produkcyjny użytkownik widzi wyłącznie własną bazę. Oznacza to, że stagingowa
+baza nie została faktycznie utworzona.
 
-NIEURUCHOMIONY. Domenę trzeba przypisać do oddzielnego katalogu, utworzyć i
-zaimportować oddzielną bazę, skopiować uploady oraz włączyć Basic Auth,
-`noindex`, blokadę maili i blokadę trackingów. Nie wolno wykorzystać działającej
-instalacji `nowastrona.powertechsc.pl` jako stagingu RC1.
+W `app/config/database.php` stagingu celowo pozostawiono bezpieczny placeholder
+hasła. Dzięki temu staging nie może przypadkowo połączyć się z produkcją.
+
+## Testy oczekujące
+
+- import kopii bazy PowerTech,
+- pełne migracje na kopii,
+- logowanie `client_admin` i `reklamova_admin`,
+- menu obu ról,
+- Podstrony, Strona główna i Media,
+- lista, filtrowanie, edycja i powielenie produktu,
+- drzewo kategorii i karta produktu,
+- Privacy Center,
+- `/admin/updates` i `/admin/system`,
+- publiczny front i log PHP.
+
+## Następny krok
+
+W panelu LH trzeba dokończyć operację `UTWÓRZ` dla bazy i przekazać ekran
+potwierdzający utworzenie. Po tym można wstawić hasło do stagingowej
+konfiguracji, wykonać dump/import, migracje i pełną checklistę bez ponownego
+kopiowania plików.

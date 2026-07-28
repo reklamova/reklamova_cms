@@ -13,7 +13,9 @@ Zmodyfikowane pliki:
 - `app/modules/custom/mero/migrations/2026_06_24_000001_create_mero_tables.php`
 
 Patch porządkuje nazwy i uprawnienia ekranów MERO, upraszcza Zapytania oraz
-Poradnik, poprawia teksty kalkulatora i deklaruje jawne uprawnienia tras.
+Poradnik, poprawia teksty kalkulatora, deklaruje jawne uprawnienia tras i
+usuwa stary popup cookies z frontu MERO. Formularze pobierają teraz snapshot
+zgody z globalnego `window.ReklamovaConsent`.
 
 ## Dlaczego patch jest osobny
 
@@ -64,6 +66,15 @@ Nie kopiuj całego branchu do katalogu modułu. Patch ma zachować lokalny
 - Zapisz stawki użytkownikiem z `manage_products`.
 - Użytkownik bez tego uprawnienia nie może otworzyć ani zapisać formularza.
 - Sprawdź wynik kalkulatora na froncie.
+
+## Test Privacy Center
+
+- Otwórz stronę jako nowy użytkownik i potwierdź jeden baner zgód.
+- Potwierdź brak klucza `mero_cookie_consent_v1`.
+- Zaakceptuj lub odrzuć zgody i przejdź na inną podstronę.
+- Baner nie może wrócić przy tej samej wersji dokumentów.
+- Link `Ustawienia prywatności` ma otworzyć manager core.
+- W kodzie strony ma wystąpić dokładnie jeden `consent-manager.js`.
 
 ## Rollback
 

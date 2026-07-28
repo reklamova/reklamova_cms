@@ -39,7 +39,7 @@ final class Application
             return;
         }
 
-        $this->renderPage();
+        $this->renderPage($extensions);
     }
 
     public function handleAdmin(): void
@@ -52,16 +52,16 @@ final class Application
         (new AdminController($this->container))->handle();
     }
 
-    private function renderPage(): void
+    private function renderPage(array $extensions): void
     {
         $config = new Config($this->container);
-        $slug = trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/');
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        $slug = trim(rawurldecode($path), '/');
         $slug = $slug === '' ? 'home' : $slug;
 
         $pdo = (new ConnectionFactory($this->container))->make();
-        $extensions = (new ModuleManager($this->container))->publicExtensions($pdo);
         foreach ($extensions['fallbacks'] ?? [] as $fallback) {
-            if (is_callable($fallback) && $fallback($slug)) {
+            if (is_callable($fallback) && $this->renderFallback($fallback, $slug, $extensions)) {
                 return;
             }
         }
@@ -133,6 +133,92 @@ final class Application
             . $body
             . '<footer class="cms-public-footer"><span>&copy; ' . htmlspecialchars($siteName, ENT_QUOTES) . '</span>' . ($footerLinks ? '<span>' . $footerLinks . '</span>' : '') . '</footer></div>'
             . $bodyEnd . '</body></html>';
+    }
+
+    private function renderFallback(callable $fallback, string $slug, array $extensions): bool
+    {
+        ob_start();
+        try {
+            $handled = (bool) $fallback($slug);
+            $output = (string) ob_get_clean();
+        } catch (\Throwable $exception) {
+            ob_end_clean();
+            throw $exception;
+        }
+
+        if (!$handled) {
+            echo $output;
+            return false;
+        }
+
+        echo $this->injectPublicExtensions($output, $extensions);
+        return true;
+    }
+
+    private function injectPublicExtensions(string $html, array $extensions): string
+    {
+        if ($html === '' || stripos($html, '<html') === false || stripos($html, '</head>') === false) {
+            return $html;
+        }
+
+        $head = $this->renderHook($extensions['head'] ?? []);
+        $bodyStart = $this->renderHook($extensions['body_start'] ?? []);
+        $bodyEnd = $this->renderHook($extensions['body_end'] ?? []);
+        $footerLinks = $this->renderHook($extensions['footer_links'] ?? []);
+
+        if (str_contains($html, '/assets/core/privacy/consent-manager.css')) {
+            $head = (string) preg_replace('~<link\b[^>]*consent-manager\.css[^>]*>~i', '', $head);
+        }
+        if (str_contains($html, '/assets/core/privacy/consent-manager.js')) {
+            $head = (string) preg_replace('~<script\b[^>]*consent-manager\.js[^>]*>\s*</script>~i', '', $head);
+        }
+        if (str_contains($html, 'ReklamovaConsentModeDefault')) {
+            $head = (string) preg_replace('~<script>[^<]*ReklamovaConsentModeDefault[^<]*</script>~i', '', $head);
+        }
+        if (str_contains($html, 'id="reklamova-privacy-root"')) {
+            $bodyStart = '';
+        }
+        if (str_contains($html, 'id="reklamova-privacy-config"')) {
+            $bodyEnd = '';
+        }
+        if (str_contains($html, 'data-reklamova-privacy-open')) {
+            $footerLinks = '';
+        }
+
+        if ($head !== '') {
+            $html = $this->insertBeforeClosingTag($html, 'head', $head);
+        }
+        if ($bodyStart !== '') {
+            $html = (string) preg_replace_callback(
+                '~<body\b[^>]*>~i',
+                static fn (array $matches): string => $matches[0] . $bodyStart,
+                $html,
+                1
+            );
+        }
+        if ($footerLinks !== '') {
+            $footer = '<span class="cms-public-footer-links">' . $footerLinks . '</span>';
+            if (stripos($html, '</footer>') !== false) {
+                $html = $this->insertBeforeClosingTag($html, 'footer', $footer);
+            } else {
+                $bodyEnd = $footer . $bodyEnd;
+            }
+        }
+        if ($bodyEnd !== '') {
+            $html = $this->insertBeforeClosingTag($html, 'body', $bodyEnd);
+        }
+
+        return $html;
+    }
+
+    private function insertBeforeClosingTag(string $html, string $tag, string $content): string
+    {
+        return (string) preg_replace_callback(
+            '~</' . preg_quote($tag, '~') . '>~i',
+            static fn (array $matches): string => $content . $matches[0],
+            $html,
+            1
+        );
     }
 
     private function renderHook(array $callbacks): string

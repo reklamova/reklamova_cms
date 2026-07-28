@@ -1,97 +1,121 @@
 # MERO staging Reklamova CMS 0.8.0-rc1
 
-Data raportu: 2026-07-28
+Data testu: 2026-07-28
 
-Status: ZABLOKOWANY INFRASTRUKTURALNIE
+Status: ZALICZONY TECHNICZNIE, PUBLICZNY VHOST DO PODPIĘCIA
 
 ## Środowisko
 
-Planowany adres: `staging.mero.pl`
+- planowany adres: `staging.mero.pl`,
+- staging root:
+  `/home/klient.dhosting.pl/merostarzyk/staging.mero.pl-rc1`,
+- oddzielna baza: 60 tabel, kopia danych MERO,
+- PHP CLI: 8.5.6,
+- MariaDB: 10.5.24,
+- kanał aktualizacji: `rc`,
+- osobna licencja stagingowa,
+- Basic Auth, `noindex` i blokada skryptów zewnętrznych,
+- wysyłka prawdziwych formularzy nie była wykonywana.
 
-DNS kieruje na hosting MERO, ale `/` oraz `/admin/` zwracają 404. Nie
-potwierdzono oddzielnego document root, stagingowej bazy ani blokady maili.
-Produkcja `mero.pl` nie była modyfikowana.
+Publiczna domena nadal nie wskazuje tego katalogu. Testy HTTP wykonano przez
+lokalny serwer PHP dostępny wyłącznie z konta SSH. Produkcja `mero.pl` nie była
+modyfikowana.
 
-## Wymagany zakres wdrożenia
+## Backup i wdrożenie
 
-Core:
+Przed klonowaniem wykonano backup plików i bazy produkcyjnej wraz z manifestem
+oraz sumami SHA-256. Core wdrożono wyłącznie z allowlisty. Porównanie
+chronionych ścieżek potwierdziło brak zmian w konfiguracji, motywie, custom
+modules i uploadach, z wyjątkiem jawnie dozwolonego pliku przykładowych
+placementów.
 
-- commit `403534fd0afd1d4261415a0f7446321085f59b03`,
-- tylko allowlista core,
-- bez `app/modules/custom/**`,
-- migracje core,
-- kanał `rc`.
+Patch MERO wdrożono osobno zgodnie z
+`docs/releases/mero-custom-patch-0.8.0.md`. Jego backup i sumy są niezależne od
+core.
 
-Patch MERO:
+## Migracje i lint
 
-- backup całego `app/modules/custom/mero`,
-- wyłącznie pliki wskazane w
-  `docs/releases/mero-custom-patch-0.8.0.md`,
-- migracje modułu MERO,
-- osobny rollback.
+- migracje core: 8,
+- migracje modułów oficjalnych: business, catalog, knowledge, landing, leads,
+  privacy i trust,
+- migracja MERO: 1,
+- ponowne uruchomienie nie zmieniło liczby migracji,
+- PHP lint: 105 plików, 0 błędów.
 
-## Kontrole chronionych ścieżek
+## Panel
 
-Przed i po core update należy porównać sumy dla:
+Wszystkie wymagane ekrany zwróciły HTTP 200:
 
-- `app/config`,
-- `app/themes`,
-- `app/modules/custom`,
-- `public/uploads`.
+- `/admin`,
+- `/admin/pages`,
+- `/admin/media`,
+- `/admin/business`,
+- `/admin/mero/leads`,
+- `/admin/mero/articles`,
+- `/admin/mero/calculator`,
+- `/admin/catalog/products`,
+- `/admin/catalog/categories`,
+- `/admin/privacy`,
+- `/admin/updates`.
 
-Zmiana którejkolwiek z tych ścieżek przez core update oznacza NIEZALICZENIE.
-Zmiany patcha MERO porównuje się osobno do jego manifestu.
+`client_admin` otrzymuje HTTP 404 dla `/admin/system`, a
+`reklamova_admin` HTTP 200.
 
-## Panel klienta
+Potwierdzono:
 
-- [ ] `/admin`
-- [ ] `/admin/pages`
-- [ ] `/admin/pages/edit`
-- [ ] `/admin/media`
-- [ ] `/admin/business`
-- [ ] `/admin/mero/leads`
-- [ ] `/admin/mero/articles`
-- [ ] `/admin/mero/calculator`
-- [ ] `/admin/catalog/products`
-- [ ] `/admin/catalog/categories`
-- [ ] `/admin/privacy`
-- [ ] `/admin/updates`
-- [ ] `/admin/system` jako Reklamova Admin
+- brak `MERO Leady` i osobnego `Leady`,
+- jedna pozycja `Zapytania`,
+- brak `MERO Poradnik`,
+- jedna pozycja `Poradnik`,
+- brak `Strona firmowa`,
+- widoczną `Stronę główną`,
+- SEO Poradnika w akordeonie,
+- polskie etykiety Kalkulatora, w tym `zł/m²` i `Widełki`,
+- brak surowego JSON zapytania dla klienta,
+- payload wyłącznie w `Dane techniczne` dla Reklamova Admin,
+- ukrycie Trust przed klientem bez placementu,
+- informację `Brak miejsca w motywie` dla Reklamova Admin.
 
-## Architektura informacji i uprawnienia
+## Front i Privacy Center
 
-- [ ] brak pozycji `MERO Leady`,
-- [ ] brak osobnej pozycji `Leady`,
-- [ ] jest jedna pozycja `Zapytania`,
-- [ ] brak pozycji `MERO Poradnik`,
-- [ ] jest jedna pozycja `Poradnik`,
-- [ ] brak pozycji `Strona firmowa`,
-- [ ] jest pozycja `Strona główna`,
-- [ ] Trust jest widoczny klientowi tylko z placementem,
-- [ ] Reklamova Admin widzi informację o orphaned placement,
-- [ ] klient nie widzi surowego JSON zapytań,
-- [ ] Reklamova Admin widzi JSON tylko w `Dane techniczne`,
-- [ ] Poradnik ma SEO w zamkniętym akordeonie,
-- [ ] Kalkulator ma poprawne polskie etykiety,
-- [ ] GET Zapytania działa z `view_leads`,
-- [ ] zapis Zapytania wymaga `manage_inquiries`.
+HTTP 200 potwierdzono dla:
 
-## Front
+- strony głównej,
+- `/o-firmie`,
+- `/budowa-domow`,
+- `/poradnik`,
+- `/kalkulator-budowy-domu`,
+- `/kontakt`,
+- `/nasza-oferta`,
+- `/api/privacy/settings`.
 
-- [ ] strona główna,
-- [ ] podstrony,
-- [ ] poradnik i pojedynczy wpis,
-- [ ] kalkulator,
-- [ ] formularze bez realnej wysyłki e-mail,
-- [ ] testowe zapytanie zapisane w stagingowej bazie,
-- [ ] katalog, kategorie i produkty,
-- [ ] Privacy Center nie uruchamia trackerów,
-- [ ] zgoda cookies nie wraca po przejściu na podstronę,
-- [ ] brak błędów PHP w logu.
+Testowe zapytanie zapisano bezpośrednio w stagingowej bazie, bez uruchamiania
+funkcji wysyłki e-mail. Klient widzi czytelne pola, a administrator Reklamova
+może rozwinąć dane techniczne.
 
-## Wynik
+RC1 ujawnił, że pełnoekranowy renderer MERO omijał hooki Privacy Center i
+renderował stary popup. Poprawka post-RC1:
 
-NIEURUCHOMIONY. Domenę trzeba przypisać do oddzielnego katalogu, utworzyć i
-zaimportować oddzielną bazę, skopiować uploady oraz włączyć Basic Auth,
-`noindex`, blokadę maili i blokadę trackingów. Dopiero potem można wdrożyć core
-RC1 i osobny patch MERO.
+- wstrzykuje Consent Mode default przed managerem,
+- wstrzykuje root i konfigurację Privacy Center,
+- usuwa stary modal i klucz `mero_cookie_consent_v1`,
+- pozostawia endpoint i tabelę MERO dla kompatybilności,
+- używa jednego `consent-manager.js`,
+- obsługuje canonical `/ustawienia-prywatnosci` i stary alias.
+
+Po poprawce wszystkie kontrole przeszły, a log serwera zawiera 0 błędów PHP.
+
+## Dane kontrolne
+
+- 28 podstron,
+- 31 plików Media,
+- 6 wpisów Poradnika,
+- 1 testowe zapytanie,
+- 1 testowy log zgody,
+- katalog MERO jest aktywny, ale nie zawiera produktów ani kategorii.
+
+## Pozostały krok infrastrukturalny
+
+W panelu dHosting trzeba przypisać `staging.mero.pl` do katalogu
+`staging.mero.pl-rc1/public` i włączyć certyfikat SSL. Dopiero wtedy można
+wykonać końcowy test w zwykłej przeglądarce.

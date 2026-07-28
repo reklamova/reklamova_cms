@@ -26,6 +26,6 @@ if (!function_exists('privacy_body_end')) {
 if (!function_exists('privacy_footer_link')) {
     function privacy_footer_link(string $label = 'Ustawienia prywatności'): string
     {
-        return '<a href="/ustawienia-prywatności" data-reklamova-privacy-open>' . htmlspecialchars($label, ENT_QUOTES) . '</a>';
+        return '<a href="/ustawienia-prywatnosci" data-reklamova-privacy-open>' . htmlspecialchars($label, ENT_QUOTES) . '</a>';
     }
 }
