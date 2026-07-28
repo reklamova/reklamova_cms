@@ -1715,3 +1715,65 @@ button.secondary,
   border-radius: 10px;
   background: #fff;
 }
+
+/* Client information architecture cleanup. */
+.client-simple-page-list .page-table th:nth-child(4),
+.client-simple-page-list .page-table td:nth-child(4) {
+  display: none;
+}
+
+.screen-help {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+  gap: 24px;
+  align-items: start;
+  background:
+    radial-gradient(circle at 100% 0, rgba(246,178,26,.12), transparent 28%),
+    #fff;
+}
+
+.screen-help p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: var(--admin-muted);
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+.screen-help small,
+.update-client-note {
+  color: var(--admin-muted);
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.update-client-note {
+  max-width: 520px;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.trust-type-help {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.trust-type-help small {
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: #fbfcff;
+  color: var(--admin-muted);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+@media (max-width: 860px) {
+  .screen-help {
+    grid-template-columns: 1fr;
+  }
+}

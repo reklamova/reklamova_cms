@@ -34,9 +34,30 @@ return static function (array $container, PDO $pdo, array $module): array {
 
     return [
         'nav' => [
-            '/admin/mero/calculator' => 'MERO Kalkulator',
-            '/admin/mero/leads' => 'MERO Leady',
-            '/admin/mero/articles' => 'MERO Poradnik',
+            '/admin/mero/calculator' => [
+                'label' => 'Kalkulator budowy',
+                'menu_group' => 'Oferta',
+                'permission' => 'manage_products',
+                'visible_in_client_nav' => true,
+                'sort_order' => 120,
+                'nav_key' => 'mero_calculator',
+            ],
+            '/admin/mero/leads' => [
+                'label' => 'Zapytania',
+                'menu_group' => 'Kontakt',
+                'permission' => 'view_leads',
+                'visible_in_client_nav' => true,
+                'sort_order' => 60,
+                'nav_key' => 'leads',
+            ],
+            '/admin/mero/articles' => [
+                'label' => 'Poradnik',
+                'menu_group' => 'Treści',
+                'permission' => 'manage_blog',
+                'visible_in_client_nav' => true,
+                'sort_order' => 50,
+                'nav_key' => 'knowledge',
+            ],
         ],
         'routes' => [
             '/admin/mero/calculator' => static function (AdminView $view, array $user) use ($h, $settings, $saveSettings): void {
@@ -58,7 +79,7 @@ return static function (array $container, PDO $pdo, array $module): array {
                     . '<label>E-mail powiadomien<input type="email" name="admin_email" value="' . $h($config['admin_email'] ?? 'biuro@mero.pl') . '"></label>'
                     . '<button>Zapisz kalkulator</button></form></section>';
 
-                $view->render('MERO Kalkulator', $content, $user);
+                $view->render('Kalkulator budowy', $content, $user);
             },
             '/admin/mero/leads' => static function (AdminView $view, array $user) use ($pdo, $h): void {
                 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
@@ -86,7 +107,7 @@ return static function (array $container, PDO $pdo, array $module): array {
 
                 $saved = isset($_GET['saved']) ? '<div class="notice">Lead zostal zaktualizowany.</div>' : '';
                 $content = $saved . '<table><thead><tr><th>Kontakt</th><th>Typ</th><th>Data</th><th>Dane</th><th>Status</th></tr></thead><tbody>' . $body . '</tbody></table>';
-                $view->render('MERO Leady', $content, $user);
+                $view->render('Zapytania', $content, $user);
             },
             '/admin/mero/articles' => static function (AdminView $view, array $user) use ($pdo, $h, $slugify): void {
                 $edit = null;
@@ -152,7 +173,7 @@ return static function (array $container, PDO $pdo, array $module): array {
                     . '<button>Zapisz wpis</button></form></section>'
                     . '<table><thead><tr><th>Tytul</th><th>Adres</th><th>Status</th><th>Publikacja</th><th></th></tr></thead><tbody>' . $list . '</tbody></table>';
 
-                $view->render('MERO Poradnik', $content, $user);
+                $view->render('Poradnik', $content, $user);
             },
         ],
     ];

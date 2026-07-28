@@ -1,15 +1,15 @@
 {
   "slug": "catalog",
-  "name": "Reklamova Catalog",
+  "name": "Katalog produktów",
   "version": "0.1.0",
   "source": "core",
   "enabled_by_default": false,
   "visible_in_client_nav": true,
   "visible_in_admin_nav": true,
   "client_manageable": true,
-  "menu_group": "Sprzedaż",
+  "menu_group": "Oferta",
   "menu_label": "Produkty",
   "sort_order": 100,
-  "permissions": ["manage_products"],
-  "description": "Hierarchical category and product catalog for business websites, B2B offer pages and product-card migrations."
+  "permissions": ["manage_products", "manage_product_categories"],
+  "description": "Kategorie i osobne karty produktów dla firmowych stron ofertowych oraz katalogów B2B."
 }

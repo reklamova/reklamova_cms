@@ -298,15 +298,15 @@ return static function (array $container, PDO $pdo, array $module): array {
         'nav' => [
             '/admin/catalog/products' => [
                 'label' => 'Produkty',
-                'menu_group' => 'Sprzedaż',
+                'menu_group' => 'Oferta',
                 'permission' => 'manage_products',
                 'visible_in_client_nav' => true,
                 'sort_order' => 100,
             ],
             '/admin/catalog/categories' => [
                 'label' => 'Kategorie produktów',
-                'menu_group' => 'Sprzedaż',
-                'permission' => 'manage_products',
+                'menu_group' => 'Oferta',
+                'permission' => 'manage_product_categories',
                 'visible_in_client_nav' => true,
                 'sort_order' => 110,
             ],

@@ -43,11 +43,20 @@ return static function (array $container, PDO $pdo, array $module): array {
         $content = '<section class="panel system-hero"><div><span class="eyebrow">Reklamova Leads</span><h2>Skrzynka zapytań</h2><p>Jedno miejsce na formularze kontaktowe, kalkulatory, landing page i kampanie. Statusy pomagają prowadzić obsługę zapytań bez arkuszy i chaosu.</p></div></section>'
             . '<table><thead><tr><th>Kontakt</th><th>Źródło</th><th>Wiadomość</th><th>Data</th><th>Status</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="5">Brak leadów.</td></tr>') . '</tbody></table>';
 
-        $view->render('Formularze', $content, $user);
+        $view->render('Zapytania', $content, $user);
     };
 
     return [
-        'nav' => ['/admin/leads' => 'Formularze'],
+        'nav' => [
+            '/admin/leads' => [
+                'label' => 'Zapytania',
+                'menu_group' => 'Kontakt',
+                'permission' => 'view_leads',
+                'visible_in_client_nav' => true,
+                'sort_order' => 60,
+                'nav_key' => 'leads',
+            ],
+        ],
         'routes' => ['/admin/leads' => $inbox],
     ];
 };

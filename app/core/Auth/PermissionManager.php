@@ -13,24 +13,33 @@ final class PermissionManager
         'view_dashboard',
         'view_update_notice',
         'manage_pages',
+        'manage_homepage',
         'manage_media',
         'manage_forms',
         'manage_blog',
         'manage_products',
+        'manage_product_categories',
+        'view_leads',
+        'manage_inquiries',
         'manage_basic_settings',
         'manage_basic_seo',
         'manage_advanced_seo',
+        'manage_privacy_basic',
         'manage_installations',
         'manage_modules',
+        'manage_theme',
         'manage_themes',
         'manage_updates',
         'manage_backups',
         'view_logs',
+        'view_system_health',
         'view_health',
         'manage_users',
         'manage_permissions',
         'manage_privacy',
         'manage_privacy_scripts',
+        'manage_reviews_trust',
+        'manage_campaign_pages',
         'view_developer_tools',
     ];
 
@@ -43,30 +52,41 @@ final class PermissionManager
             'view_dashboard',
             'view_update_notice',
             'manage_pages',
+            'manage_homepage',
             'manage_media',
             'manage_forms',
             'manage_blog',
             'manage_products',
+            'manage_product_categories',
+            'view_leads',
+            'manage_inquiries',
             'manage_basic_settings',
             'manage_basic_seo',
+            'manage_privacy_basic',
             'manage_privacy',
         ],
         'admin' => [
             'view_dashboard',
             'view_update_notice',
             'manage_pages',
+            'manage_homepage',
             'manage_media',
             'manage_forms',
             'manage_blog',
             'manage_products',
+            'manage_product_categories',
+            'view_leads',
+            'manage_inquiries',
             'manage_basic_settings',
             'manage_basic_seo',
+            'manage_privacy_basic',
             'manage_privacy',
         ],
         'editor' => [
             'view_dashboard',
             'view_update_notice',
             'manage_pages',
+            'manage_homepage',
             'manage_media',
             'manage_blog',
             'manage_basic_seo',
@@ -75,6 +95,7 @@ final class PermissionManager
             'view_dashboard',
             'view_update_notice',
             'manage_pages',
+            'manage_homepage',
             'manage_media',
             'manage_basic_seo',
             'manage_advanced_seo',
@@ -85,6 +106,9 @@ final class PermissionManager
             'manage_pages',
             'manage_media',
             'manage_blog',
+            'manage_campaign_pages',
+            'manage_reviews_trust',
+            'manage_privacy_basic',
             'manage_privacy',
             'manage_privacy_scripts',
         ],
@@ -96,6 +120,7 @@ final class PermissionManager
 
     public function can(?array $user, string $permission): bool
     {
+        $permission = $this->canonicalPermission($permission);
         if (!$user || !in_array($permission, self::ALL_PERMISSIONS, true)) {
             return false;
         }
@@ -139,6 +164,21 @@ final class PermissionManager
             return false;
         }
 
+        $visibleForRoles = $menuItem['visible_for_roles'] ?? [];
+        if (is_string($visibleForRoles)) {
+            $visibleForRoles = [$visibleForRoles];
+        }
+        if (is_array($visibleForRoles) && $visibleForRoles !== []) {
+            $role = $this->normalizedRole($user);
+            if (!in_array($role, array_map('strval', $visibleForRoles), true)) {
+                return false;
+            }
+        }
+
+        if (!empty($menuItem['is_orphaned']) && !$this->isInternalUser($user)) {
+            return false;
+        }
+
         if ($this->isInternalUser($user)) {
             return !array_key_exists('visible_in_admin_nav', $menuItem) || (bool) $menuItem['visible_in_admin_nav'];
         }
@@ -172,6 +212,11 @@ final class PermissionManager
         return false;
     }
 
+    public function canManageTechnicalSettings(?array $user): bool
+    {
+        return $user !== null && $this->isInternalUser($user);
+    }
+
     /**
      * @return array<int, string>
      */
@@ -180,8 +225,9 @@ final class PermissionManager
         $role = $this->normalizedRole($user);
         $permissions = self::ROLE_PERMISSIONS[$role] ?? self::ROLE_PERMISSIONS['editor'];
         $permissions = array_values(array_unique(array_merge($permissions, $this->rolePermissionsFromDatabase($role), $this->userPermissionsFromDatabase((int) ($user['id'] ?? 0)))));
+        $permissions = array_map(fn (string $permission): string => $this->canonicalPermission($permission), $permissions);
 
-        return array_values(array_intersect($permissions, self::ALL_PERMISSIONS));
+        return array_values(array_intersect(array_values(array_unique($permissions)), self::ALL_PERMISSIONS));
     }
 
     public function normalizedRole(array $user): string
@@ -196,6 +242,16 @@ final class PermissionManager
         }
 
         return $role;
+    }
+
+    private function canonicalPermission(string $permission): string
+    {
+        return match ($permission) {
+            'manage_themes' => 'manage_theme',
+            'view_health' => 'view_system_health',
+            'manage_privacy' => 'manage_privacy_basic',
+            default => $permission,
+        };
     }
 
     public function isInternalUser(array $user): bool

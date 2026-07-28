@@ -66,13 +66,13 @@ return static function (array $container, PDO $pdo, array $module): array {
         foreach ($repo->all(false) as $page) {
             $rows .= '<tr><td><b>' . $h($page['name']) . '</b><br><small>/lp/' . $h($page['slug']) . '</small></td><td>' . $h($page['campaign_source']) . '</td><td>' . $h($page['status']) . '</td><td>' . $h($page['updated_at']) . '</td><td><div class="actions"><a class="button secondary" href="/admin/landing-pages?id=' . (int) $page['id'] . '">Edytuj</a><form method="post" onsubmit="return confirm(\'Usunąć stronę kampanii?\')">' . Csrf::field() . '<input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' . (int) $page['id'] . '"><button class="secondary">Usuń</button></form></div></td></tr>';
         }
-        $list = '<section class="panel"><h2>Landing pages</h2><table><thead><tr><th>Nazwa</th><th>Kampania</th><th>Status</th><th>Aktualizacja</th><th></th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="5">Brak stron kampanii.</td></tr>') . '</tbody></table></section>';
+        $list = '<section class="panel"><h2>Strony kampanii</h2><table><thead><tr><th>Nazwa</th><th>Kampania</th><th>Status</th><th>Aktualizacja</th><th></th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="5">Brak stron kampanii.</td></tr>') . '</tbody></table></section>';
 
-        $view->render('Landing pages', $message . $form . $list, $user);
+        $view->render('Strony kampanii', $message . $form . $list, $user);
     };
 
     return [
-        'nav' => ['/admin/landing-pages' => 'Landing pages'],
+        'nav' => ['/admin/landing-pages' => 'Strony kampanii'],
         'routes' => ['/admin/landing-pages' => $screen],
     ];
 };

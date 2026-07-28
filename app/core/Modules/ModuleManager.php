@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Reklamova\Cms\Modules;
 
 use PDO;
+use Reklamova\Cms\Content\ContentRegistry;
 
 final class ModuleManager
 {
@@ -153,6 +154,7 @@ final class ModuleManager
     public function adminExtensions(PDO $pdo): array
     {
         $extensions = ['nav' => [], 'routes' => []];
+        $registry = new ContentRegistry();
 
         foreach ($this->activeModules($pdo) as $slug => $module) {
             if (isset($module['visible_in_admin_nav']) && !(bool) $module['visible_in_admin_nav']) {
@@ -169,10 +171,11 @@ final class ModuleManager
             }
 
             $extension = $factory($this->container, $pdo, $module);
-            $extensions['nav'] = array_merge($extensions['nav'], $this->normalizeNavigation($slug, $module, $extension['nav'] ?? []));
+            $extensions['nav'] = array_merge($extensions['nav'], $this->normalizeNavigation($slug, $module, $extension['nav'] ?? [], $registry));
             $extensions['routes'] = array_merge($extensions['routes'], $extension['routes'] ?? []);
         }
 
+        $extensions['nav'] = $this->deduplicateNavigation($extensions['nav']);
         uasort($extensions['nav'], static fn (array $a, array $b): int => ((int) ($a['sort_order'] ?? 500)) <=> ((int) ($b['sort_order'] ?? 500)));
 
         return $extensions;
@@ -266,11 +269,13 @@ final class ModuleManager
                     source = VALUES(source),
                     locked = GREATEST(locked, VALUES(locked)),
                     system = GREATEST(system, VALUES(system)),
+                    visible_in_client_nav = VALUES(visible_in_client_nav),
                     visible_in_admin_nav = VALUES(visible_in_admin_nav),
+                    client_manageable = VALUES(client_manageable),
                     requires_json = VALUES(requires_json),
                     permissions_json = VALUES(permissions_json),
-                    menu_group = COALESCE(NULLIF(menu_group, ""), VALUES(menu_group)),
-                    menu_label = COALESCE(NULLIF(menu_label, ""), VALUES(menu_label)),
+                    menu_group = VALUES(menu_group),
+                    menu_label = VALUES(menu_label),
                     sort_order = IF(sort_order IS NULL OR sort_order = 500, VALUES(sort_order), sort_order),
                     updated_at = CURRENT_TIMESTAMP'
             );
@@ -364,12 +369,12 @@ final class ModuleManager
      * @param array<string, mixed> $nav
      * @return array<string, array<string, mixed>>
      */
-    private function normalizeNavigation(string $slug, array $module, array $nav): array
+    private function normalizeNavigation(string $slug, array $module, array $nav, ContentRegistry $registry): array
     {
         $items = [];
         $index = 0;
         foreach ($nav as $href => $item) {
-            $data = is_array($item) ? $item : ['label' => (string) $item];
+            $data = $registry->normalizeMenuItem((string) $href, $module, $item);
             $items[(string) $href] = [
                 'label' => (string) ($data['label'] ?? $module['menu_label'] ?? $module['name'] ?? $slug),
                 'permission' => (string) ($data['permission'] ?? ($module['permissions'][0] ?? $this->defaultPermissionForSlug($slug))),
@@ -379,6 +384,13 @@ final class ModuleManager
                 'visible_in_client_nav' => (bool) ($data['visible_in_client_nav'] ?? $module['visible_in_client_nav'] ?? false),
                 'visible_in_admin_nav' => (bool) ($data['visible_in_admin_nav'] ?? $module['visible_in_admin_nav'] ?? true),
                 'client_manageable' => (bool) ($data['client_manageable'] ?? $module['client_manageable'] ?? false),
+                'description' => (string) ($data['public_description'] ?? $module['description'] ?? ''),
+                'where_it_appears' => (string) ($data['where_it_appears'] ?? ''),
+                'icon' => (string) ($data['icon'] ?? ''),
+                'nav_key' => (string) ($data['nav_key'] ?? $href),
+                'module_source' => (string) ($data['module_source'] ?? ($module['source'] ?? 'official')),
+                'is_site_specific' => (bool) ($data['is_site_specific'] ?? (($module['source'] ?? '') === 'custom')),
+                'internal_only' => (bool) ($data['internal_only'] ?? false),
             ];
             $index++;
         }
@@ -386,30 +398,89 @@ final class ModuleManager
         return $items;
     }
 
+    /**
+     * @param array<string, array<string, mixed>> $nav
+     * @return array<string, array<string, mixed>>
+     */
+    private function deduplicateNavigation(array $nav): array
+    {
+        $byKey = [];
+        foreach ($nav as $href => $item) {
+            $key = (string) ($item['nav_key'] ?? $href);
+            if (!isset($byKey[$key]) || $this->menuItemPriority($item) > $this->menuItemPriority($byKey[$key])) {
+                $item['href'] = (string) ($item['href'] ?? $href);
+                $byKey[$key] = $item;
+            }
+        }
+
+        $deduplicated = [];
+        foreach ($byKey as $item) {
+            $deduplicated[(string) ($item['href'] ?? '#')] = $item;
+        }
+
+        return $deduplicated;
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     */
+    private function menuItemPriority(array $item): int
+    {
+        $priority = 10;
+        if (!empty($item['is_site_specific'])) {
+            $priority += 20;
+        }
+        if (($item['module_source'] ?? '') === 'custom') {
+            $priority += 20;
+        }
+        if (!empty($item['visible_in_client_nav'])) {
+            $priority += 5;
+        }
+
+        return $priority;
+    }
+
     private function defaultPermissionForSlug(string $slug): string
     {
         return match ($slug) {
             'catalog' => 'manage_products',
             'knowledge' => 'manage_blog',
-            'leads', 'forms' => 'manage_forms',
+            'business' => 'manage_homepage',
+            'leads' => 'view_leads',
+            'forms' => 'manage_forms',
             'media' => 'manage_media',
-            'privacy' => 'manage_privacy',
+            'landing' => 'manage_campaign_pages',
+            'trust' => 'manage_reviews_trust',
+            'privacy' => 'manage_privacy_basic',
             'updates' => 'manage_updates',
-            'themes' => 'manage_themes',
+            'themes' => 'manage_theme',
             'modules' => 'manage_modules',
-            'health' => 'view_health',
+            'health' => 'view_system_health',
             default => 'manage_pages',
         };
     }
 
     private function defaultMenuGroupForSlug(string $slug): string
     {
-        return match ($slug) {
-            'catalog' => 'Sprzedaż',
-            'landing', 'privacy', 'trust' => 'Marketing',
-            'updates', 'themes', 'modules', 'health', 'seo' => 'Reklamova / techniczne',
-            default => 'Treść',
-        };
+        $labels = [
+            'catalog' => 'Oferta',
+            'leads' => 'Kontakt',
+            'forms' => 'Kontakt',
+            'settings' => 'Ustawienia',
+            'updates' => 'Reklamova',
+            'themes' => 'Reklamova',
+            'modules' => 'Reklamova',
+            'health' => 'Reklamova',
+            'seo' => 'Reklamova',
+        ];
+        if (isset($labels[$slug])) {
+            return $labels[$slug];
+        }
+        if (in_array($slug, ['landing', 'privacy', 'trust'], true)) {
+            return 'Marketing';
+        }
+
+        return 'Treści';
     }
 
     private function defaultSortOrderForSlug(string $slug): int

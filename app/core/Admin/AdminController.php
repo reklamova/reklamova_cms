@@ -278,6 +278,63 @@ final class AdminController
         $leads = $this->countFirstExistingTable(['cms_leads', 'mero_leads']);
         $articles = $this->countFirstExistingTable(['knowledge_articles', 'mero_articles']);
         $config = new Config($this->container);
+        $siteName = (string) $config->get('app', 'client_name', $config->get('app', 'name', ''));
+        $displayName = (string) ($user['name'] ?: $user['email']);
+        $quickActions = [];
+        $updateStatus = (new UpdateClient($this->container))->cachedStatus() ?: [];
+        $updateBody = $updateStatus['result']['body'] ?? [];
+        $updateNotice = '';
+
+        if (!empty($updateBody['update_available']) && $this->permissions->can($user, 'manage_updates')) {
+            $latest = $this->h((string) ($updateBody['latest_version'] ?? 'nowa wersja'));
+            $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja</span><h2>Nowa wersja CMS jest gotowa</h2><p>Możesz ją uruchomić jednym kliknięciem. Przed zmianą system wykona kopię bezpieczeństwa.</p></div><a class="button" href="/admin/system">Przejdź do aktualizacji ' . $latest . '</a></section>';
+        } elseif (!empty($updateBody['update_available']) && $this->permissions->can($user, 'view_update_notice')) {
+            $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja CMS</span><h2>Dostępna jest nowa wersja panelu</h2><p>Zawiera poprawki bezpieczeństwa i usprawnienia obsługi strony. Szczegóły techniczne są po stronie Reklamova.</p></div></section>';
+        }
+
+        if ($this->moduleActive('business') && $this->permissions->can($user, 'manage_homepage')) {
+            $quickActions[] = $this->quickAction('/admin/business', 'Edytuj stronę główną', 'Zmień główne sekcje widoczne na starcie.');
+        }
+        if ($this->permissions->can($user, 'manage_pages')) {
+            $quickActions[] = $this->quickAction('/admin/pages/edit', 'Dodaj podstronę', 'Utwórz nową podstronę i ustaw jej widoczność.');
+            $quickActions[] = $this->quickAction('/admin/pages', 'Lista podstron', 'Edytuj opublikowane strony i szkice.');
+        }
+        if ($this->moduleActive('catalog') && $this->permissions->can($user, 'manage_products')) {
+            $quickActions[] = $this->quickAction('/admin/catalog/products?new=1', 'Dodaj produkt', 'Utwórz osobną kartę produktu w katalogu.');
+        }
+        if ($this->permissions->can($user, 'view_leads') || $this->permissions->can($user, 'manage_inquiries')) {
+            $quickActions[] = $this->quickAction($this->moduleActive('mero') ? '/admin/mero/leads' : '/admin/leads', 'Sprawdź zapytania', 'Zobacz wiadomości z formularzy i kalkulatorów.');
+        }
+        if ($this->permissions->can($user, 'manage_media')) {
+            $quickActions[] = $this->quickAction('/admin/media', 'Wgraj zdjęcie', 'Dodaj zdjęcia i pliki do biblioteki Media.');
+        }
+        if (($this->moduleActive('knowledge') || $this->moduleActive('mero')) && $this->permissions->can($user, 'manage_blog')) {
+            $quickActions[] = $this->quickAction($this->moduleActive('mero') ? '/admin/mero/articles' : '/admin/knowledge', 'Dodaj wpis do poradnika', 'Opublikuj artykuł lub poradę dla klientów.');
+        }
+        if ($this->moduleActive('privacy') && $this->permissions->can($user, 'manage_privacy_basic')) {
+            $quickActions[] = $this->quickAction('/admin/privacy', 'Prywatność i cookies', 'Zmień komunikat cookies i podstawowe dokumenty.');
+        }
+
+        $content = '<section class="panel dashboard-hero"><div><span class="eyebrow">Panel strony</span><h2>Witaj, ' . $this->h($siteName !== '' ? $siteName : $displayName) . '</h2><p>Zarządzaj treściami, zdjęciami, produktami i zapytaniami na stronie. Ustawienia techniczne obsługuje Reklamova.</p></div><div class="dashboard-hero__actions"><a class="button" href="/admin/pages">Edytuj podstrony</a><a class="button secondary" href="/" target="_blank" rel="noopener">Zobacz stronę</a></div></section>'
+            . '<div class="grid dashboard-grid">'
+            . $this->metric('Podstrony', (string) $pages)
+            . $this->metric('Media', (string) $media)
+            . $this->metric('Zapytania', (string) $leads)
+            . $this->metric('Poradnik', (string) $articles)
+            . '</div>'
+            . $updateNotice
+            . '<section class="panel quick-panel"><div class="panel-heading"><span class="eyebrow">Szybkie akcje</span><h2>Najczęściej używane</h2></div><div class="quick-grid">'
+            . implode('', $quickActions)
+            . '</div></section>';
+
+        $this->view->render('Dashboard', $content, $user);
+        return;
+
+        $pages = $this->countTable('cms_pages');
+        $media = $this->countTable('cms_media');
+        $leads = $this->countFirstExistingTable(['cms_leads', 'mero_leads']);
+        $articles = $this->countFirstExistingTable(['knowledge_articles', 'mero_articles']);
+        $config = new Config($this->container);
         $siteName = (string) $config->get('app', 'name', 'stroną');
         $displayName = (string) ($user['name'] ?: $user['email']);
         $updateStatus = (new UpdateClient($this->container))->cachedStatus() ?: [];
@@ -376,7 +433,11 @@ final class AdminController
 
         $content = $summary . '<section class="panel"><h2>Lista podstron</h2><table class="page-table"><thead><tr><th>Tytuł</th><th>Adres</th><th>Status</th><th>Szablon</th><th>Menu</th><th>Aktualizacja</th><th></th></tr></thead><tbody>' . ($body ?: '<tr><td colspan="7">Brak podstron.</td></tr>') . '</tbody></table></section>';
 
-        $this->view->render('Strony', $content, $user);
+        if (!$this->permissions->canManageTechnicalSettings($user)) {
+            $content = '<div class="client-simple-page-list">' . $content . '</div>';
+        }
+
+        $this->view->render('Podstrony', $content, $user);
     }
 
     private function editPage(array $user): void
@@ -396,6 +457,7 @@ final class AdminController
                     }
 
                     $beforePage = $id ? $repo->find($id) : null;
+                    $this->preserveRestrictedPageFields($_POST, $beforePage, $user);
                     $savedId = $repo->save($_POST, $id, (int) $user['id']);
                     $this->activity->log($user, $id ? 'page.updated' : 'page.created', 'page', $savedId, $beforePage, ['title' => $_POST['title'] ?? '', 'status' => $_POST['status'] ?? 'draft']);
                     Url::redirect('/admin/pages/edit?id=' . $savedId . '&saved=1');
@@ -522,6 +584,25 @@ final class AdminController
             $privacyPanel .= '<section class="panel"><h2>Historia wersji</h2><table><thead><tr><th>Wersja</th><th>Tytuł</th><th>Data</th><th></th></tr></thead><tbody>' . ($revisions ?: '<tr><td colspan="4">Historia pojawi się po pierwszej zmianie strony.</td></tr>') . '</tbody></table></section>';
         }
 
+        if (!$this->permissions->can($user, 'manage_privacy_scripts')) {
+            $privacyPanel = $id ? preg_replace('#<section class="panel"><h2>Skrypty / Prywatno.*?</section>#s', '', $privacyPanel) ?? $privacyPanel : '';
+        }
+
+        if (!$this->permissions->canManageTechnicalSettings($user)) {
+            foreach ([
+                '#<label class="field">[^<]*<select name="template">.*?</label>#s',
+                '#<label class="field">[^<]*<input name="published_at".*?</label>#s',
+                '#<label class="field">[^<]*<input type="number" name="sort_order".*?</label>#s',
+                '#<label class="field">[^<]*<input type="number" name="routing_priority".*?</label>#s',
+                '#<label class="field">[^<]*<select name="parent_id">.*?</label>#s',
+                '#<label class="field field--switch"><input type="checkbox" name="hide_title".*?</label>#s',
+                '#<label class="field">[^<]*<select name="layout_width">.*?</label>#s',
+                '#<section class="panel page-editor__panel"><div class="page-editor__head"><div><span class="eyebrow">Import HTML.*?</section>#s',
+            ] as $pattern) {
+                $content = preg_replace($pattern, '', $content) ?? $content;
+            }
+        }
+
         if (!$this->permissions->can($user, 'manage_advanced_seo')) {
             $content = preg_replace('#<label class="field">Robots.*?</label>#s', '', $content) ?? $content;
             $content = preg_replace('#<label class="field field--half">Canonical URL.*?</label>#s', '', $content) ?? $content;
@@ -536,6 +617,33 @@ final class AdminController
         ) ?? $content;
 
         $this->view->render($id ? 'Edycja strony' : 'Nowa strona', $saved . $errorHtml . $content . $privacyPanel, $user);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, mixed>|null $beforePage
+     */
+    private function preserveRestrictedPageFields(array &$data, ?array $beforePage, array $user): void
+    {
+        if (!$beforePage) {
+            return;
+        }
+
+        if (!$this->permissions->canManageTechnicalSettings($user)) {
+            foreach (['template', 'published_at', 'sort_order', 'routing_priority', 'parent_id', 'settings_json', 'source_html'] as $field) {
+                if (array_key_exists($field, $beforePage)) {
+                    $data[$field] = $beforePage[$field];
+                }
+            }
+        }
+
+        if (!$this->permissions->can($user, 'manage_advanced_seo')) {
+            foreach (['canonical_url', 'robots', 'og_image', 'schema_json'] as $field) {
+                if (array_key_exists($field, $beforePage)) {
+                    $data[$field] = $beforePage[$field];
+                }
+            }
+        }
     }
 
     private function previewPage(array $user): void
@@ -850,7 +958,7 @@ final class AdminController
                 . '<td>' . $button . '</td></tr>';
         }
 
-        $content = '<section class="panel system-hero"><div><span class="eyebrow">Reklamova / techniczne</span><h2>Moduły strony</h2><p>Włączaj tylko te moduły, których dana strona faktycznie używa. Moduły systemowe pozostają zablokowane, żeby nie uszkodzić instalacji.</p></div></section>'
+        $content = '<section class="panel system-hero"><div><span class="eyebrow">Reklamova</span><h2>Moduły strony</h2><p>Włączaj tylko te moduły, których dana strona faktycznie używa. Moduły systemowe pozostają zablokowane, żeby nie uszkodzić instalacji.</p></div></section>'
             . '<section class="panel"><table><thead><tr><th>Moduł</th><th>Status</th><th>Typ</th><th>Wersja</th><th>Menu klienta</th><th>Klient zarządza</th><th></th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="7">Brak modułów do pokazania.</td></tr>') . '</tbody></table></section>';
         $this->view->render('Moduły strony', $content, $user);
         return;
@@ -994,8 +1102,11 @@ final class AdminController
         $status = $client->localStatus();
         $result = null;
         $error = null;
+        $canManageUpdates = $this->permissions->can($user, 'manage_updates');
 
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !$canManageUpdates) {
+            $error = 'Aktualizacje CMS wykonuje Reklamova.';
+        } elseif (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
             $action = (string) ($_POST['action'] ?? 'check');
             try {
                 $health = (new HealthCheck($this->container))->run();
@@ -1086,6 +1197,13 @@ final class AdminController
             '<button name="action" value="dry_run" data-progress-title="Sprawdzam bezpieczeństwo aktualizacji" data-progress-message="Pobieram paczkę testowo i sprawdzam wymagania bez zmiany plików.">Test aktualizacji</button><button name="action" value="apply"',
             $content
         );
+        if (!$canManageUpdates) {
+            $content = preg_replace(
+                '#<form method="post" class="actions update-form".*?</form>#s',
+                '<div class="update-client-note"><p>Dostępność aktualizacji obsługuje Reklamova. Klient nie musi sprawdzać szczegółów technicznych ani wykonywać operacji systemowych.</p></div>',
+                $content
+            ) ?? $content;
+        }
 
         if ($error) {
             $content .= '<section class="panel error-panel"><h2>Aktualizacja została przerwana</h2><p>Dane strony nie zostały usunięte. Jeśli komunikat powtórzy się po ponownej próbie, skontaktuj się z Reklamova.</p>'
@@ -1153,10 +1271,10 @@ final class AdminController
             '/admin/settings' => 'manage_basic_settings',
             '/admin/modules' => 'manage_modules',
             '/admin/installations', '/admin/installations/modules' => 'manage_installations',
-            '/admin/themes' => 'manage_themes',
+            '/admin/themes' => 'manage_theme',
             '/admin/system' => 'manage_updates',
             '/admin/updates' => 'view_update_notice',
-            '/admin/health' => 'view_health',
+            '/admin/health' => 'view_system_health',
             '/admin/account' => 'view_dashboard',
             default => null,
         };
@@ -1165,11 +1283,16 @@ final class AdminController
     private function permissionForModuleRoute(string $path): string
     {
         return match (true) {
-            str_contains($path, 'lead') || str_contains($path, 'form') => 'manage_forms',
+            str_contains($path, 'lead') => 'manage_inquiries',
+            str_contains($path, 'form') => 'manage_forms',
+            str_contains($path, 'business') => 'manage_homepage',
             str_contains($path, 'knowledge') || str_contains($path, 'article') || str_contains($path, 'blog') => 'manage_blog',
+            str_contains($path, 'categories') => 'manage_product_categories',
             str_contains($path, 'catalog') || str_contains($path, 'product') => 'manage_products',
             str_contains($path, 'privacy/scripts') => 'manage_privacy_scripts',
-            str_contains($path, 'privacy') => 'manage_privacy',
+            str_contains($path, 'privacy') => 'manage_privacy_basic',
+            str_contains($path, 'landing') => 'manage_campaign_pages',
+            str_contains($path, 'trust') => 'manage_reviews_trust',
             default => 'manage_pages',
         };
     }
@@ -1309,6 +1432,11 @@ HTML;
         }
 
         return $versions;
+    }
+
+    private function moduleActive(string $slug): bool
+    {
+        return array_key_exists($slug, (new ModuleManager($this->container))->activeModules($this->pdo));
     }
 
     private function slugify(string $value): string
