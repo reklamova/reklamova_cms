@@ -112,5 +112,10 @@ return static function (array $container, PDO $pdo, array $module): array {
             '/admin/knowledge/categories' => static fn (AdminView $view, array $user) => $simple($view, $user, 'categories'),
             '/admin/knowledge/authors' => static fn (AdminView $view, array $user) => $simple($view, $user, 'authors'),
         ],
+        'route_permissions' => [
+            '/admin/knowledge' => ['GET' => 'manage_blog', 'POST' => 'manage_blog'],
+            '/admin/knowledge/categories' => ['GET' => 'manage_blog', 'POST' => 'manage_blog'],
+            '/admin/knowledge/authors' => ['GET' => 'manage_blog', 'POST' => 'manage_blog'],
+        ],
     ];
 };

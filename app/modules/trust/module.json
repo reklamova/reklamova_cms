@@ -7,6 +7,8 @@
   "visible_in_client_nav": true,
   "visible_in_admin_nav": true,
   "client_manageable": true,
+  "requires_theme_placement": true,
+  "placement_key": "trust_center",
   "menu_group": "Marketing",
   "menu_label": "Opinie i wiarygodność",
   "sort_order": 170,

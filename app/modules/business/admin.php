@@ -234,12 +234,17 @@ return static function (array $container, PDO $pdo, array $module): array {
     $routes = [
         '/admin/business' => $dashboard,
     ];
+    $routePermissions = [
+        '/admin/business' => ['GET' => 'manage_homepage', 'POST' => 'manage_homepage'],
+    ];
     foreach (array_keys($sections) as $type) {
         $routes[$sections[$type]['route']] = static fn (AdminView $view, array $user) => $renderSection($view, $user, $type);
+        $routePermissions[$sections[$type]['route']] = ['GET' => 'manage_homepage', 'POST' => 'manage_homepage'];
     }
 
     return [
         'nav' => ['/admin/business' => 'Strona główna'],
         'routes' => $routes,
+        'route_permissions' => $routePermissions,
     ];
 };

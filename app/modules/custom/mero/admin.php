@@ -2,10 +2,12 @@
 
 use Reklamova\Cms\Admin\AdminView;
 use Reklamova\Cms\Auth\Csrf;
+use Reklamova\Cms\Auth\PermissionManager;
 use Reklamova\Cms\Support\Url;
 
 return static function (array $container, PDO $pdo, array $module): array {
     $h = static fn (mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES);
+    $permissions = new PermissionManager($pdo, $container);
 
     $settings = static function () use ($pdo): array {
         $statement = $pdo->prepare('SELECT setting_value FROM cms_settings WHERE setting_key = "mero.calculator"');
@@ -81,8 +83,13 @@ return static function (array $container, PDO $pdo, array $module): array {
 
                 $view->render('Kalkulator budowy', $content, $user);
             },
-            '/admin/mero/leads' => static function (AdminView $view, array $user) use ($pdo, $h): void {
+            '/admin/mero/leads' => static function (AdminView $view, array $user) use ($pdo, $h, $permissions): void {
+                $canManage = $permissions->can($user, 'manage_inquiries');
                 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
+                    if (!$canManage) {
+                        $view->render('Zapytania', '<section class="panel error-panel"><h2>Brak uprawnieĹ„</h2><p>MoĹĽesz czytaÄ‡ zapytania, ale zmiana statusu wymaga dodatkowego uprawnienia.</p></section>', $user);
+                        return;
+                    }
                     $statement = $pdo->prepare('UPDATE mero_leads SET status = ?, notes = ? WHERE id = ?');
                     $statement->execute([
                         trim((string) ($_POST['status'] ?? 'new')),
@@ -96,13 +103,16 @@ return static function (array $container, PDO $pdo, array $module): array {
                 $body = '';
                 foreach ($rows as $row) {
                     $payload = json_decode((string) ($row['payload'] ?? '{}'), true) ?: [];
+                    $statusCell = $canManage
+                        ? '<form method="post">' . Csrf::field() . '<input type="hidden" name="id" value="' . (int) $row['id'] . '">'
+                            . '<label>Status<input name="status" value="' . $h($row['status']) . '"></label>'
+                            . '<label>Notatki<textarea name="notes">' . $h($row['notes'] ?? '') . '</textarea></label><button>Zapisz</button></form>'
+                        : '<b>' . $h($row['status']) . '</b><br><small>' . $h($row['notes'] ?? '') . '</small>';
                     $body .= '<tr><td><b>' . $h($row['name']) . '</b><br>' . $h($row['phone']) . '<br>' . $h($row['email']) . '</td>'
                         . '<td>' . $h($row['type']) . '<br><small>' . $h($row['source']) . '</small></td>'
                         . '<td>' . $h($row['created_at']) . '<br><small>' . $h($row['location']) . '</small></td>'
                         . '<td><pre>' . $h(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) . '</pre></td>'
-                        . '<td><form method="post">' . Csrf::field() . '<input type="hidden" name="id" value="' . (int) $row['id'] . '">'
-                        . '<label>Status<input name="status" value="' . $h($row['status']) . '"></label>'
-                        . '<label>Notatki<textarea name="notes">' . $h($row['notes'] ?? '') . '</textarea></label><button>Zapisz</button></form></td></tr>';
+                        . '<td>' . $statusCell . '</td></tr>';
                 }
 
                 $saved = isset($_GET['saved']) ? '<div class="notice">Lead zostal zaktualizowany.</div>' : '';
@@ -175,6 +185,11 @@ return static function (array $container, PDO $pdo, array $module): array {
 
                 $view->render('Poradnik', $content, $user);
             },
+        ],
+        'route_permissions' => [
+            '/admin/mero/calculator' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
+            '/admin/mero/leads' => ['GET' => 'view_leads', 'POST' => 'manage_inquiries'],
+            '/admin/mero/articles' => ['GET' => 'manage_blog', 'POST' => 'manage_blog'],
         ],
     ];
 };

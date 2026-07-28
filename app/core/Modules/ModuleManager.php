@@ -6,6 +6,7 @@ namespace Reklamova\Cms\Modules;
 
 use PDO;
 use Reklamova\Cms\Content\ContentRegistry;
+use Reklamova\Cms\Support\Config;
 
 final class ModuleManager
 {
@@ -44,6 +45,7 @@ final class ModuleManager
         }
         $configured = $this->configuredModules();
         $state = $pdo ? $this->moduleState($pdo) : [];
+        $placements = $this->modulePlacements();
         $active = [];
 
         foreach ($modules as $slug => $module) {
@@ -61,6 +63,7 @@ final class ModuleManager
             if ($enabled) {
                 $module['enabled'] = true;
                 $module['_path'] = dirname((string) ($module['_manifest'] ?? $this->manifestPath($slug, (string) ($module['source'] ?? 'official'))));
+                $module = $this->withPlacementMetadata($slug, $module, $placements);
                 $active[$slug] = $module;
             }
         }
@@ -153,7 +156,7 @@ final class ModuleManager
 
     public function adminExtensions(PDO $pdo): array
     {
-        $extensions = ['nav' => [], 'routes' => []];
+        $extensions = ['nav' => [], 'routes' => [], 'route_permissions' => []];
         $registry = new ContentRegistry();
 
         foreach ($this->activeModules($pdo) as $slug => $module) {
@@ -171,8 +174,14 @@ final class ModuleManager
             }
 
             $extension = $factory($this->container, $pdo, $module);
-            $extensions['nav'] = array_merge($extensions['nav'], $this->normalizeNavigation($slug, $module, $extension['nav'] ?? [], $registry));
-            $extensions['routes'] = array_merge($extensions['routes'], $extension['routes'] ?? []);
+            $nav = $this->normalizeNavigation($slug, $module, $extension['nav'] ?? [], $registry);
+            $routes = $extension['routes'] ?? [];
+            $extensions['nav'] = array_merge($extensions['nav'], $nav);
+            $extensions['routes'] = array_merge($extensions['routes'], $routes);
+            $extensions['route_permissions'] = array_merge(
+                $extensions['route_permissions'],
+                $this->normalizeRoutePermissions($slug, $module, $routes, $extension['route_permissions'] ?? [], $nav, $registry)
+            );
         }
 
         $extensions['nav'] = $this->deduplicateNavigation($extensions['nav']);
@@ -365,6 +374,59 @@ final class ModuleManager
     }
 
     /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function modulePlacements(): array
+    {
+        $placements = [];
+        $configPath = (string) ($this->container['config_path'] ?? '') . '/placements.php';
+        if (is_file($configPath)) {
+            $local = require $configPath;
+            if (is_array($local)) {
+                $placements = $local;
+            }
+        }
+
+        $theme = (string) (new Config($this->container))->get('app', 'active_theme', 'client-default');
+        $themeManifest = (string) ($this->container['app_path'] ?? '') . '/themes/' . basename($theme) . '/theme.json';
+        if (is_file($themeManifest)) {
+            $manifest = json_decode((string) file_get_contents($themeManifest), true) ?: [];
+            if (isset($manifest['placements']) && is_array($manifest['placements'])) {
+                $placements = array_replace_recursive($manifest['placements'], $placements);
+            }
+        }
+
+        return array_filter($placements, static fn (mixed $placement): bool => is_array($placement));
+    }
+
+    /**
+     * @param array<string, mixed> $module
+     * @param array<string, array<string, mixed>> $placements
+     * @return array<string, mixed>
+     */
+    private function withPlacementMetadata(string $slug, array $module, array $placements): array
+    {
+        $placementKey = (string) ($module['placement_key'] ?? ($slug === 'trust' ? 'trust_center' : $slug));
+        $placement = $placements[$placementKey] ?? $placements[$slug] ?? [];
+        $requiresPlacement = !empty($module['requires_theme_placement']);
+        $hasPlacement = !empty($placement['enabled']);
+        $forceVisible = !empty($module['force_client_visible']) || !empty($placement['force_visible']) || !empty($placement['force_client_visible']);
+
+        $module['placement_key'] = $placementKey;
+        $module['placement'] = is_array($placement) ? $placement : [];
+        $module['has_theme_placement'] = $hasPlacement;
+        $module['force_client_visible'] = $forceVisible;
+        $module['is_orphaned'] = $requiresPlacement && !$hasPlacement && !$forceVisible;
+
+        if (!empty($module['is_orphaned'])) {
+            $module['visible_in_client_nav'] = false;
+            $module['client_manageable'] = false;
+        }
+
+        return $module;
+    }
+
+    /**
      * @param array<string, mixed> $module
      * @param array<string, mixed> $nav
      * @return array<string, array<string, mixed>>
@@ -391,11 +453,67 @@ final class ModuleManager
                 'module_source' => (string) ($data['module_source'] ?? ($module['source'] ?? 'official')),
                 'is_site_specific' => (bool) ($data['is_site_specific'] ?? (($module['source'] ?? '') === 'custom')),
                 'internal_only' => (bool) ($data['internal_only'] ?? false),
+                'requires_theme_placement' => (bool) ($module['requires_theme_placement'] ?? false),
+                'has_theme_placement' => (bool) ($module['has_theme_placement'] ?? false),
+                'force_client_visible' => (bool) ($module['force_client_visible'] ?? false),
+                'is_orphaned' => (bool) ($module['is_orphaned'] ?? false),
+                'placement_key' => (string) ($module['placement_key'] ?? ''),
             ];
             $index++;
         }
 
         return $items;
+    }
+
+    /**
+     * @param array<string, callable> $routes
+     * @param array<string, mixed> $explicit
+     * @param array<string, array<string, mixed>> $nav
+     * @return array<string, array<string, mixed>>
+     */
+    private function normalizeRoutePermissions(string $slug, array $module, array $routes, array $explicit, array $nav, ContentRegistry $registry): array
+    {
+        $permissions = [];
+        foreach ($routes as $path => $_handler) {
+            $path = (string) $path;
+            $routeConfig = $explicit[$path] ?? [];
+            $fallback = (string) ($nav[$path]['permission'] ?? '');
+            if ($fallback === '') {
+                $record = $registry->recordForRoute($path, $slug);
+                $fallback = (string) ($record['required_permission'] ?? ($module['permissions'][0] ?? $this->defaultPermissionForSlug($slug)));
+            }
+
+            $meta = [
+                'GET' => $fallback,
+                'POST' => $fallback,
+                'module' => $slug,
+                'requires_theme_placement' => (bool) ($module['requires_theme_placement'] ?? false),
+                'has_theme_placement' => (bool) ($module['has_theme_placement'] ?? false),
+                'force_client_visible' => (bool) ($module['force_client_visible'] ?? false),
+                'is_orphaned' => (bool) ($module['is_orphaned'] ?? false),
+            ];
+
+            if (is_string($routeConfig)) {
+                $meta['GET'] = $routeConfig;
+                $meta['POST'] = $routeConfig;
+            } elseif (is_array($routeConfig)) {
+                $default = (string) ($routeConfig['permission'] ?? $routeConfig['default'] ?? '');
+                if ($default !== '') {
+                    $meta['GET'] = $default;
+                    $meta['POST'] = $default;
+                }
+                foreach (['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as $method) {
+                    $value = $routeConfig[$method] ?? $routeConfig[strtolower($method)] ?? null;
+                    if (is_string($value) && $value !== '') {
+                        $meta[$method] = $value;
+                    }
+                }
+            }
+
+            $permissions[$path] = $meta;
+        }
+
+        return $permissions;
     }
 
     /**

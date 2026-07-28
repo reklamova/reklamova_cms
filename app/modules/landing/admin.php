@@ -74,5 +74,8 @@ return static function (array $container, PDO $pdo, array $module): array {
     return [
         'nav' => ['/admin/landing-pages' => 'Strony kampanii'],
         'routes' => ['/admin/landing-pages' => $screen],
+        'route_permissions' => [
+            '/admin/landing-pages' => ['GET' => 'manage_campaign_pages', 'POST' => 'manage_campaign_pages'],
+        ],
     ];
 };

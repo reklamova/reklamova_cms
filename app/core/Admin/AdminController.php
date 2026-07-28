@@ -8,6 +8,7 @@ use Reklamova\Cms\Auth\AuthManager;
 use Reklamova\Cms\Auth\Csrf;
 use Reklamova\Cms\Auth\PermissionManager;
 use Reklamova\Cms\Central\CentralInstallationsService;
+use Reklamova\Cms\Content\ContentRegistry;
 use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Health\HealthCheck;
@@ -97,7 +98,7 @@ final class AdminController
             '/admin/system' => $this->system($user),
             '/admin/updates' => $this->updates($user),
             '/admin/health' => $this->health($user),
-            default => $this->handleModuleRoute($path, $user, $extensions['routes'] ?? []),
+            default => $this->handleModuleRoute($path, $user, $extensions),
         };
     }
 
@@ -273,13 +274,19 @@ final class AdminController
 
     private function dashboard(array $user): void
     {
-        $pages = $this->countTable('cms_pages');
-        $media = $this->countTable('cms_media');
-        $leads = $this->countFirstExistingTable(['cms_leads', 'mero_leads']);
-        $articles = $this->countFirstExistingTable(['knowledge_articles', 'mero_articles']);
         $config = new Config($this->container);
         $siteName = (string) $config->get('app', 'client_name', $config->get('app', 'name', ''));
         $displayName = (string) ($user['name'] ?: $user['email']);
+        $canPages = $this->permissions->can($user, 'manage_pages');
+        $canMedia = $this->permissions->can($user, 'manage_media');
+        $hasInquiries = ($this->moduleActive('leads') || $this->moduleActive('mero'))
+            && ($this->permissions->can($user, 'view_leads') || $this->permissions->can($user, 'manage_inquiries'));
+        $hasKnowledge = ($this->moduleActive('knowledge') || $this->moduleActive('mero'))
+            && $this->permissions->can($user, 'manage_blog');
+        $hasCatalog = $this->moduleActive('catalog') && $this->permissions->can($user, 'manage_products');
+        $hasCalculator = $this->moduleActive('mero') && $this->permissions->can($user, 'manage_products');
+
+        $metrics = [];
         $quickActions = [];
         $updateStatus = (new UpdateClient($this->container))->cachedStatus() ?: [];
         $updateBody = $updateStatus['result']['body'] ?? [];
@@ -287,96 +294,56 @@ final class AdminController
 
         if (!empty($updateBody['update_available']) && $this->permissions->can($user, 'manage_updates')) {
             $latest = $this->h((string) ($updateBody['latest_version'] ?? 'nowa wersja'));
-            $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja</span><h2>Nowa wersja CMS jest gotowa</h2><p>Możesz ją uruchomić jednym kliknięciem. Przed zmianą system wykona kopię bezpieczeństwa.</p></div><a class="button" href="/admin/system">Przejdź do aktualizacji ' . $latest . '</a></section>';
+            $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja</span><h2>Nowa wersja CMS jest gotowa</h2><p>Możesz ją uruchomić jednym kliknięciem. Przed zmianą system wykona kopię bezpieczeństwa.</p></div><a class="button" href="/admin/updates">Przejdź do aktualizacji ' . $latest . '</a></section>';
         } elseif (!empty($updateBody['update_available']) && $this->permissions->can($user, 'view_update_notice')) {
             $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja CMS</span><h2>Dostępna jest nowa wersja panelu</h2><p>Zawiera poprawki bezpieczeństwa i usprawnienia obsługi strony. Szczegóły techniczne są po stronie Reklamova.</p></div></section>';
         }
 
-        if ($this->moduleActive('business') && $this->permissions->can($user, 'manage_homepage')) {
-            $quickActions[] = $this->quickAction('/admin/business', 'Edytuj stronę główną', 'Zmień główne sekcje widoczne na starcie.');
-        }
-        if ($this->permissions->can($user, 'manage_pages')) {
+        if ($canPages) {
+            $metrics[] = $this->metric('Podstrony', (string) $this->countTable('cms_pages'));
             $quickActions[] = $this->quickAction('/admin/pages/edit', 'Dodaj podstronę', 'Utwórz nową podstronę i ustaw jej widoczność.');
             $quickActions[] = $this->quickAction('/admin/pages', 'Lista podstron', 'Edytuj opublikowane strony i szkice.');
         }
-        if ($this->moduleActive('catalog') && $this->permissions->can($user, 'manage_products')) {
-            $quickActions[] = $this->quickAction('/admin/catalog/products?new=1', 'Dodaj produkt', 'Utwórz osobną kartę produktu w katalogu.');
-        }
-        if ($this->permissions->can($user, 'view_leads') || $this->permissions->can($user, 'manage_inquiries')) {
-            $quickActions[] = $this->quickAction($this->moduleActive('mero') ? '/admin/mero/leads' : '/admin/leads', 'Sprawdź zapytania', 'Zobacz wiadomości z formularzy i kalkulatorów.');
-        }
-        if ($this->permissions->can($user, 'manage_media')) {
+        if ($canMedia) {
+            $metrics[] = $this->metric('Media', (string) $this->countTable('cms_media'));
             $quickActions[] = $this->quickAction('/admin/media', 'Wgraj zdjęcie', 'Dodaj zdjęcia i pliki do biblioteki Media.');
         }
-        if (($this->moduleActive('knowledge') || $this->moduleActive('mero')) && $this->permissions->can($user, 'manage_blog')) {
+        if ($hasInquiries) {
+            $metrics[] = $this->metric('Zapytania', (string) $this->countFirstExistingTable(['cms_leads', 'mero_leads']));
+            $quickActions[] = $this->quickAction($this->moduleActive('mero') ? '/admin/mero/leads' : '/admin/leads', 'Sprawdź zapytania', 'Zobacz wiadomości z formularzy i kalkulatorów.');
+        }
+        if ($hasKnowledge) {
+            $metrics[] = $this->metric('Poradnik', (string) $this->countFirstExistingTable(['knowledge_articles', 'mero_articles']));
             $quickActions[] = $this->quickAction($this->moduleActive('mero') ? '/admin/mero/articles' : '/admin/knowledge', 'Dodaj wpis do poradnika', 'Opublikuj artykuł lub poradę dla klientów.');
+        }
+        if ($hasCatalog) {
+            $metrics[] = $this->metric('Produkty', (string) $this->countTable('catalog_products'));
+            $quickActions[] = $this->quickAction('/admin/catalog/products?new=1', 'Dodaj produkt', 'Utwórz osobną kartę produktu w katalogu.');
+        }
+        if ($hasCalculator) {
+            $metrics[] = $this->metric('Kalkulator', 'Aktywny');
+        }
+        if ($this->moduleActive('business') && $this->permissions->can($user, 'manage_homepage')) {
+            $quickActions[] = $this->quickAction('/admin/business', 'Edytuj stronę główną', 'Zmień główne sekcje widoczne na starcie.');
         }
         if ($this->moduleActive('privacy') && $this->permissions->can($user, 'manage_privacy_basic')) {
             $quickActions[] = $this->quickAction('/admin/privacy', 'Prywatność i cookies', 'Zmień komunikat cookies i podstawowe dokumenty.');
         }
 
-        $content = '<section class="panel dashboard-hero"><div><span class="eyebrow">Panel strony</span><h2>Witaj, ' . $this->h($siteName !== '' ? $siteName : $displayName) . '</h2><p>Zarządzaj treściami, zdjęciami, produktami i zapytaniami na stronie. Ustawienia techniczne obsługuje Reklamova.</p></div><div class="dashboard-hero__actions"><a class="button" href="/admin/pages">Edytuj podstrony</a><a class="button secondary" href="/" target="_blank" rel="noopener">Zobacz stronę</a></div></section>'
-            . '<div class="grid dashboard-grid">'
-            . $this->metric('Podstrony', (string) $pages)
-            . $this->metric('Media', (string) $media)
-            . $this->metric('Zapytania', (string) $leads)
-            . $this->metric('Poradnik', (string) $articles)
-            . '</div>'
+        if ($quickActions === []) {
+            $quickActions[] = '<div class="quick-card quick-card--empty"><b>Brak dostępnych akcji</b><span>Twoje konto nie ma jeszcze przypisanych funkcji do obsługi tej strony.</span></div>';
+        }
+
+        $heroActions = $canPages
+            ? '<a class="button" href="/admin/pages">Edytuj podstrony</a><a class="button secondary" href="/" target="_blank" rel="noopener">Zobacz stronę</a>'
+            : '<a class="button secondary" href="/" target="_blank" rel="noopener">Zobacz stronę</a>';
+
+        $content = '<section class="panel dashboard-hero"><div><span class="eyebrow">Panel strony</span><h2>Witaj, ' . $this->h($siteName !== '' ? $siteName : $displayName) . '</h2><p>Zarządzaj treściami, zdjęciami, produktami i zapytaniami na stronie. Ustawienia techniczne obsługuje Reklamova.</p></div><div class="dashboard-hero__actions">' . $heroActions . '</div></section>'
+            . ($metrics !== [] ? '<div class="grid dashboard-grid">' . implode('', $metrics) . '</div>' : '')
             . $updateNotice
             . '<section class="panel quick-panel"><div class="panel-heading"><span class="eyebrow">Szybkie akcje</span><h2>Najczęściej używane</h2></div><div class="quick-grid">'
             . implode('', $quickActions)
             . '</div></section>';
-
-        $this->view->render('Dashboard', $content, $user);
-        return;
-
-        $pages = $this->countTable('cms_pages');
-        $media = $this->countTable('cms_media');
-        $leads = $this->countFirstExistingTable(['cms_leads', 'mero_leads']);
-        $articles = $this->countFirstExistingTable(['knowledge_articles', 'mero_articles']);
-        $config = new Config($this->container);
-        $siteName = (string) $config->get('app', 'name', 'stroną');
-        $displayName = (string) ($user['name'] ?: $user['email']);
-        $updateStatus = (new UpdateClient($this->container))->cachedStatus() ?: [];
-        $updateBody = $updateStatus['result']['body'] ?? [];
-        $updateNotice = '';
-        if (!empty($updateBody['update_available']) && $this->permissions->can($user, 'manage_updates')) {
-            $latest = $this->h((string) ($updateBody['latest_version'] ?? 'nowa wersja'));
-            $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja</span><h2>Nowa wersja CMS jest gotowa</h2><p>Możesz ją uruchomić jednym kliknięciem. Przed zmianą system wykona kopię bezpieczeństwa.</p></div><a class="button" href="/admin/system">Przejdź do aktualizacji ' . $latest . '</a></section>';
-        } elseif (!empty($updateBody['update_available']) && $this->permissions->can($user, 'view_update_notice')) {
-            $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja CMS</span><h2>Dostępna jest nowa wersja panelu</h2><p>Zawiera poprawki bezpieczeństwa i usprawnienia obsługi strony. Szczegóły techniczne są po stronie Reklamova.</p></div></section>';
-        }
-
-        if (!empty($updateBody['update_available']) && !$this->permissions->can($user, 'manage_updates') && $this->permissions->can($user, 'view_update_notice')) {
-            $latest = $this->h((string) ($updateBody['latest_version'] ?? 'nowa wersja'));
-            $updateNotice = '<section class="panel update-card"><div><span class="eyebrow">Aktualizacja CMS</span><h2>Dost&#281;pna jest nowa wersja panelu</h2><p>Zawiera poprawki bezpiecze&#324;stwa i usprawnienia obs&#322;ugi strony. Przed aktualizacj&#261; system wykona kopi&#281; bezpiecze&#324;stwa.</p></div><a class="button" href="/admin/updates">Przejd&#378; do aktualizacji ' . $latest . '</a></section>';
-        }
-
-        $content = '<section class="panel dashboard-hero"><div><span class="eyebrow">Panel strony</span><h2>Witaj, ' . $this->h($displayName) . '</h2><p>Zarządzaj treścią, mediami, zapytaniami i prywatnością serwisu ' . $this->h($siteName) . '. Techniczne ustawienia core zostają po stronie Reklamova.</p></div><div class="dashboard-hero__actions"><a class="button" href="/admin/pages">Edytuj strony</a><a class="button secondary" href="/" target="_blank" rel="noopener">Zobacz stronę</a></div></section>'
-            . '<div class="grid dashboard-grid">'
-            . $this->metric('Podstrony', (string) $pages)
-            . $this->metric('Media', (string) $media)
-            . $this->metric('Zapytania', (string) $leads)
-            . $this->metric('Poradnik', (string) $articles)
-            . '</div>'
-            . $updateNotice
-            . '<section class="panel quick-panel"><div class="panel-heading"><span class="eyebrow">Szybkie akcje</span><h2>Najczęściej używane</h2></div><div class="quick-grid">'
-            . $this->quickAction('/admin/pages/edit', 'Nowa podstrona', 'Dodaj stronę, ustaw URL, SEO i widoczność w menu.')
-            . $this->quickAction('/admin/pages', 'Lista podstron', 'Edytuj treści, sekcje i status publikacji.')
-            . $this->quickAction('/admin/media', 'Media', 'Wgraj zdjęcia, pliki i materiały do wykorzystania na stronie.')
-            . $this->quickAction('/admin/privacy', 'Prywatność i cookies', 'Zarządzaj banerem, zgodami i skryptami.')
-            . $this->quickAction('/admin/system', 'Aktualizacje CMS', 'Sprawdź i zainstaluj nową wersję systemu.')
-            . '</div></section>';
-
-        if (!$this->permissions->can($user, 'manage_privacy')) {
-            $content = preg_replace('#<a class="quick-card" href="/admin/privacy".*?</a>#s', '', $content) ?? $content;
-        }
-        if (!$this->permissions->can($user, 'manage_updates') && $this->permissions->can($user, 'view_update_notice')) {
-            $content = str_replace('href="/admin/system"', 'href="/admin/updates"', $content);
-        }
-        if (!$this->permissions->can($user, 'view_update_notice')) {
-            $content = preg_replace('#<a class="quick-card" href="/admin/(?:system|updates)".*?</a>#s', '', $content) ?? $content;
-        }
 
         $this->view->render('Dashboard', $content, $user);
     }
@@ -961,15 +928,6 @@ final class AdminController
         $content = '<section class="panel system-hero"><div><span class="eyebrow">Reklamova</span><h2>Moduły strony</h2><p>Włączaj tylko te moduły, których dana strona faktycznie używa. Moduły systemowe pozostają zablokowane, żeby nie uszkodzić instalacji.</p></div></section>'
             . '<section class="panel"><table><thead><tr><th>Moduł</th><th>Status</th><th>Typ</th><th>Wersja</th><th>Menu klienta</th><th>Klient zarządza</th><th></th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="7">Brak modułów do pokazania.</td></tr>') . '</tbody></table></section>';
         $this->view->render('Moduły strony', $content, $user);
-        return;
-
-        $modules = (new ModuleManager($this->container))->discover();
-        $body = '';
-        foreach ($modules as $module) {
-            $body .= '<tr><td>' . htmlspecialchars($module['name'] ?? $module['slug'], ENT_QUOTES) . '</td><td>' . htmlspecialchars($module['slug'], ENT_QUOTES) . '</td><td>' . htmlspecialchars($module['version'] ?? '-', ENT_QUOTES) . '</td><td>' . htmlspecialchars($module['source'] ?? 'official', ENT_QUOTES) . '</td></tr>';
-        }
-
-        $this->view->render('Moduły', '<table><thead><tr><th>Nazwa</th><th>Slug</th><th>Wersja</th><th>Źródło</th></tr></thead><tbody>' . $body . '</tbody></table>', $user);
     }
 
     private function installations(array $user): void
@@ -1240,11 +1198,19 @@ final class AdminController
         $this->view->render('Nie znaleziono', '<section class="panel"><p>Nie znaleziono ekranu panelu.</p></section>', $user);
     }
 
-    private function handleModuleRoute(string $path, array $user, array $routes): void
+    private function handleModuleRoute(string $path, array $user, array $extensions): void
     {
+        $routes = $extensions['routes'] ?? [];
         $handler = $routes[$path] ?? null;
         if (is_callable($handler)) {
-            $permission = $this->permissionForModuleRoute($path);
+            $routePermissions = $extensions['route_permissions'] ?? [];
+            $routeMeta = is_array($routePermissions[$path] ?? null) ? $routePermissions[$path] : [];
+            if (!$this->canAccessModuleRoute($user, $routeMeta)) {
+                $this->notFound($user);
+                return;
+            }
+
+            $permission = $this->permissionForModuleRoute($path, $routeMeta);
             if (!$this->permissions->can($user, $permission)) {
                 $this->notFound($user);
                 return;
@@ -1255,6 +1221,24 @@ final class AdminController
         }
 
         $this->notFound($user);
+    }
+
+    /**
+     * @param array<string, mixed> $routeMeta
+     */
+    private function canAccessModuleRoute(array $user, array $routeMeta): bool
+    {
+        if ($this->permissions->isInternalUser($user)) {
+            return true;
+        }
+
+        if (!empty($routeMeta['internal_only'])) {
+            return false;
+        }
+
+        return empty($routeMeta['requires_theme_placement'])
+            || !empty($routeMeta['has_theme_placement'])
+            || !empty($routeMeta['force_client_visible']);
     }
 
     private function isTechnicalRoute(string $path): bool
@@ -1280,21 +1264,20 @@ final class AdminController
         };
     }
 
-    private function permissionForModuleRoute(string $path): string
+    /**
+     * @param array<string, mixed> $routeMeta
+     */
+    private function permissionForModuleRoute(string $path, array $routeMeta = []): string
     {
-        return match (true) {
-            str_contains($path, 'lead') => 'manage_inquiries',
-            str_contains($path, 'form') => 'manage_forms',
-            str_contains($path, 'business') => 'manage_homepage',
-            str_contains($path, 'knowledge') || str_contains($path, 'article') || str_contains($path, 'blog') => 'manage_blog',
-            str_contains($path, 'categories') => 'manage_product_categories',
-            str_contains($path, 'catalog') || str_contains($path, 'product') => 'manage_products',
-            str_contains($path, 'privacy/scripts') => 'manage_privacy_scripts',
-            str_contains($path, 'privacy') => 'manage_privacy_basic',
-            str_contains($path, 'landing') => 'manage_campaign_pages',
-            str_contains($path, 'trust') => 'manage_reviews_trust',
-            default => 'manage_pages',
-        };
+        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        $permission = $routeMeta[$method] ?? $routeMeta['permission'] ?? null;
+        if (is_string($permission) && $permission !== '') {
+            return $permission;
+        }
+
+        $record = (new ContentRegistry())->recordForRoute($path, (string) ($routeMeta['module'] ?? ''));
+
+        return (string) ($record['required_permission'] ?? 'manage_pages');
     }
 
     private function isInternalAdmin(array $user): bool

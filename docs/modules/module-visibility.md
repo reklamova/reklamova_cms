@@ -1,8 +1,8 @@
-# Widoczność modułów
+# Widoczność Modułów
 
 Moduł może być aktywny technicznie, ale niewidoczny dla klienta.
 
-## Pola modułu
+## Pola Modułu
 
 - `enabled` - moduł jest aktywny w instalacji,
 - `locked` - nie można go wyłączyć z panelu,
@@ -14,6 +14,8 @@ Moduł może być aktywny technicznie, ale niewidoczny dla klienta.
 - `permissions` - wymagane uprawnienia,
 - `menu_group` - grupa w menu,
 - `menu_label` - etykieta w UI,
+- `requires_theme_placement` - moduł wymaga miejsca wyświetlania w motywie,
+- `placement_key` - klucz miejsca, np. `trust_center`,
 - `settings_json` - konfiguracja per instalacja.
 
 ## Reguły
@@ -26,5 +28,23 @@ Klient widzi moduł tylko wtedy, gdy:
 - moduł nie jest techniczny.
 
 Reklamova widzi moduły techniczne w grupie `Reklamova`.
+
+## Placementy
+
+Moduł taki jak `Opinie i wiarygodność` może być aktywny technicznie, ale ukryty przed klientem, dopóki motyw albo instalacja nie zadeklaruje miejsca wyświetlania.
+
+Lokalna instalacja może utworzyć `app/config/placements.php` na podstawie `app/config/placements.example.php`:
+
+```php
+return [
+    'trust_center' => [
+        'enabled' => true,
+        'label' => 'Sekcja opinii i wiarygodności',
+        'where' => 'Strona główna -> Dlaczego warto nam zaufać',
+    ],
+];
+```
+
+`app/config/placements.php` jest plikiem instalacyjnym, więc aktualizacja core nie może go nadpisać.
 
 Historyczne aliasy uprawnień (`manage_privacy`, `manage_themes`, `view_health`) pozostają po to, żeby stare instalacje nie straciły dostępu po aktualizacji.

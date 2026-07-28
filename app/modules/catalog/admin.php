@@ -317,5 +317,11 @@ return static function (array $container, PDO $pdo, array $module): array {
             '/admin/catalog/products' => $products,
             '/admin/catalog/import' => $import,
         ],
+        'route_permissions' => [
+            '/admin/catalog' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
+            '/admin/catalog/categories' => ['GET' => 'manage_product_categories', 'POST' => 'manage_product_categories'],
+            '/admin/catalog/products' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
+            '/admin/catalog/import' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
+        ],
     ];
 };

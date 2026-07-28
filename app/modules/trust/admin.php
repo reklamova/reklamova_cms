@@ -30,8 +30,11 @@ return static function (array $container, PDO $pdo, array $module): array {
         'award' => 'Nagroda, ranking albo branżowy znak jakości.',
         'download' => 'Katalog, certyfikat lub dokument PDF do pobrania.',
     ];
+    $placement = is_array($module['placement'] ?? null) ? $module['placement'] : [];
+    $hasPlacement = !empty($module['has_theme_placement']);
+    $placementWhere = (string) ($placement['where'] ?? '');
 
-    $screen = static function (AdminView $view, array $user) use ($repo, $h, $types, $typeDescriptions): void {
+    $screen = static function (AdminView $view, array $user) use ($repo, $h, $types, $typeDescriptions, $hasPlacement, $placementWhere): void {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
             if (($_POST['action'] ?? '') === 'delete') {
                 $repo->delete((int) ($_POST['id'] ?? 0));
@@ -53,6 +56,9 @@ return static function (array $container, PDO $pdo, array $module): array {
         }
         $descriptions .= '</div>';
 
+        $placementNotice = $hasPlacement
+            ? '<section class="panel notice"><h2>Gdzie to się wyświetla?</h2><p>' . $h($placementWhere ?: 'Motyw deklaruje miejsce dla tego modułu.') . '</p></section>'
+            : '<section class="panel error-panel"><h2>Brak miejsca w motywie</h2><p>Ten moduł jest aktywny technicznie, ale motyw nie deklaruje miejsca wyświetlania. Klient nie widzi go w menu, dopóki Reklamova nie doda placementu.</p></section>';
         $form = '<section class="panel"><h2>' . ($edit ? 'Edytuj element wiarygodności' : 'Nowy element wiarygodności') . '</h2><p>Dodaj tylko te elementy, które faktycznie mają swoje miejsce w motywie strony.</p><form method="post" class="privacy-settings-grid">' . Csrf::field()
             . ($edit ? '<input type="hidden" name="id" value="' . (int) $edit['id'] . '">' : '')
             . '<label class="field">Typ<select name="type">' . $typeOptions . '</select></label>'
@@ -75,7 +81,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         }
         $list = '<section class="panel"><h2>Lista elementów</h2><table><thead><tr><th>Typ</th><th>Nazwa</th><th>Wartość</th><th>Status</th><th></th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="5">Nie dodano jeszcze elementów wiarygodności. Dodaj opinię, certyfikat, logotyp lub liczbę, jeśli te elementy mają być widoczne na stronie.</td></tr>') . '</tbody></table></section>';
 
-        $view->render('Opinie i wiarygodność', $form . $list, $user);
+        $view->render('Opinie i wiarygodność', $placementNotice . $form . $list, $user);
     };
 
     return [
@@ -89,5 +95,8 @@ return static function (array $container, PDO $pdo, array $module): array {
             ],
         ],
         'routes' => ['/admin/trust' => $screen],
+        'route_permissions' => [
+            '/admin/trust' => ['GET' => 'manage_reviews_trust', 'POST' => 'manage_reviews_trust'],
+        ],
     ];
 };
