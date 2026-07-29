@@ -1,24 +1,27 @@
 # MERO staging Reklamova CMS 0.8.0-rc1
 
-Data testu: 2026-07-28
+Data testu: 2026-07-28, aktualizacja: 2026-07-29
 
-Status: ZALICZONY TECHNICZNIE, PUBLICZNY VHOST DO PODPIĘCIA
+Status: ZALICZONY TECHNICZNIE I PUBLICZNIE
 
 ## Środowisko
 
-- planowany adres: `staging.mero.pl`,
+- adres: `staging.mero.pl`,
 - staging root:
   `/home/klient.dhosting.pl/merostarzyk/staging.mero.pl-rc1`,
 - oddzielna baza: 60 tabel, kopia danych MERO,
 - PHP CLI: 8.5.6,
+- PHP WWW: 8.4.20,
 - MariaDB: 10.5.24,
 - kanał aktualizacji: `rc`,
 - osobna licencja stagingowa,
 - Basic Auth, `noindex` i blokada skryptów zewnętrznych,
 - wysyłka prawdziwych formularzy nie była wykonywana.
 
-Publiczna domena nadal nie wskazuje tego katalogu. Testy HTTP wykonano przez
-lokalny serwer PHP dostępny wyłącznie z konta SSH. Produkcja `mero.pl` nie była
+Publiczna domena wskazuje katalog
+`staging.mero.pl-rc1/public_html`. Certyfikat SSL jest prawidłowy, Basic Auth
+zwraca HTTP 401 bez uwierzytelnienia, a publiczne odpowiedzi zawierają
+`X-Robots-Tag: noindex, nofollow, noarchive`. Produkcja `mero.pl` nie była
 modyfikowana.
 
 ## Backup i wdrożenie
@@ -114,8 +117,23 @@ Po poprawce wszystkie kontrole przeszły, a log serwera zawiera 0 błędów PHP.
 - 1 testowy log zgody,
 - katalog MERO jest aktywny, ale nie zawiera produktów ani kategorii.
 
-## Pozostały krok infrastrukturalny
+## Publiczny test końcowy
 
-W panelu dHosting trzeba przypisać `staging.mero.pl` do katalogu
-`staging.mero.pl-rc1/public` i włączyć certyfikat SSL. Dopiero wtedy można
-wykonać końcowy test w zwykłej przeglądarce.
+Po przypisaniu vhosta HTTP 200 potwierdzono publicznie dla:
+
+- strony głównej,
+- panelu logowania,
+- O firmie,
+- Poradnika,
+- Kalkulatora budowy,
+- Kontaktu,
+- Privacy Center API,
+- Ustawień prywatności.
+
+Obie role logują się przez publiczny HTTPS. `client_admin` nie widzi menu
+technicznego i otrzymuje HTTP 404 dla `/admin/system`.
+`reklamova_admin` otrzymuje HTTP 200 dla Modułów strony, Aktualizacji CMS i
+Stanu systemu. Test update servera na kanale `rc` zakończył się HTTP 200 bez
+błędu licencji.
+
+Pozostaje ręczny test trwałości decyzji cookies w zwykłej przeglądarce.

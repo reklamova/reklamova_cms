@@ -69,3 +69,12 @@ repozytorium.
 
 Czysta instalacja jest gotowa do dalszych testów RC2. Nie wykryto błędów PHP
 ani problemów z idempotencją migracji.
+
+## Uwaga operacyjna 2026-07-29
+
+Po zakończeniu powyższych testów zmieniono w panelu Hostido hasło użytkownika
+bazy `host379800_staging`. Aktualna konfiguracja aplikacji nie może się
+uwierzytelnić, a hasło widoczne na przekazanym zrzucie nie jest przyjmowane
+przez MySQL. Nie zmienia to wyniku wykonanych testów RC1, ale bieżący staging
+zwraca HTTP 500 do czasu zatwierdzenia poprawnego hasła i aktualizacji
+`app/config/database.php`.

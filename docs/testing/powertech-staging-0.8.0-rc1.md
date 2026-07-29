@@ -1,15 +1,16 @@
 # PowerTech staging Reklamova CMS 0.8.0-rc1
 
-Data testu: 2026-07-28
+Data testu: 2026-07-28, aktualizacja: 2026-07-29
 
-Status: PRZYGOTOWANY PLIKOWO, ZABLOKOWANY PRZEZ BRAK BAZY
+Status: ZALICZONY TECHNICZNIE DLA RC1, FUNKCJA POWIELANIA WYMAGA RC2
 
 ## Środowisko
 
 - adres: `staging.powertechsc.pl`,
 - staging root:
   `/home/platne/serwer38522/public_html/staging.powertechsc.pl`,
-- PHP CLI: 8.3.30,
+- PHP CLI i WWW: 8.3.30,
+- osobna baza stagingowa: 37 tabel,
 - kanał aktualizacji: `rc`,
 - osobna licencja stagingowa działa z update API,
 - Basic Auth zwraca HTTP 401 bez uwierzytelnienia,
@@ -49,32 +50,51 @@ test API z hostingu PowerTech zwrócił:
 - brak `invalid_license`,
 - brak dostępnej nowszej wersji.
 
-## Blokada bazy
+## Baza i migracje
 
-Na przekazanym zrzucie panel LH nadal pokazywał formularz z przyciskiem
-`UTWÓRZ`. Serwer MySQL nie rozpoznaje użytkownika `serwer38522_staging`, a
-produkcyjny użytkownik widzi wyłącznie własną bazę. Oznacza to, że stagingowa
-baza nie została faktycznie utworzona.
+Utworzono osobną bazę `serwer38522_staging`. Dump produkcyjnej bazy wykonano
+wyłącznie do odczytu, skompresowano, sprawdzono przez `gzip -t` i zapisano poza
+document root razem z sumą SHA-256. Następnie:
 
-W `app/config/database.php` stagingu celowo pozostawiono bezpieczny placeholder
-hasła. Dzięki temu staging nie może przypadkowo połączyć się z produkcją.
+- zaimportowano 37 tabel do stagingu,
+- wykonano migracje core i aktywnych modułów,
+- zapisano 17 wykonanych migracji,
+- potwierdzono 21 podstron, 1438 mediów, 104 produkty i 69 kategorii,
+- konfiguracja stagingu wskazuje wyłącznie bazę stagingową.
 
-## Testy oczekujące
+Backup importu:
+`/home/platne/serwer38522/staging-backups/powertech-rc1/20260729-093349`.
 
-- import kopii bazy PowerTech,
-- pełne migracje na kopii,
-- logowanie `client_admin` i `reklamova_admin`,
-- menu obu ról,
-- Podstrony, Strona główna i Media,
-- lista, filtrowanie, edycja i powielenie produktu,
-- drzewo kategorii i karta produktu,
-- Privacy Center,
-- `/admin/updates` i `/admin/system`,
-- publiczny front i log PHP.
+## Test panelu i frontu
 
-## Następny krok
+HTTP 200 potwierdzono dla:
 
-W panelu LH trzeba dokończyć operację `UTWÓRZ` dla bazy i przekazać ekran
-potwierdzający utworzenie. Po tym można wstawić hasło do stagingowej
-konfiguracji, wykonać dump/import, migracje i pełną checklistę bez ponownego
-kopiowania plików.
+- strony głównej, O nas, oferty i kontaktu,
+- `/admin/login`,
+- `/admin/pages`,
+- `/admin/media`,
+- `/admin/catalog/products`,
+- `/admin/catalog/categories`,
+- `/admin/privacy`,
+- `/api/privacy/settings`,
+- `/ustawienia-prywatnosci`.
+
+Basic Auth zwraca HTTP 401 bez danych logowania, a plik z hashem jest chroniony
+przed pobraniem przez HTTP 403.
+
+`client_admin` loguje się i nie widzi technicznego menu. `reklamova_admin`
+widzi Moduły strony, Aktualizacje CMS i Stan systemu. Test połączenia z update
+serverem na kanale `rc` zwraca HTTP 200 bez błędu licencji.
+
+## Znaleziona różnica RC1
+
+Artefakt RC1 nie zawiera jeszcze dodanej później na branchu akcji `Powiel`.
+Lista produktów w RC1 działa, ale nie pokazuje tego przycisku. Aktualny branch
+zawiera `duplicateProduct()` i formularz `Powiel`, dlatego funkcję trzeba
+ponownie wdrożyć i przetestować dopiero w jednoznacznie zbudowanym RC2.
+
+## Pozostałe testy
+
+- przeglądarkowa kontrola wizualna długiej listy produktów i drzewa kategorii,
+- powielenie produktu oraz usunięcie kopii na RC2,
+- regresja formularzy bez wysyłania wiadomości do prawdziwych odbiorców.
