@@ -651,6 +651,25 @@ pre {
   max-width: 760px;
   margin: 0;
 }
+.catalog-product-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+.catalog-product-form > .editor-section {
+  width: 100%;
+  min-width: 0;
+}
+.catalog-product-form > .editor-section + .editor-section {
+  margin-top: 0;
+}
+.catalog-product-form .field,
+.catalog-product-form input,
+.catalog-product-form select,
+.catalog-product-form textarea {
+  min-width: 0;
+}
 .page-blocks {
   display: grid;
   gap: 16px;
@@ -1775,5 +1794,46 @@ button.secondary,
 @media (max-width: 860px) {
   .screen-help {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    min-height: auto;
+  }
+
+  .main,
+  .content,
+  .panel,
+  .catalog-product-form,
+  .catalog-product-form > .editor-section {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .topbar,
+  .content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .page-editor__head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-editor__head .actions {
+    width: 100%;
+  }
+
+  .editor-section summary,
+  .seo-accordion summary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

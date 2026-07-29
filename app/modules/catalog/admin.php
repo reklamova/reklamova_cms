@@ -188,7 +188,7 @@ return static function (array $container, PDO $pdo, array $module): array {
 
         return $tabs('/admin/catalog/products')
             . '<section class="panel page-editor__panel"><div class="page-editor__head"><div><span class="eyebrow">Produkty</span><h2>' . ($edit ? 'Edytuj produkt' : 'Dodaj produkt') . '</h2><p>Produkt ma własną kartę, URL, zdjęcia, parametry i opis SEO. Nie pokazujemy pól sklepowych, jeśli katalog nie jest sklepem.</p></div><div class="actions"><a class="button secondary" href="/admin/catalog/products">Wróć do listy</a><button form="catalog-product-form">Zapisz produkt</button></div></div>'
-            . '<form id="catalog-product-form" method="post" class="privacy-settings-grid">' . Csrf::field()
+            . '<form id="catalog-product-form" method="post" class="catalog-product-form">' . Csrf::field()
             . ($edit ? '<input type="hidden" name="id" value="' . (int) $edit['id'] . '">' : '')
             . '<details class="editor-section" open><summary><b>Podstawowe</b><span>Nazwa, URL, status i organizacja</span></summary><div class="privacy-settings-grid">'
             . '<label class="field field--half">Nazwa produktu<input name="name" required value="' . $h($edit['name'] ?? '') . '"></label>'
