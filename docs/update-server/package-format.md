@@ -3,7 +3,7 @@
 Paczka aktualizacji core może zawierać wyłącznie:
 
 ```text
-reklamova-core-0.8.0-rc1.zip
+reklamova-core-0.8.0-rc2.zip
   manifest.json
   checksums.json
   files/
@@ -46,11 +46,11 @@ konfiguracja instalacji.
 
 ```json
 {
-  "package_id": "pkg_core_0_8_0_rc1",
+  "package_id": "pkg_core_0_8_0_rc2",
   "type": "core",
-  "version": "0.8.0-rc1",
+  "version": "0.8.0-rc2",
   "channel": "rc",
-  "from_versions": [">=0.1.0 <0.8.0-rc1"],
+  "from_versions": [">=0.1.0 <0.8.0-rc2"],
   "created_at": "2026-07-28T10:00:00Z",
   "requires": {
     "php": ">=8.3",
@@ -72,7 +72,7 @@ konfiguracja instalacji.
 Przed podpisaniem uruchom:
 
 ```bash
-php tools/build-update-package.php --version=0.8.0-rc1 --validate-only
+php tools/build-update-package.php --version=0.8.0-rc2 --channel=rc --package-id=pkg_core_0_8_0_rc2 --validate-only
 ```
 
 Generator ma przerwać pracę, jeśli `core_paths` zawiera ścieżkę spoza

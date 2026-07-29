@@ -1,5 +1,5 @@
 {
-  "cms_version": "0.8.0-rc1",
+  "cms_version": "0.8.0-rc2",
   "install_mode": "zip",
   "update_channel": "rc",
   "protected_paths": [
