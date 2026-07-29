@@ -38,28 +38,33 @@ Liczby rekordów przed i po:
 | `catalog_categories` | 69 | 69 |
 | `privacy_consents` | 16 | 16 |
 
+## Clean CMS staging
+
+Po ponownym ustawieniu hasła użytkownika `host379800_staging` potwierdzono
+połączenie PDO z MariaDB 10.11.18. Clean staging został następnie zaktualizowany
+standardowym updaterem z RC1 do RC2.
+
+- wpisy migracji przed: 17,
+- wpisy migracji po: 17,
+- migracja `2026_07_28_000008_content_registry_menu_cleanup`: 1 wpis,
+- brakujące kolumny wymagane przez `000008`: 0.
+
+Liczby rekordów przed i po ponownym uruchomieniu:
+
+| Tabela | Przed | Po |
+| --- | ---: | ---: |
+| `cms_pages` | 2 | 2 |
+| `cms_media` | 1 | 1 |
+| `privacy_consents` | 2 | 2 |
+
+Backup `bkp_20260729_140203` zawiera poprawny manifest, archiwum core i
+skompresowany dump bazy. ZIP i GZIP przeszły test integralności. Log aktualizacji
+ma status `updated`, bez komunikatu błędu.
+
 ## Backup i chronione ścieżki
 
-Obie aktualizacje wykonały backup core i bazy. Archiwa bazy dały się odczytać,
-ZIP core przeszedł test integralności, a manifest backupu był kompletny.
-Hash chronionych ścieżek przed i po aktualizacji był identyczny.
+Wszystkie trzy aktualizacje wykonały backup core i bazy. Archiwa bazy dały się
+odczytać, ZIP core przeszedł test integralności, a manifesty były kompletne.
+Chronione ścieżki nie zostały objęte paczką RC2.
 
-## Clean CMS
-
-Pełny ciąg migracji na tej bazie przeszedł wcześniej dla RC1. Powtórzenie testu
-RC2 jest zablokowane przez odrzucenie danych MySQL:
-
-- baza i użytkownik: `host379800_staging`,
-- host: `localhost`,
-- błąd PDO: `1045`,
-- front i `/admin` po Basic Auth: HTTP 500.
-
-Hasło jest zapisane w konfiguracji, ale serwer MySQL go nie akceptuje. Do
-zamknięcia testu trzeba ponownie ustawić hasło użytkownika w Hostido i wpisać tę
-samą wartość do `app/config/database.php`.
-
-Status migracji:
-
-- MERO: **ZALICZONY**,
-- PowerTech: **ZALICZONY**,
-- clean CMS RC2: **ZABLOKOWANY PRZEZ DOSTĘP DB**.
+Status migracji na clean CMS, MERO i PowerTech: **ZALICZONY**.

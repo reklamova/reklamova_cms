@@ -2,9 +2,9 @@
 
 Data testu: 2026-07-29
 
-## Testy integracyjne MERO i PowerTech
+## Testy integracyjne clean CMS, MERO i PowerTech
 
-Na obu stagingach potwierdzono:
+Na wszystkich trzech stagingach potwierdzono:
 
 - `GET /api/privacy/settings`: HTTP 200,
 - aktywny moduł i pięć kategorii zgód,
@@ -18,6 +18,7 @@ Na obu stagingach potwierdzono:
 
 Tryby banera odczytane z konfiguracji:
 
+- Clean CMS: `modal`, styl `minimal`,
 - MERO: `corner_box`, styl `minimal`,
 - PowerTech: `modal`, styl `minimal`.
 
@@ -28,8 +29,12 @@ Na każdej instalacji zapisano przez publiczne API trzy decyzje:
 - wybór niestandardowy.
 
 Wszystkie żądania zwróciły HTTP 200 i `ok: true`. Rekordy zawierały 64-znakowe
-hashe IP i user-agent zamiast wartości jawnych. Sześć rekordów testowych
+hashe IP i user-agent zamiast wartości jawnych. Dziewięć rekordów testowych
 usunięto po weryfikacji.
+
+Na clean CMS dodatkowo sprawdzono logowanie `client_admin` i `super_admin`,
+dynamiczne menu, Strony, Media, Privacy Center oraz ekran systemowy. Wszystkie
+oczekiwane trasy zwróciły HTTP 200.
 
 ## MERO
 
@@ -55,7 +60,5 @@ Do ręcznego potwierdzenia na każdym stagingu:
 4. Otworzyć ustawienia ze stopki i zaakceptować wszystkie kategorie.
 5. Ponownie przeładować i sprawdzić stan.
 6. Powtórzyć wybór niestandardowy.
-
-Clean CMS nie może przejść testu do czasu naprawy połączenia MySQL.
 
 Status: **CZĘŚCIOWO ZALICZONY, BLOKADA MERGE DO TESTU PRZEGLĄDARKOWEGO**.
