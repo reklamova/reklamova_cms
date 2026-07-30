@@ -412,7 +412,7 @@ final class CatalogRepository
             $specs[] = ['name' => $parts[0], 'value' => $parts[1] ?? ''];
         }
 
-        return $specs ? json_encode($specs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
+        return $specs ? $this->encodeJson($specs) : null;
     }
 
     private function listJson(string $lines, mixed $existing = null): ?string
@@ -429,7 +429,18 @@ final class CatalogRepository
             }
         }
 
-        return $items ? json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
+        return $items ? $this->encodeJson($items) : null;
+    }
+
+    private function encodeJson(array $value): string
+    {
+        return json_encode(
+            $value,
+            JSON_UNESCAPED_UNICODE
+                | JSON_UNESCAPED_SLASHES
+                | JSON_INVALID_UTF8_SUBSTITUTE
+                | JSON_THROW_ON_ERROR
+        );
     }
 
     private function jsonOrNull(mixed $value): ?string
