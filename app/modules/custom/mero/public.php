@@ -2,6 +2,62 @@
 
 use Reklamova\Cms\Auth\Csrf;
 
+if (!function_exists('handle_project_upload')) {
+    function handle_project_upload(?array $file): ?array
+    {
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('Nie udało się przesłać pliku projektu.');
+        }
+        $maxBytes = 10 * 1024 * 1024;
+        $size = (int) ($file['size'] ?? 0);
+        if ($size <= 0 || $size > $maxBytes) {
+            throw new RuntimeException('Plik projektu może mieć maksymalnie 10 MB.');
+        }
+
+        $original = (string) ($file['name'] ?? 'projekt');
+        $extension = strtolower(pathinfo($original, PATHINFO_EXTENSION));
+        $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+        if (!in_array($extension, $allowedExtensions, true)) {
+            throw new RuntimeException('Dozwolone pliki projektu to PDF, JPG, JPEG i PNG.');
+        }
+
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file((string) $file['tmp_name']) ?: '';
+        $allowedMime = [
+            'pdf' => ['application/pdf'],
+            'jpg' => ['image/jpeg'],
+            'jpeg' => ['image/jpeg'],
+            'png' => ['image/png'],
+        ];
+        if (!in_array($mime, $allowedMime[$extension] ?? [], true)) {
+            throw new RuntimeException('Typ pliku projektu nie zgadza się z rozszerzeniem.');
+        }
+
+        $root = dirname(__DIR__, 4);
+        $storage = $root . '/app/storage/private/project-uploads/' . date('Y/m');
+        if (!is_dir($storage) && !mkdir($storage, 0750, true) && !is_dir($storage)) {
+            throw new RuntimeException('Nie można przygotować katalogu na plik projektu.');
+        }
+
+        $filename = bin2hex(random_bytes(16)) . '.' . $extension;
+        $target = $storage . '/' . $filename;
+        if (!move_uploaded_file((string) $file['tmp_name'], $target)) {
+            throw new RuntimeException('Nie udało się zapisać pliku projektu.');
+        }
+        @chmod($target, 0640);
+
+        return [
+            'path' => $target,
+            'original_name' => mb_substr($original, 0, 190),
+            'mime' => $mime,
+            'size' => $size,
+        ];
+    }
+}
+
 return static function (array $container, PDO $pdo, array $module): array {
     $h = static fn (mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES);
 
@@ -12,8 +68,8 @@ return static function (array $container, PDO $pdo, array $module): array {
         'phone_tel' => 'tel:720446446',
         'address' => 'ul. Kecka 72, 32-651 Bielany',
         'facebook' => 'https://www.facebook.com/merobielany',
-        'privacy_version' => '2026-06-24',
-        'cookie_version' => '2026-06-24',
+        'privacy_version' => '1.0',
+        'cookie_version' => '1.0',
     ];
 
     $settings = static function () use ($pdo): array {
@@ -31,21 +87,51 @@ return static function (array $container, PDO $pdo, array $module): array {
     };
 
     $articles = static function (string $query = '') use ($pdo): array {
+        $knowledgeSql = 'SELECT a.title, a.slug, a.excerpt, a.content, a.meta_title, a.meta_description, a.published_at, COALESCE(c.name, "Poradnik inwestora") AS category, a.cover_image FROM knowledge_articles a LEFT JOIN knowledge_categories c ON c.id = a.category_id WHERE a.status = "published"';
+        $legacySql = 'SELECT title, slug, excerpt, content, meta_title, meta_description, published_at, category, cover_image FROM mero_articles WHERE status = "published"';
+        $params = [];
         if ($query !== '') {
-            $statement = $pdo->prepare('SELECT title, slug, excerpt, content, published_at FROM mero_articles WHERE status = "published" AND (title LIKE ? OR excerpt LIKE ? OR content LIKE ?) ORDER BY published_at DESC, updated_at DESC');
+            $knowledgeSql .= ' AND (a.title LIKE ? OR a.excerpt LIKE ? OR a.content LIKE ?)';
+            $legacySql .= ' AND (title LIKE ? OR excerpt LIKE ? OR content LIKE ?)';
             $like = '%' . $query . '%';
-            $statement->execute([$like, $like, $like]);
-            return $statement->fetchAll();
+            $params = [$like, $like, $like];
         }
 
-        return $pdo->query('SELECT title, slug, excerpt, content, published_at FROM mero_articles WHERE status = "published" ORDER BY published_at DESC, updated_at DESC')->fetchAll();
+        foreach ([
+            $knowledgeSql . ' ORDER BY COALESCE(a.published_at, a.created_at) DESC, a.updated_at DESC',
+            $legacySql . ' ORDER BY published_at DESC, updated_at DESC',
+        ] as $sql) {
+            try {
+                $statement = $pdo->prepare($sql);
+                $statement->execute($params);
+                $rows = $statement->fetchAll();
+                if ($rows) {
+                    return $rows;
+                }
+            } catch (Throwable) {
+            }
+        }
+
+        return [];
     };
 
     $article = static function (string $slug) use ($pdo): ?array {
-        $statement = $pdo->prepare('SELECT title, slug, excerpt, content, meta_title, meta_description, published_at FROM mero_articles WHERE slug = ? AND status = "published" LIMIT 1');
-        $statement->execute([$slug]);
-        $row = $statement->fetch();
-        return is_array($row) ? $row : null;
+        foreach ([
+            'SELECT a.title, a.slug, a.excerpt, a.content, a.meta_title, a.meta_description, a.published_at, COALESCE(c.name, "Poradnik inwestora") AS category, a.cover_image FROM knowledge_articles a LEFT JOIN knowledge_categories c ON c.id = a.category_id WHERE a.slug = ? AND a.status = "published" LIMIT 1',
+            'SELECT title, slug, excerpt, content, meta_title, meta_description, published_at, category, cover_image FROM mero_articles WHERE slug = ? AND status = "published" LIMIT 1',
+        ] as $sql) {
+            try {
+                $statement = $pdo->prepare($sql);
+                $statement->execute([$slug]);
+                $row = $statement->fetch();
+                if (is_array($row)) {
+                    return $row;
+                }
+            } catch (Throwable) {
+            }
+        }
+
+        return null;
     };
 
     $jsonResponse = static function (array $payload, int $status = 200): void {
@@ -129,15 +215,29 @@ return static function (array $container, PDO $pdo, array $module): array {
             return;
         }
 
+        $now = gmdate('Y-m-d H:i:s');
         $data['privacy_policy_version'] = (string) ($data['privacy_policy_version'] ?? $brand['privacy_version']);
         $data['privacy_accepted_at'] = gmdate('c');
+        $data['privacy_text_hash'] = hash('sha256', 'Administratorem danych osobowych jest Firma Handlowa MERO Mariusz Starzyk. Dane podane w formularzu przetwarzamy w celu obsługi zapytania, kontaktu zwrotnego i przygotowania odpowiedzi lub wstępnej wyceny. Podanie danych jest dobrowolne, ale niezbędne do obsługi zapytania. Szczegóły znajdziesz w Polityce prywatności.');
         $data['cookie_consent_snapshot'] = (string) ($data['cookie_consent_snapshot'] ?? '');
+        $data['source_form'] = substr((string) ($data['source'] ?? $type), 0, 120);
+        $emailMarketing = !empty($data['marketing_email_consent']) || !empty($data['marketing_email']);
+        $phoneMarketing = !empty($data['marketing_phone_consent']) || !empty($data['marketing_phone']);
+        try {
+            $uploadedFile = handle_project_upload($_FILES['project_file'] ?? null);
+        } catch (Throwable $uploadError) {
+            $jsonResponse(['ok' => false, 'errors' => ['project_file' => $uploadError->getMessage()], 'message' => $uploadError->getMessage()], 422);
+            return;
+        }
+        if ($uploadedFile !== null) {
+            $data['project_file'] = $uploadedFile;
+        }
 
-        $statement = $pdo->prepare('INSERT INTO mero_leads (public_id, type, source, status, name, phone, email, location, payload, result, ip_address, user_agent) VALUES (?, ?, ?, "new", ?, ?, ?, ?, ?, ?, ?, ?)');
+        $statement = $pdo->prepare('INSERT INTO mero_leads (public_id, type, source, status, name, phone, email, location, payload, result, ip_address, user_agent, privacy_policy_version, privacy_accepted_at, privacy_text_hash, marketing_email_consent, marketing_email_consent_at, marketing_phone_consent, marketing_phone_consent_at, cookie_consent_snapshot, source_form, project_file_path, project_file_original_name, project_file_mime, project_file_size) VALUES (?, ?, ?, "new", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $statement->execute([
             bin2hex(random_bytes(8)),
             $type,
-            substr((string) ($data['source'] ?? $type), 0, 120),
+            $data['source_form'],
             $name,
             $phone,
             strtolower($email),
@@ -146,11 +246,32 @@ return static function (array $container, PDO $pdo, array $module): array {
             isset($data['result']) ? json_encode($data['result'], JSON_UNESCAPED_SLASHES) : null,
             $_SERVER['REMOTE_ADDR'] ?? '',
             substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500),
+            $data['privacy_policy_version'],
+            $now,
+            $data['privacy_text_hash'],
+            $emailMarketing ? 1 : 0,
+            $emailMarketing ? $now : null,
+            $phoneMarketing ? 1 : 0,
+            $phoneMarketing ? $now : null,
+            $data['cookie_consent_snapshot'],
+            $data['source_form'],
+            $uploadedFile['path'] ?? null,
+            $uploadedFile['original_name'] ?? null,
+            $uploadedFile['mime'] ?? null,
+            $uploadedFile['size'] ?? null,
         ]);
 
         $config = $settings();
         $admin = filter_var($config['admin_email'] ?? '', FILTER_VALIDATE_EMAIL) ?: $brand['email'];
-        $mail = "Nowy lead: {$name}\nTelefon: {$phone}\nEmail: {$email}\nTyp: {$type}\nZrodlo: " . ((string) ($data['source'] ?? $type));
+        $mail = "Nowy lead: {$name}\nTelefon: {$phone}\nEmail: {$email}\nTyp: {$type}\nZrodlo: " . ((string) ($data['source'] ?? $type))
+            . "\nData wyslania: " . gmdate('c')
+            . "\nWersja polityki: " . $data['privacy_policy_version']
+            . "\nHash klauzuli: " . $data['privacy_text_hash']
+            . "\nZgoda marketing e-mail: " . ($emailMarketing ? 'tak' : 'nie')
+            . "\nZgoda marketing telefon/SMS: " . ($phoneMarketing ? 'tak' : 'nie')
+            . "\nIP: " . ((string) ($_SERVER['REMOTE_ADDR'] ?? ''))
+            . "\nUser agent: " . ((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''))
+            . ($uploadedFile ? "\nPlik projektu: " . $uploadedFile['original_name'] . " (" . $uploadedFile['mime'] . ", " . $uploadedFile['size'] . " B)" : '');
         @mail($admin, 'Nowe zapytanie ze strony MERO', $mail);
 
         $jsonResponse(['ok' => true, 'redirect' => '/dziekujemy']);
@@ -160,9 +281,10 @@ return static function (array $container, PDO $pdo, array $module): array {
         return '<input type="hidden" name="privacy_policy_version" value="' . $h($brand['privacy_version']) . '">'
             . '<input type="hidden" name="cookie_consent_snapshot" value="" data-cookie-consent-field>'
             . '<div class="mero-consents">'
-            . '<label class="check"><input type="checkbox" name="privacy" value="1" required> <span>Zapoznalem/am sie z <a href="/polityka-prywatnosci" target="_blank" rel="noopener">Polityka prywatnosci i cookies</a> oraz akceptuje kontakt w celu obslugi zapytania.</span></label>'
-            . '<label class="check optional"><input type="checkbox" name="marketing_email" value="1"> <span>Zgadzam sie na kontakt mailowy w sprawach ofertowych MERO.</span></label>'
-            . '<label class="check optional"><input type="checkbox" name="marketing_phone" value="1"> <span>Zgadzam sie na kontakt telefoniczny w sprawach ofertowych MERO.</span></label>'
+            . '<p class="rodo-note">Administratorem danych osobowych jest Firma Handlowa MERO Mariusz Starzyk. Dane podane w formularzu przetwarzamy w celu obsługi zapytania, kontaktu zwrotnego i przygotowania odpowiedzi lub wstępnej wyceny. Podanie danych jest dobrowolne, ale niezbędne do obsługi zapytania. Szczegóły znajdziesz w Polityce prywatności.</p>'
+            . '<label class="check"><input type="checkbox" name="privacy" value="1" required> <span>Zapoznałem/am się z <a href="/polityka-prywatnosci" target="_blank" rel="noopener">Polityką prywatności i cookies</a>.</span></label>'
+            . '<label class="check optional"><input type="checkbox" name="marketing_email_consent" value="1"> <span>Wyrażam zgodę na otrzymywanie od Firmy Handlowej MERO Mariusz Starzyk informacji handlowych i marketingowych dotyczących budowy domów oraz materiałów budowlanych na podany adres e-mail. Wiem, że mogę wycofać zgodę w każdej chwili.</span></label>'
+            . '<label class="check optional"><input type="checkbox" name="marketing_phone_consent" value="1"> <span>Wyrażam zgodę na kontakt telefoniczny lub SMS ze strony Firmy Handlowej MERO Mariusz Starzyk w celu przedstawienia informacji handlowych i marketingowych dotyczących budowy domów oraz materiałów budowlanych. Wiem, że mogę wycofać zgodę w każdej chwili.</span></label>'
             . '</div>';
     };
 
@@ -171,7 +293,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         return '<section class="mero-card mero-calculator" data-settings="' . $settingsJson . '"><div class="section-kicker">Kalkulator</div><h2>Kalkulator budowy domu</h2><p>Podaj podstawowe parametry, a kalkulator pokaze orientacyjny zakres kosztow. Wynik pomaga zaczac rozmowe, nie jest finalna oferta.</p>'
             . '<form class="mero-lead-form" data-type="calculator"><input type="hidden" name="_csrf" value="' . $h(Csrf::token()) . '"><input type="hidden" name="type" value="calculator"><input type="hidden" name="source" value="kalkulator"><input type="hidden" name="website" value="">'
             . '<label>Metraz domu<input type="number" name="area" min="30" max="800" value="120"></label>'
-            . '<label>Zakres<select name="scope"><option value="sso">Stan surowy otwarty</option><option value="ssz">Stan surowy zamknięty</option><option value="developer">Stan deweloperski</option><option value="turnkey">Dom pod klucz</option></select></label>'
+            . '<label>Zakres<select name="scope"><option value="sso">Stan surowy otwarty</option><option value="ssz">Stan surowy zamkniety</option><option value="developer">Stan deweloperski</option><option value="turnkey">Dom pod klucz</option></select></label>'
             . '<label>Dach<select name="roof"><option value="dwuspadowy">dwuspadowy</option><option value="wielospadowy">wielospadowy</option><option value="plaski">plaski</option><option value="inny">inny</option></select></label>'
             . '<label>Garaz<select name="garage"><option value="brak">brak</option><option value="jednostanowiskowy">jednostanowiskowy</option><option value="dwustanowiskowy">dwustanowiskowy</option><option value="w_bryle">w bryle</option><option value="osobny">osobny</option></select></label>'
             . '<div class="mero-result" aria-live="polite"></div>'
@@ -250,57 +372,173 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '</head><body><a class="skip-link" href="#main-content">Przejdz do tresci</a><header class="mero-header"><a class="mero-brand" href="/"><img src="/assets/client/mero-logo.svg" alt="MERO"></a><nav class="mero-nav"><a href="/budowa-domow">Budowa domow</a><a href="/kalkulator-budowy-domu">Kalkulator</a><a href="/hurtownia-materialow-budowlanych">Hurtownia</a><a href="/poradnik">Poradnik</a><a href="/kontakt">Kontakt</a><a class="phone" href="' . $h($brand['phone_tel']) . '">' . $h($brand['phone_display']) . '</a></nav></header>'
             . $body
             . '<footer class="mero-footer"><div class="mero-footer-inner"><div><img class="footer-logo" src="/assets/client/mero-logo.svg" alt="MERO"><b>MERO Materialy Budowlane</b><br>' . $h($brand['address']) . '<br><a href="' . $h($brand['phone_tel']) . '">' . $h($brand['phone_display']) . '</a> | <a href="mailto:' . $h($brand['email']) . '">' . $h($brand['email']) . '</a></div><div><a href="' . $h($brand['facebook']) . '" target="_blank" rel="noopener">Facebook MERO Bielany</a><br><a href="/polityka-prywatnosci">Polityka prywatnosci i cookies</a><br>Realizacja: Reklamova</div><div>&copy; ' . date('Y') . ' MERO</div></div></footer>'
-            . '<script>const money=n=>new Intl.NumberFormat("pl-PL",{style:"currency",currency:"PLN",maximumFractionDigits:0}).format(n);const syncConsent=()=>{const c=window.ReklamovaConsent?.getState?.()||null;document.querySelectorAll("[data-cookie-consent-field]").forEach(input=>input.value=c?JSON.stringify(c):"");return c};document.addEventListener("reklamovaConsentReady",syncConsent);document.addEventListener("reklamovaConsentUpdated",syncConsent);document.querySelectorAll(".mero-calculator").forEach(box=>{const s=JSON.parse(box.dataset.settings||"{}");const form=box.querySelector("form");const out=box.querySelector(".mero-result");const calc=()=>{const area=Number(form.area.value||0);const scope=form.scope.value;let total=area*Number((s.base_prices||{})[scope]||0);total*=Number((s.roof_multipliers||{})[form.roof.value]||1);total*=Number((s.garage_multipliers||{})[form.garage.value]||1);const p=Number(s.range_percent||15)/100;out.textContent=area?`Orientacyjnie: ${money(total*(1-p))} - ${money(total*(1+p))}`:"";form.dataset.result=JSON.stringify({area,scope,total_min:Math.round(total*(1-p)),total_max:Math.round(total*(1+p))});};form.addEventListener("input",calc);calc();});document.querySelectorAll(".mero-lead-form").forEach(form=>form.addEventListener("submit",async e=>{e.preventDefault();syncConsent();const data=Object.fromEntries(new FormData(form).entries());data.type=form.dataset.type||data.type;data.result=form.dataset.result?JSON.parse(form.dataset.result):null;const status=form.querySelector(".mero-form-status");status.textContent="Wysylam...";try{const res=await fetch("/api/mero/lead",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const json=await res.json();if(json.ok){location.href=json.redirect||"/dziekujemy";return;}status.textContent=json.message||"Sprawdz pola formularza.";}catch(err){status.textContent="Nie udalo sie wyslac formularza. Sprobuj ponownie albo zadzwon do MERO.";}}));</script></body></html>';
+            . '<script>const money=n=>new Intl.NumberFormat("pl-PL",{style:"currency",currency:"PLN",maximumFractionDigits:0}).format(n);const syncConsent=()=>{const c=window.ReklamovaConsent?.getState?.()||null;document.querySelectorAll("[data-cookie-consent-field]").forEach(input=>input.value=c?JSON.stringify(c):"");return c};window.addEventListener("reklamovaConsentReady",syncConsent);window.addEventListener("reklamovaConsentUpdated",syncConsent);document.querySelectorAll(".mero-calculator").forEach(box=>{const s=JSON.parse(box.dataset.settings||"{}");const form=box.querySelector("form");const out=box.querySelector(".mero-result");const calc=()=>{const area=Number(form.area.value||0);const scope=form.scope.value;let total=area*Number((s.base_prices||{})[scope]||0);total*=Number((s.roof_multipliers||{})[form.roof.value]||1);total*=Number((s.garage_multipliers||{})[form.garage.value]||1);const p=Number(s.range_percent||15)/100;out.textContent=area?`Orientacyjnie: ${money(total*(1-p))} - ${money(total*(1+p))}`:"";form.dataset.result=JSON.stringify({area,scope,total_min:Math.round(total*(1-p)),total_max:Math.round(total*(1+p))});};form.addEventListener("input",calc);calc();});document.querySelectorAll(".mero-lead-form").forEach(form=>form.addEventListener("submit",async e=>{e.preventDefault();syncConsent();const data=Object.fromEntries(new FormData(form).entries());data.type=form.dataset.type||data.type;data.result=form.dataset.result?JSON.parse(form.dataset.result):null;const status=form.querySelector(".mero-form-status");status.textContent="Wysylam...";try{const res=await fetch("/api/mero/lead",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const json=await res.json();if(json.ok){location.href=json.redirect||"/dziekujemy";return;}status.textContent=json.message||"Sprawdz pola formularza.";}catch(err){status.textContent="Nie udalo sie wyslac formularza. Sprobuj ponownie albo zadzwon do MERO.";}}));</script></body></html>';
     };
 
+    $privacyBridge = <<<'HTML'
+<script>
+(function () {
+    'use strict';
+
+    const coreState = () => {
+        const state = window.ReklamovaConsent?.getState?.() || null;
+        if (!state || !state.categories) {
+            return null;
+        }
+
+        return Object.assign({}, state, {
+            consent_version: String(state.consentVersion || ''),
+            privacy_policy_version: String(state.consentVersion || ''),
+            necessary: true,
+            functional: Boolean(state.categories.functional),
+            analytics: Boolean(state.categories.analytics),
+            marketing: Boolean(state.categories.marketing),
+            source: state.source || 'reklamova-privacy-center',
+            timestamp: state.updatedAt || new Date().toISOString()
+        });
+    };
+
+    const syncConsent = () => {
+        const state = coreState();
+        document.querySelectorAll('[data-cookie-consent-field]').forEach((field) => {
+            field.value = state ? JSON.stringify(state) : '';
+        });
+        document.querySelectorAll('[data-cookie-category="functional"][data-src]').forEach((element) => {
+            if (state?.functional && !element.src) {
+                element.src = element.dataset.src;
+            }
+            if (!state?.functional && element.hasAttribute('src')) {
+                element.removeAttribute('src');
+            }
+        });
+        document.documentElement.classList.toggle('cookies-functional', Boolean(state?.functional));
+        if (!state?.functional) {
+            localStorage.removeItem('mero_calculator_state');
+        }
+        return state;
+    };
+
+    if (typeof window.createCookieBanner === 'function') {
+        document.removeEventListener('DOMContentLoaded', window.createCookieBanner);
+    }
+
+    window.readConsent = syncConsent;
+    window.writeConsent = (values) => {
+        const current = window.ReklamovaConsent?.getState?.();
+        const categories = Object.assign({}, current?.categories || {}, {
+            necessary: true,
+            functional: Boolean(values?.functional),
+            analytics: Boolean(values?.analytics),
+            marketing: Boolean(values?.marketing)
+        });
+        window.ReklamovaConsent?.updateConsent?.(categories);
+        return syncConsent();
+    };
+    window.createCookieBanner = () => window.ReklamovaConsent?.openSettings?.();
+    window.meroCookieConsent = {
+        get: syncConsent,
+        has: (category) => window.ReklamovaConsent?.hasConsent?.(category) || false,
+        open: () => window.ReklamovaConsent?.openSettings?.()
+    };
+
+    try {
+        localStorage.removeItem('mero_cookie_consent');
+        localStorage.removeItem('mero_cookie_consent_v1');
+    } catch (error) {}
+    document.cookie = 'mero_cookie_consent=; Path=/; Max-Age=0; SameSite=Lax';
+
+    document.addEventListener('click', (event) => {
+        const trigger = event.target.closest?.('[data-open-cookie-settings], [data-cookie-open]');
+        if (!trigger) {
+            return;
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        window.ReklamovaConsent?.openSettings?.();
+    }, true);
+    window.addEventListener('reklamovaConsentReady', syncConsent);
+    window.addEventListener('reklamovaConsentUpdated', syncConsent);
+    document.querySelectorAll('.cookie-consent, [data-cookie-modal]').forEach((element) => element.remove());
+    document.documentElement.classList.remove('cookie-dialog-open');
+    syncConsent();
+})();
+</script>
+HTML;
+
+    $renderFrontend = static function () use ($pdo, $settings, $container, $privacyBridge): void {
+        $GLOBALS['meroFrontendPdo'] = $pdo;
+        $GLOBALS['meroFrontendRoot'] = $container['root_path'] ?? dirname(__DIR__, 4);
+        $GLOBALS['meroFrontendSettings'] = $settings();
+
+        ob_start();
+        require __DIR__ . '/frontend.php';
+        $html = (string) ob_get_clean();
+        $legacyAppScript = '<script src="/assets/js/app.js" defer></script>';
+        $replacement = '<script src="/assets/js/app.js"></script>' . $privacyBridge;
+        $html = str_replace($legacyAppScript, $replacement, $html, $replacementCount);
+        echo $replacementCount === 1 ? $html : str_replace('</body>', $privacyBridge . '</body>', $html);
+    };
+
+    $frontendRoutes = [];
+    $frontendStaticSlugs = [
+        '',
+        'budowa-domow',
+        'kalkulator-budowy-domu',
+        'etapy-budowy',
+        'pakiety-budowy',
+        'realizacje',
+        'projekty-inspiracje-domow',
+        'hurtownia-materialow-budowlanych',
+        'o-firmie',
+        'poradnik',
+        'kontakt',
+        'polityka-prywatnosci',
+        'dziekujemy',
+        'budowa-domow/kety',
+        'budowa-domow/bielany',
+        'budowa-domow/oswiecim',
+        'budowa-domow/bielsko-biala',
+        'budowa-domow/kozy',
+        'budowa-domow/wilamowice',
+        'budowa-domow/osiek',
+        'budowa-domow/malec',
+        'budowa-domow/leki',
+        'budowa-domow/pisarzowice',
+        'hurtownia-materialow-budowlanych/materialy-scienne',
+        'hurtownia-materialow-budowlanych/systemy-dachowe',
+        'hurtownia-materialow-budowlanych/ocieplenia-i-izolacje',
+        'hurtownia-materialow-budowlanych/chemia-budowlana',
+        'hurtownia-materialow-budowlanych/transport-hds',
+    ];
+    foreach ($frontendStaticSlugs as $frontendSlug) {
+        $path = $frontendSlug === '' ? '/' : '/' . $frontendSlug;
+        $frontendRoutes[$path] = $renderFrontend;
+    }
+    try {
+        $articleRows = $pdo->query('SELECT slug FROM knowledge_articles WHERE status = "published" UNION SELECT slug FROM mero_articles WHERE status = "published"')->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        foreach ($articleRows as $articleSlug) {
+            $articleSlug = trim((string) $articleSlug, '/');
+            if ($articleSlug !== '') {
+                $frontendRoutes['/poradnik/' . $articleSlug] = $renderFrontend;
+            }
+        }
+    } catch (Throwable) {
+    }
     return [
         'routes' => [
             '/api/lead.php' => $submitLead,
             '/api/mero/lead' => $submitLead,
+            '/api/consent.php' => $submitConsent,
             '/api/mero/consent' => $submitConsent,
         ],
         'fallbacks' => [
-            static function (string $slug) use ($page, $article, $articles, $settings, $calculator, $contact, $render, $h): bool {
-                if (str_starts_with($slug, 'poradnik/')) {
-                    $articleSlug = substr($slug, strlen('poradnik/'));
-                    $row = $article($articleSlug);
-                    if (!$row) {
-                        return false;
-                    }
-                    $paragraphs = array_filter(preg_split('/\R{2,}/', trim((string) $row['content'])) ?: []);
-                    $content = '';
-                    foreach ($paragraphs as $paragraph) {
-                        $content .= '<p>' . nl2br($h($paragraph)) . '</p>';
-                    }
-                    $body = '<section class="mero-hero"><h1>' . $h($row['title']) . '</h1><p>' . $h($row['excerpt']) . '</p></section><main id="main-content" class="mero-main"><article class="mero-content">' . $content . '</article></main>';
-                    $render((string) ($row['meta_title'] ?: $row['title']), $body, (string) ($row['meta_description'] ?: $row['excerpt']));
-                    return true;
-                }
-
-                $row = $page($slug);
-                if (!$row) {
+            static function (string $slug) use ($renderFrontend, $frontendRoutes): bool {
+                $path = $slug === 'home' || $slug === '' ? '/' : '/' . trim($slug, '/');
+                if (!isset($frontendRoutes[$path])) {
                     return false;
                 }
 
-                $content = (string) $row['content'];
-                if ($slug === 'kalkulator-budowy-domu' || str_contains($content, 'data-mero-calculator')) {
-                    $content = str_replace('<div data-mero-calculator></div>', $calculator($settings()), $content);
-                }
-                if ($slug === 'kontakt' || str_contains($content, 'data-mero-contact')) {
-                    $content = str_replace('<div data-mero-contact></div>', $contact(), $content);
-                }
-                if ($slug === 'poradnik') {
-                    $query = trim((string) ($_GET['szukaj'] ?? ''));
-                    $items = '';
-                    foreach ($articles($query) as $articleRow) {
-                        $items .= '<article><h2><a href="/poradnik/' . $h($articleRow['slug']) . '">' . $h($articleRow['title']) . '</a></h2><p>' . $h($articleRow['excerpt']) . '</p></article>';
-                    }
-                    $search = '<form class="search-box" method="get" action="/poradnik"><input name="szukaj" value="' . $h($query) . '" placeholder="Szukaj w poradniku"><button>Szukaj</button></form>';
-                    $content .= $search . '<section class="mero-article-list">' . ($items ?: '<p>Brak wpisow dla podanej frazy.</p>') . '</section>';
-                }
-
-                $body = '<section class="mero-hero"><h1>' . $h($row['title']) . '</h1></section><main id="main-content" class="mero-main"><article class="mero-content">' . $content . '</article></main>';
-                $render((string) $row['title'], $body);
+                $renderFrontend();
                 return true;
             },
         ],
