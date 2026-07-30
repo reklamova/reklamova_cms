@@ -1,23 +1,34 @@
-# Zasady nazewnictwa panelu
+# Nazewnictwo panelu
 
-Nazwy w panelu muszą odpowiadać na pytanie klienta: co edytuję i gdzie to będzie widoczne?
+Nazwy w panelu mają opisywać zadanie użytkownika.
 
-## Nazwy preferowane
+## Nie używamy w panelu klienta
 
-- `Start` zamiast `Dashboard`, jeśli ekran jest dla klienta.
-- `Strony` zamiast technicznego typu treści.
-- `Strona główna` albo `Sekcje strony głównej` zamiast `Strona firmowa`.
-- `Produkty` i `Kategorie produktów` zamiast ogólnego `Katalog`.
-- `Opinie i referencje` zamiast `Zaufanie`.
-- `Landing pages` albo `Kampanie` zamiast pojedynczego `Landing page`.
-- `Adres URL` zamiast `Slug`.
-- `Opublikowana` i `Szkic` zamiast `published` i `draft`.
-- `Stan systemu` zamiast `Health`.
-- `Moduły strony` zamiast `Funkcje strony`.
-- `Motyw strony` zamiast `Motyw core`.
+- `Strona firmowa`,
+- `MERO Leady`,
+- `Leady` jako osobny duplikat,
+- `MERO Poradnik`,
+- `Zaufanie`,
+- `Trust Center`,
+- `Landing page`,
+- `Katalog`,
+- `Motyw core`,
+- `Health check`,
+- `routing priority`,
+- `slug`.
 
-## Zasada progresywnego ujawniania
+## Używamy
 
-Zaawansowane pola mogą istnieć, ale nie mogą dominować ekranu klienta.
+- `Strona główna`,
+- `Podstrony`,
+- `Zapytania`,
+- `Poradnik`,
+- `Opinie i wiarygodność`,
+- `Strony kampanii`,
+- `Produkty`,
+- `Kategorie produktów`,
+- `Motyw strony`,
+- `Stan systemu`,
+- `Adres URL`.
 
-SEO zaawansowane, logi aktualizacji, custom scripts i health check są widoczne tylko dla ról z odpowiednimi uprawnieniami.
+Techniczne nazwy mogą zostać w kodzie i migracjach, ale nie mogą przeciekać do UI klienta.

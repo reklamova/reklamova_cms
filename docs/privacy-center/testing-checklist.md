@@ -5,7 +5,7 @@
 1. Otworz strone w incognito.
 2. Wyczyść localStorage i cookies, jesli testujesz ponownie.
 3. Sprawdz, ze baner jest widoczny.
-4. Sprawdz w Network, ze GA4, GTM, Meta Pixel, Clarity, Hotjar i inne skrypty nie zostaly zaladowane przed decyzja.
+4. Sprawdź w Network, że GA4, GTM, Meta Pixel, Clarity, Hotjar i inne skrypty nie zostały załadowane przed decyzją.
 5. W konsoli sprawdz `window.ReklamovaConsentModeDefault`.
 
 ## 2. Odrzucam

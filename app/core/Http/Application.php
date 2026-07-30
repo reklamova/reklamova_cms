@@ -30,16 +30,20 @@ final class Application
             return;
         }
 
-        $pdo = (new ConnectionFactory($this->container))->make();
-        $path = Url::path();
-        $extensions = (new ModuleManager($this->container))->publicExtensions($pdo);
-        $handler = $extensions['routes'][$path] ?? null;
-        if (is_callable($handler)) {
-            $handler();
-            return;
-        }
+        try {
+            $pdo = (new ConnectionFactory($this->container))->make();
+            $path = Url::path();
+            $extensions = (new ModuleManager($this->container))->publicExtensions($pdo);
+            $handler = $extensions['routes'][$path] ?? null;
+            if (is_callable($handler)) {
+                $handler();
+                return;
+            }
 
-        $this->renderPage();
+            $this->renderPage($extensions);
+        } catch (\PDOException $exception) {
+            $this->respondDatabaseUnavailable($exception);
+        }
     }
 
     public function handleAdmin(): void
@@ -49,19 +53,23 @@ final class Application
             return;
         }
 
-        (new AdminController($this->container))->handle();
+        try {
+            (new AdminController($this->container))->handle();
+        } catch (\PDOException $exception) {
+            $this->respondDatabaseUnavailable($exception);
+        }
     }
 
-    private function renderPage(): void
+    private function renderPage(array $extensions): void
     {
         $config = new Config($this->container);
-        $slug = trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/');
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        $slug = trim(rawurldecode($path), '/');
         $slug = $slug === '' ? 'home' : $slug;
 
         $pdo = (new ConnectionFactory($this->container))->make();
-        $extensions = (new ModuleManager($this->container))->publicExtensions($pdo);
         foreach ($extensions['fallbacks'] ?? [] as $fallback) {
-            if (is_callable($fallback) && $fallback($slug)) {
+            if (is_callable($fallback) && $this->renderFallback($fallback, $slug, $extensions)) {
                 return;
             }
         }
@@ -75,7 +83,7 @@ final class Application
             $page = [
                 'title' => 'Nie znaleziono',
                 'slug' => $slug,
-                'content' => '<p>Strona nie zostala jeszcze opublikowana.</p>',
+                'content' => '<p>Strona nie została jeszcze opublikowana.</p>',
                 'status' => 'draft',
                 'template' => 'default',
             ];
@@ -135,6 +143,92 @@ final class Application
             . $bodyEnd . '</body></html>';
     }
 
+    private function renderFallback(callable $fallback, string $slug, array $extensions): bool
+    {
+        ob_start();
+        try {
+            $handled = (bool) $fallback($slug);
+            $output = (string) ob_get_clean();
+        } catch (\Throwable $exception) {
+            ob_end_clean();
+            throw $exception;
+        }
+
+        if (!$handled) {
+            echo $output;
+            return false;
+        }
+
+        echo $this->injectPublicExtensions($output, $extensions);
+        return true;
+    }
+
+    private function injectPublicExtensions(string $html, array $extensions): string
+    {
+        if ($html === '' || stripos($html, '<html') === false || stripos($html, '</head>') === false) {
+            return $html;
+        }
+
+        $head = $this->renderHook($extensions['head'] ?? []);
+        $bodyStart = $this->renderHook($extensions['body_start'] ?? []);
+        $bodyEnd = $this->renderHook($extensions['body_end'] ?? []);
+        $footerLinks = $this->renderHook($extensions['footer_links'] ?? []);
+
+        if (str_contains($html, '/assets/core/privacy/consent-manager.css')) {
+            $head = (string) preg_replace('~<link\b[^>]*consent-manager\.css[^>]*>~i', '', $head);
+        }
+        if (str_contains($html, '/assets/core/privacy/consent-manager.js')) {
+            $head = (string) preg_replace('~<script\b[^>]*consent-manager\.js[^>]*>\s*</script>~i', '', $head);
+        }
+        if (str_contains($html, 'ReklamovaConsentModeDefault')) {
+            $head = (string) preg_replace('~<script>[^<]*ReklamovaConsentModeDefault[^<]*</script>~i', '', $head);
+        }
+        if (str_contains($html, 'id="reklamova-privacy-root"')) {
+            $bodyStart = '';
+        }
+        if (str_contains($html, 'id="reklamova-privacy-config"')) {
+            $bodyEnd = '';
+        }
+        if (str_contains($html, 'data-reklamova-privacy-open')) {
+            $footerLinks = '';
+        }
+
+        if ($head !== '') {
+            $html = $this->insertBeforeClosingTag($html, 'head', $head);
+        }
+        if ($bodyStart !== '') {
+            $html = (string) preg_replace_callback(
+                '~<body\b[^>]*>~i',
+                static fn (array $matches): string => $matches[0] . $bodyStart,
+                $html,
+                1
+            );
+        }
+        if ($footerLinks !== '') {
+            $footer = '<span class="cms-public-footer-links">' . $footerLinks . '</span>';
+            if (stripos($html, '</footer>') !== false) {
+                $html = $this->insertBeforeClosingTag($html, 'footer', $footer);
+            } else {
+                $bodyEnd = $footer . $bodyEnd;
+            }
+        }
+        if ($bodyEnd !== '') {
+            $html = $this->insertBeforeClosingTag($html, 'body', $bodyEnd);
+        }
+
+        return $html;
+    }
+
+    private function insertBeforeClosingTag(string $html, string $tag, string $content): string
+    {
+        return (string) preg_replace_callback(
+            '~</' . preg_quote($tag, '~') . '>~i',
+            static fn (array $matches): string => $content . $matches[0],
+            $html,
+            1
+        );
+    }
+
     private function renderHook(array $callbacks): string
     {
         $html = '';
@@ -145,5 +239,36 @@ final class Application
         }
 
         return $html;
+    }
+
+    private function respondDatabaseUnavailable(\PDOException $exception): void
+    {
+        $logDirectory = (string) ($this->container['storage_path'] ?? '') . '/logs';
+        if ($logDirectory !== '/logs' && (is_dir($logDirectory) || @mkdir($logDirectory, 0775, true))) {
+            @error_log(
+                sprintf(
+                    "[%s] Database unavailable: %s\n",
+                    date(DATE_ATOM),
+                    $exception->getMessage()
+                ),
+                3,
+                $logDirectory . '/application.log'
+            );
+        }
+
+        if (!headers_sent()) {
+            http_response_code(503);
+            header('Content-Type: text/html; charset=utf-8');
+            header('Retry-After: 30');
+        }
+
+        echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            . '<title>Chwilowa przerwa | Reklamova CMS</title>'
+            . '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:#f4f7fb;color:#121827;font-family:Arial,sans-serif}.box{width:min(560px,100%);padding:36px;border:1px solid #e4e9f2;border-radius:14px;background:#fff;box-shadow:0 24px 70px rgba(30,42,70,.09)}.tag{color:#7b8496;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}h1{margin:10px 0 12px;font-size:28px;line-height:1.15}p{margin:0 0 24px;color:#667085;line-height:1.65}.button{display:inline-flex;min-height:42px;align-items:center;padding:0 18px;border-radius:8px;background:#f6b21a;color:#171200;text-decoration:none;font-weight:700}</style>'
+            . '</head><body><main class="box"><span class="tag">Reklamova CMS</span>'
+            . '<h1>Chwilowo nie możemy połączyć się z bazą danych</h1>'
+            . '<p>Twoje dane są bezpieczne. Odczekaj chwilę i spróbuj ponownie. Jeśli problem będzie się powtarzał, skontaktuj się z Reklamova.</p>'
+            . '<a class="button" href="">Spróbuj ponownie</a></main></body></html>';
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Reklamova\Cms\Database;
 
 use PDO;
+use PDOException;
 use RuntimeException;
 
 final class ConnectionFactory
@@ -29,10 +30,35 @@ final class ConnectionFactory
             $config['charset'] ?? 'utf8mb4'
         );
 
-        return new PDO($dsn, $config['username'], $config['password'], [
+        $options = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
+        ];
+
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            try {
+                return new PDO($dsn, $config['username'], $config['password'], $options);
+            } catch (PDOException $exception) {
+                if ($attempt === 2 || !$this->isTransientConnectionFailure($exception)) {
+                    throw $exception;
+                }
+
+                usleep(200_000);
+            }
+        }
+
+        throw new RuntimeException('Database connection could not be established.');
+    }
+
+    private function isTransientConnectionFailure(PDOException $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return (string) $exception->getCode() === '2002'
+            || str_contains($message, 'php_network_getaddresses')
+            || str_contains($message, 'getaddrinfo')
+            || str_contains($message, 'connection refused')
+            || str_contains($message, 'connection timed out');
     }
 }
 

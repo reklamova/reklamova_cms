@@ -22,6 +22,10 @@ final class Updater
         'app/storage/logs',
     ];
 
+    private const ALLOWED_PROTECTED_FILES = [
+        'app/config/placements.example.php',
+    ];
+
     public function __construct(private array $container)
     {
     }
@@ -118,11 +122,54 @@ final class Updater
 
     private function assertProtectedPathsAreClean(string $stagingPath): void
     {
-        foreach (self::PROTECTED_PATHS as $path) {
-            if (is_dir($stagingPath . '/files/' . $path) || is_file($stagingPath . '/files/' . $path)) {
-                throw new RuntimeException('Package tries to modify protected path: ' . $path);
+        $filesPath = $stagingPath . '/files';
+        if (!is_dir($filesPath)) {
+            throw new RuntimeException('Package files directory is missing.');
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($filesPath, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            $relative = trim(str_replace('\\', '/', $iterator->getSubPathName()), '/');
+            if (!$this->isProtectedRelativePath($relative)) {
+                continue;
+            }
+
+            if ($this->isAllowedProtectedPackagePath($relative, $item->isDir())) {
+                continue;
+            }
+
+            throw new RuntimeException('Package tries to modify protected path: ' . $relative);
+        }
+    }
+
+    private function isProtectedRelativePath(string $relative): bool
+    {
+        foreach (self::PROTECTED_PATHS as $protectedPath) {
+            if ($relative === $protectedPath || str_starts_with($relative, $protectedPath . '/')) {
+                return true;
             }
         }
+
+        return false;
+    }
+
+    private function isAllowedProtectedPackagePath(string $relative, bool $directory): bool
+    {
+        foreach (self::ALLOWED_PROTECTED_FILES as $allowedFile) {
+            if ($relative === $allowedFile) {
+                return !$directory;
+            }
+
+            if ($directory && str_starts_with($allowedFile, $relative . '/')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function copyCoreFiles(string $stagingPath, array $package): void

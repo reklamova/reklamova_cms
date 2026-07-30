@@ -1,15 +1,15 @@
 {
   "slug": "knowledge",
-  "name": "Reklamova Knowledge Hub",
+  "name": "Poradnik",
   "version": "0.1.0",
   "source": "core",
   "enabled_by_default": false,
   "visible_in_client_nav": true,
   "visible_in_admin_nav": true,
   "client_manageable": true,
-  "menu_group": "Treść",
-  "menu_label": "Aktualności / Poradniki",
+  "menu_group": "Treści",
+  "menu_label": "Poradnik",
   "sort_order": 50,
   "permissions": ["manage_blog"],
-  "description": "Blog, guide, news and knowledge base module with categories, authors, SEO fields and business content relations."
+  "description": "Artykuły, aktualności i treści poradnikowe widoczne na stronie oraz wspierające SEO."
 }

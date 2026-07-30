@@ -248,6 +248,10 @@ final class UpdateClient
     private function isProtectedRelativePath(string $relative): bool
     {
         $relative = trim(str_replace('\\', '/', $relative), '/');
+        if ($relative === 'app/config/placements.example.php') {
+            return false;
+        }
+
         foreach ($this->manifest()['protected_paths'] ?? [] as $protected) {
             $protected = trim((string) $protected, '/');
             if ($relative === $protected || str_starts_with($relative, $protected . '/')) {

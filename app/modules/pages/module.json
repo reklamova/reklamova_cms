@@ -1,5 +1,5 @@
 {
-  "name": "Pages",
+  "name": "Podstrony",
   "slug": "pages",
   "version": "0.1.0",
   "cms": ">=0.1.0",
@@ -11,8 +11,8 @@
   "visible_in_client_nav": true,
   "visible_in_admin_nav": true,
   "client_manageable": true,
-  "menu_group": "Treść",
-  "menu_label": "Strony",
+  "menu_group": "Treści",
+  "menu_label": "Podstrony",
   "sort_order": 20,
   "permissions": ["manage_pages"],
   "migrations": true

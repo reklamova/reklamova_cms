@@ -188,7 +188,7 @@ return static function (array $container, PDO $pdo, array $module): array {
 
         return $tabs('/admin/catalog/products')
             . '<section class="panel page-editor__panel"><div class="page-editor__head"><div><span class="eyebrow">Produkty</span><h2>' . ($edit ? 'Edytuj produkt' : 'Dodaj produkt') . '</h2><p>Produkt ma własną kartę, URL, zdjęcia, parametry i opis SEO. Nie pokazujemy pól sklepowych, jeśli katalog nie jest sklepem.</p></div><div class="actions"><a class="button secondary" href="/admin/catalog/products">Wróć do listy</a><button form="catalog-product-form">Zapisz produkt</button></div></div>'
-            . '<form id="catalog-product-form" method="post" class="privacy-settings-grid">' . Csrf::field()
+            . '<form id="catalog-product-form" method="post" class="catalog-product-form">' . Csrf::field()
             . ($edit ? '<input type="hidden" name="id" value="' . (int) $edit['id'] . '">' : '')
             . '<details class="editor-section" open><summary><b>Podstawowe</b><span>Nazwa, URL, status i organizacja</span></summary><div class="privacy-settings-grid">'
             . '<label class="field field--half">Nazwa produktu<input name="name" required value="' . $h($edit['name'] ?? '') . '"></label>'
@@ -298,15 +298,15 @@ return static function (array $container, PDO $pdo, array $module): array {
         'nav' => [
             '/admin/catalog/products' => [
                 'label' => 'Produkty',
-                'menu_group' => 'Sprzedaż',
+                'menu_group' => 'Oferta',
                 'permission' => 'manage_products',
                 'visible_in_client_nav' => true,
                 'sort_order' => 100,
             ],
             '/admin/catalog/categories' => [
                 'label' => 'Kategorie produktów',
-                'menu_group' => 'Sprzedaż',
-                'permission' => 'manage_products',
+                'menu_group' => 'Oferta',
+                'permission' => 'manage_product_categories',
                 'visible_in_client_nav' => true,
                 'sort_order' => 110,
             ],
@@ -316,6 +316,12 @@ return static function (array $container, PDO $pdo, array $module): array {
             '/admin/catalog/categories' => $categories,
             '/admin/catalog/products' => $products,
             '/admin/catalog/import' => $import,
+        ],
+        'route_permissions' => [
+            '/admin/catalog' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
+            '/admin/catalog/categories' => ['GET' => 'manage_product_categories', 'POST' => 'manage_product_categories'],
+            '/admin/catalog/products' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
+            '/admin/catalog/import' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
         ],
     ];
 };

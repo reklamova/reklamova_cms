@@ -1,5 +1,5 @@
 {
-  "name": "Updates",
+  "name": "Aktualizacje CMS",
   "slug": "updates",
   "version": "0.1.0",
   "cms": ">=0.1.0",
@@ -11,7 +11,7 @@
   "visible_in_client_nav": false,
   "visible_in_admin_nav": true,
   "client_manageable": false,
-  "menu_group": "Reklamova / techniczne",
+  "menu_group": "Reklamova",
   "menu_label": "Aktualizacje CMS",
   "sort_order": 900,
   "permissions": ["manage_updates"],

@@ -1,46 +1,62 @@
-# Aktualizacje core jak WordPress
+# Aktualizacje jak WordPress
 
-Reklamova CMS jest self-hosted. Każdy klient ma osobną instalację, ale core jest rozwijany centralnie przez Reklamova.
+Reklamova CMS jest self-hosted. Każdy klient ma osobną instalację, bazę, uploady, motyw i konfigurację. Core jest rozwijany centralnie i aktualizowany przez podpisane paczki ZIP.
 
-## Co może zmienić update core
+## Co wysyła instalacja
 
-- `reklamova.json`
-- `app/bootstrap.php`
-- `app/core`
-- `app/migrations/core`
-- `app/modules` z wyłączeniem `app/modules/custom`
-- `public/index.php`
-- `public/admin`
-- `public/assets/core`
+- `site_id`,
+- `site_key`,
+- aktualną wersję CMS,
+- wersję PHP,
+- wersję bazy,
+- aktywne moduły,
+- motyw,
+- checksum core.
 
-## Czego update nie może zmienić
+## Co zwraca update server
 
-- `app/config`
-- `app/themes`
-- `app/modules/custom`
-- `public/uploads`
-- `app/storage/backups`
-- `app/storage/logs`
+- informację, czy jest aktualizacja,
+- wersję docelową,
+- typ aktualizacji: security, patch, minor, major,
+- changelog,
+- wymagania,
+- URL paczki,
+- checksum,
+- podpis.
 
-## Check update
+## Przed aktualizacją
 
-Instalacja wysyła do `updates.reklamova.pl` site ID, bearer site key, domenę, obecną wersję CMS, PHP, wersję bazy, aktywne moduły, motyw, checksum core i health check.
+CMS sprawdza:
+- wersję PHP,
+- rozszerzenia,
+- prawa zapisu,
+- wolne miejsce,
+- protected paths,
+- integralność i podpis paczki.
 
-Update server zwraca informację o dostępności aktualizacji, wersję docelową, typ aktualizacji, changelog, wymagania, URL paczki, checksum i podpis.
+Następnie wykonuje:
+- backup bazy,
+- backup plików core,
+- maintenance mode.
 
-## Przebieg aktualizacji
+## Aktualizacja może zmieniać
 
-1. Sprawdzenie środowiska.
-2. Pobranie paczki.
-3. Weryfikacja checksum i podpisu.
-4. Dry run protected paths.
-5. Backup bazy i core.
-6. Maintenance mode.
-7. Podmiana tylko core paths.
-8. Migracje.
-9. Cache clear.
-10. Health check.
-11. Wyłączenie maintenance mode.
-12. Update log.
+- `app/core`,
+- `app/migrations/core`,
+- `public/assets/core`,
+- ewentualnie `vendor`.
 
-Klient widzi prosty komunikat. Reklamova widzi szczegóły techniczne, dry run, backup, rollback i log.
+## Aktualizacja nie może zmieniać
+
+- `app/config`,
+- `app/themes`,
+- `app/modules/custom`,
+- `public/uploads`,
+- `app/storage/backups`,
+- `app/storage/logs`.
+
+## Po aktualizacji
+
+CMS uruchamia migracje, czyści cache, wykonuje health check, zapisuje log i wyłącza maintenance mode. W razie błędu przywraca backup core oraz backup bazy, jeśli migracje zostały wykonane.
+
+Klient widzi prosty komunikat o dostępnej aktualizacji. Reklamova widzi dry run, log, backup, rollback i szczegóły techniczne.

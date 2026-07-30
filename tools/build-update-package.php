@@ -10,9 +10,35 @@ if (PHP_SAPI !== 'cli') {
 $root = dirname(__DIR__);
 $version = option('version') ?: null;
 $packageId = option('package-id') ?: null;
-$channel = option('channel') ?: 'stable';
+$channel = option('channel');
 $baseUrl = rtrim(option('base-url') ?: 'https://updates.reklamova.pl', '/');
 $outDir = option('out') ?: $root . '/build/update-packages';
+$validateOnly = flag('validate-only');
+
+$allowedCorePaths = [
+    'app/core',
+    'app/migrations/core',
+    'app/modules/business',
+    'app/modules/catalog',
+    'app/modules/forms',
+    'app/modules/knowledge',
+    'app/modules/landing',
+    'app/modules/leads',
+    'app/modules/media',
+    'app/modules/pages',
+    'app/modules/privacy',
+    'app/modules/seo',
+    'app/modules/trust',
+    'app/modules/updates',
+    'public/assets/core',
+    'docs',
+    'reklamova.json',
+    'app/config/placements.example.php',
+];
+
+$allowedProtectedFiles = [
+    'app/config/placements.example.php',
+];
 
 if (!$version) {
     fwrite(STDERR, "Missing --version=x.y.z\n");
@@ -20,7 +46,26 @@ if (!$version) {
 }
 
 if (!$packageId) {
-    $packageId = 'pkg_core_' . str_replace('.', '_', $version);
+    $packageVersion = trim((string) preg_replace('/[^a-zA-Z0-9]+/', '_', $version), '_');
+    $packageId = 'pkg_core_' . $packageVersion;
+}
+
+$manifestConfig = json_decode((string) file_get_contents($root . '/reklamova.json'), true) ?: [];
+$corePaths = $manifestConfig['core_paths'] ?? [];
+$protectedPaths = $manifestConfig['protected_paths'] ?? [];
+$channel = $channel ?: (string) ($manifestConfig['update_channel'] ?? 'stable');
+validateCorePackageScope($corePaths, $protectedPaths, $allowedCorePaths, $allowedProtectedFiles);
+
+if ($validateOnly) {
+    echo json_encode([
+        'status' => 'valid',
+        'version' => $version,
+        'channel' => $channel,
+        'package_id' => $packageId,
+        'core_paths' => array_values($corePaths),
+        'protected_paths' => array_values($protectedPaths),
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+    exit(0);
 }
 
 if (!extension_loaded('zip') || !extension_loaded('sodium')) {
@@ -40,9 +85,6 @@ if ($privateKeyBytes === false || strlen($privateKeyBytes) !== SODIUM_CRYPTO_SIG
     exit(1);
 }
 
-$manifestConfig = json_decode((string) file_get_contents($root . '/reklamova.json'), true) ?: [];
-$corePaths = $manifestConfig['core_paths'] ?? [];
-$protectedPaths = $manifestConfig['protected_paths'] ?? [];
 $work = sys_get_temp_dir() . '/reklamova-update-' . bin2hex(random_bytes(6));
 $filesRoot = $work . '/files';
 mkdir($filesRoot, 0775, true);
@@ -52,7 +94,7 @@ foreach ($corePaths as $relativePath) {
     if (!file_exists($source)) {
         continue;
     }
-    assertNotProtected($relativePath, $protectedPaths);
+    assertNotProtected($relativePath, $protectedPaths, $allowedProtectedFiles);
     $target = $filesRoot . '/' . $relativePath;
     if (is_dir($source)) {
         copyDirectory($source, $target, $protectedPaths, $root);
@@ -134,11 +176,47 @@ function option(string $name): ?string
     return null;
 }
 
-function assertNotProtected(string $path, array $protectedPaths): void
+function flag(string $name): bool
 {
-    $path = trim(str_replace('\\', '/', $path), '/');
+    return in_array('--' . $name, $_SERVER['argv'], true);
+}
+
+function normalizePath(string $path): string
+{
+    return trim(str_replace('\\', '/', $path), '/');
+}
+
+function validateCorePackageScope(array $corePaths, array $protectedPaths, array $allowedCorePaths, array $allowedProtectedFiles): void
+{
+    if ($corePaths === []) {
+        throw new RuntimeException('Core package paths are empty.');
+    }
+
+    $allowed = array_fill_keys(array_map('normalizePath', $allowedCorePaths), true);
+    foreach ($corePaths as $path) {
+        $path = normalizePath((string) $path);
+        if ($path === 'app/modules/custom' || str_starts_with($path, 'app/modules/custom/')) {
+            throw new RuntimeException('Custom modules must be released as site-specific patches: ' . $path);
+        }
+
+        if ($path === '' || !isset($allowed[$path])) {
+            throw new RuntimeException('Path is outside the core package allowlist: ' . ($path ?: '[empty]'));
+        }
+
+        assertNotProtected($path, $protectedPaths, $allowedProtectedFiles);
+    }
+}
+
+function assertNotProtected(string $path, array $protectedPaths, array $allowedProtectedFiles = []): void
+{
+    $path = normalizePath($path);
+    $allowed = array_map('normalizePath', $allowedProtectedFiles);
+    if (in_array($path, $allowed, true)) {
+        return;
+    }
+
     foreach ($protectedPaths as $protectedPath) {
-        $protectedPath = trim((string) $protectedPath, '/');
+        $protectedPath = normalizePath((string) $protectedPath);
         if ($path === $protectedPath || str_starts_with($path, $protectedPath . '/')) {
             throw new RuntimeException('Protected path in package: ' . $path);
         }

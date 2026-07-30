@@ -11,7 +11,7 @@
   "visible_in_client_nav": true,
   "visible_in_admin_nav": true,
   "client_manageable": true,
-  "menu_group": "Treść",
+  "menu_group": "Treści",
   "menu_label": "Media",
   "sort_order": 30,
   "permissions": ["manage_media"],

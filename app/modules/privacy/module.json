@@ -9,9 +9,9 @@
   "visible_in_client_nav": true,
   "visible_in_admin_nav": true,
   "client_manageable": true,
-  "menu_group": "Marketing",
+  "menu_group": "Ustawienia",
   "menu_label": "Prywatność i cookies",
   "sort_order": 180,
-  "permissions": ["manage_privacy"],
-  "description": "System privacy, consent, cookie, document and script governance module for every Reklamova CMS installation."
+  "permissions": ["manage_privacy_basic"],
+  "description": "Centrum zgód, cookies, dokumentów prywatności i skryptów zewnętrznych dla każdej instalacji."
 }

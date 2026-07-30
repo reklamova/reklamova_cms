@@ -9,8 +9,8 @@
   "visible_in_client_nav": false,
   "visible_in_admin_nav": true,
   "client_manageable": false,
-  "menu_group": "Reklamova / techniczne",
-  "menu_label": "SEO",
+  "menu_group": "Reklamova",
+  "menu_label": "SEO zaawansowane",
   "sort_order": 910,
   "permissions": ["manage_advanced_seo"],
   "migrations": false

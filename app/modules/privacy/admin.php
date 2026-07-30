@@ -367,5 +367,16 @@ return static function (array $container, PDO $pdo, array $module): array {
             '/admin/privacy/cookies' => $cookies,
             '/admin/privacy/logs' => $logs,
         ],
+        'route_permissions' => [
+            '/admin/privacy' => ['GET' => 'manage_privacy_basic', 'POST' => 'manage_privacy_basic'],
+            '/admin/privacy/banner' => ['GET' => 'manage_privacy_basic', 'POST' => 'manage_privacy_basic'],
+            '/admin/privacy/categories' => ['GET' => 'manage_privacy_basic', 'POST' => 'manage_privacy_basic'],
+            '/admin/privacy/scripts' => ['GET' => 'manage_privacy_scripts', 'POST' => 'manage_privacy_scripts'],
+            '/admin/privacy/scripts/edit' => ['GET' => 'manage_privacy_scripts', 'POST' => 'manage_privacy_scripts'],
+            '/admin/privacy/documents' => ['GET' => 'manage_privacy_basic', 'POST' => 'manage_privacy_basic'],
+            '/admin/privacy/forms' => ['GET' => 'manage_privacy_basic', 'POST' => 'manage_privacy_basic'],
+            '/admin/privacy/cookies' => ['GET' => 'manage_privacy_basic', 'POST' => 'manage_privacy_basic'],
+            '/admin/privacy/logs' => ['GET' => 'view_logs', 'POST' => 'view_logs'],
+        ],
     ];
 };

@@ -9,7 +9,7 @@ final class Url
     public static function path(): string
     {
         $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-        return '/' . trim($uri, '/');
+        return '/' . trim(rawurldecode($uri), '/');
     }
 
     public static function redirect(string $to): never

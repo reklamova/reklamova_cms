@@ -1,15 +1,17 @@
 {
   "slug": "trust",
-  "name": "Reklamova Trust Center",
+  "name": "Opinie i wiarygodność",
   "version": "0.1.0",
   "source": "core",
   "enabled_by_default": false,
   "visible_in_client_nav": true,
   "visible_in_admin_nav": true,
   "client_manageable": true,
+  "requires_theme_placement": true,
+  "placement_key": "trust_center",
   "menu_group": "Marketing",
-  "menu_label": "Opinie i referencje",
+  "menu_label": "Opinie i wiarygodność",
   "sort_order": 170,
-  "permissions": ["manage_pages"],
-  "description": "Trust assets module for certificates, partners, awards, business metrics and downloadable proof files."
+  "permissions": ["manage_reviews_trust"],
+  "description": "Opinie, certyfikaty, logotypy, liczby, wyróżnienia i pliki budujące wiarygodność strony."
 }

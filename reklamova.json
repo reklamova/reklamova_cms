@@ -1,5 +1,5 @@
 {
-  "cms_version": "0.7.5",
+  "cms_version": "0.8.0",
   "install_mode": "zip",
   "update_channel": "stable",
   "protected_paths": [
@@ -12,12 +12,22 @@
   ],
   "core_paths": [
     "reklamova.json",
-    "app/bootstrap.php",
     "app/core",
     "app/migrations/core",
-    "app/modules",
-    "public/index.php",
-    "public/admin",
-    "public/assets/core"
+    "app/modules/business",
+    "app/modules/catalog",
+    "app/modules/forms",
+    "app/modules/knowledge",
+    "app/modules/landing",
+    "app/modules/leads",
+    "app/modules/media",
+    "app/modules/pages",
+    "app/modules/privacy",
+    "app/modules/seo",
+    "app/modules/trust",
+    "app/modules/updates",
+    "public/assets/core",
+    "docs",
+    "app/config/placements.example.php"
   ]
 }

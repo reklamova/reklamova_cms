@@ -1,7 +1,14 @@
 {
   "slug": "mero",
-  "name": "MERO CMS",
+  "name": "MERO",
   "version": "0.1.0",
   "source": "custom",
-  "description": "Client module for mero.pl: calculator settings, leads and investor guide."
+  "visible_in_client_nav": true,
+  "visible_in_admin_nav": true,
+  "client_manageable": false,
+  "menu_group": "Oferta",
+  "menu_label": "Kalkulator budowy",
+  "sort_order": 120,
+  "permissions": ["manage_products", "view_leads", "manage_blog"],
+  "description": "Moduł klienta MERO: kalkulator budowy, zapytania i poradnik inwestora."
 }

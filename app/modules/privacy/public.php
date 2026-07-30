@@ -128,7 +128,17 @@ return static function (array $container, PDO $pdo, array $module): array {
             return false;
         }
         $documentSlug = trim(substr($slug, strlen('api/privacy/document/')), '/');
-        $document = $repo->documentBySlug($documentSlug);
+        $documentAliases = [
+            'polityka-prywatnosci' => ['polityka-prywatnosci', 'polityka-prywatności'],
+            'polityka-prywatności' => ['polityka-prywatnosci', 'polityka-prywatności'],
+        ];
+        $document = null;
+        foreach ($documentAliases[$documentSlug] ?? [$documentSlug] as $candidate) {
+            $document = $repo->documentBySlug($candidate);
+            if ($document) {
+                break;
+            }
+        }
         if (!$document) {
             $json(['error' => 'Nie znaleziono dokumentu.'], 404);
             return true;
@@ -148,21 +158,29 @@ return static function (array $container, PDO $pdo, array $module): array {
 
     $publicDocument = static function (string $slug) use ($repo, $documents): bool {
         $mapped = [
-            'polityka-prywatności' => 'polityka-prywatności',
-            'polityka-cookies' => 'polityka-cookies',
-            'ustawienia-prywatności' => 'ustawienia-prywatności',
+            'polityka-prywatnosci' => ['polityka-prywatnosci', 'polityka-prywatności'],
+            'polityka-prywatności' => ['polityka-prywatnosci', 'polityka-prywatności'],
+            'polityka-cookies' => ['polityka-cookies'],
+            'ustawienia-prywatnosci' => [],
+            'ustawienia-prywatności' => [],
         ];
         if (!isset($mapped[$slug])) {
             return false;
         }
 
         header('Content-Type: text/html; charset=utf-8');
-        if ($slug === 'ustawienia-prywatności') {
+        if ($slug === 'ustawienia-prywatnosci' || $slug === 'ustawienia-prywatności') {
             echo '<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ustawienia prywatności</title>' . privacy_head() . '</head><body>' . privacy_body_start() . '<main style="max-width:760px;margin:40px auto;font-family:system-ui,sans-serif"><h1>Ustawienia prywatności</h1><p>Tutaj możesz zmienic swoja decyzję dotyczaca cookies i skryptów zewnętrznych.</p><button data-reklamova-privacy-open>Otworz ustawienia prywatności</button></main>' . privacy_body_end() . '</body></html>';
             return true;
         }
 
-        $document = $repo->documentBySlug($mapped[$slug]);
+        $document = null;
+        foreach ($mapped[$slug] as $documentSlug) {
+            $document = $repo->documentBySlug($documentSlug);
+            if ($document) {
+                break;
+            }
+        }
         if (!$document) {
             http_response_code(404);
             echo 'Nie znaleziono dokumentu.';

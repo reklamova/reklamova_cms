@@ -1,36 +1,50 @@
-# Widoczność modułów
+# Widoczność Modułów
 
-Moduł w Reklamova CMS jest funkcją instalacji klienta, a nie automatyczną pozycją menu.
+Moduł może być aktywny technicznie, ale niewidoczny dla klienta.
 
-## Pola modułu
+## Pola Modułu
 
-- `slug`
-- `name`
-- `description`
-- `version`
-- `source`: `core`, `official`, `custom`
-- `enabled`
-- `locked`
-- `system`
-- `visible_in_client_nav`
-- `visible_in_admin_nav`
-- `client_manageable`
-- `requires`
-- `permissions`
-- `menu_group`
-- `menu_label`
-- `sort_order`
-- `settings_json`
+- `enabled` - moduł jest aktywny w instalacji,
+- `locked` - nie można go wyłączyć z panelu,
+- `system` - część core CMS,
+- `visible_in_client_nav` - może pojawić się w menu klienta,
+- `visible_in_admin_nav` - może pojawić się w menu Reklamova,
+- `client_manageable` - klient może obsługiwać ekran modułu,
+- `requires` - zależności,
+- `permissions` - wymagane uprawnienia,
+- `menu_group` - grupa w menu,
+- `menu_label` - etykieta w UI,
+- `requires_theme_placement` - moduł wymaga miejsca wyświetlania w motywie,
+- `placement_key` - klucz miejsca, np. `trust_center`,
+- `settings_json` - konfiguracja per instalacja.
 
-## Domyślne zasady
+## Reguły
 
-- `pages`, `media`, `privacy`, `updates` są systemowe.
-- `catalog`, `business`, `knowledge`, `landing`, `trust`, `leads` są domyślnie wyłączone dla nowych instalacji, chyba że instalator albo konfiguracja strony je aktywuje.
-- Wyłączenie modułu nie usuwa jego tabel ani danych.
+Klient widzi moduł tylko wtedy, gdy:
+- moduł jest aktywny,
+- ma `visible_in_client_nav = true`,
+- użytkownik ma wymagane uprawnienie,
+- moduł ma jasny opis i miejsce wyświetlania,
+- moduł nie jest techniczny.
 
-## Test ręczny
+Reklamova widzi moduły techniczne w grupie `Reklamova`.
 
-1. Strona bez katalogu nie pokazuje `Produkty` ani `Kategorie produktów`.
-2. Strona z katalogiem pokazuje obie pozycje.
-3. `client_admin` nie widzi grupy `Reklamova / techniczne`.
-4. `reklamova_admin` widzi moduły i może zmieniać status funkcji.
+## Placementy
+
+Moduł taki jak `Opinie i wiarygodność` może być aktywny technicznie, ale ukryty przed klientem, dopóki motyw albo instalacja nie zadeklaruje miejsca wyświetlania.
+
+Lokalna instalacja może utworzyć `app/config/placements.php` na podstawie `app/config/placements.example.php`:
+
+```php
+return [
+    'trust_center' => [
+        'enabled' => true,
+        'label' => 'Sekcja opinii i wiarygodności',
+        'where' => 'Strona główna -> Dlaczego warto nam zaufać',
+    ],
+];
+```
+
+`app/config/placements.php` jest plikiem instalacyjnym, więc aktualizacja core nie może go nadpisać.
+
+Historyczne aliasy uprawnień (`manage_privacy`, `manage_themes`, `view_health`) pozostają po to, żeby stare instalacje nie straciły dostępu po aktualizacji.

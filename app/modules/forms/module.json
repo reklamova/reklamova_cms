@@ -1,5 +1,5 @@
 {
-  "name": "Forms",
+  "name": "Formularze",
   "slug": "forms",
   "version": "0.1.0",
   "cms": ">=0.1.0",
@@ -9,9 +9,9 @@
   "visible_in_client_nav": true,
   "visible_in_admin_nav": true,
   "client_manageable": true,
-  "menu_group": "Treść",
+  "menu_group": "Kontakt",
   "menu_label": "Formularze",
-  "sort_order": 65,
+  "sort_order": 70,
   "permissions": ["manage_forms"],
   "migrations": false
 }

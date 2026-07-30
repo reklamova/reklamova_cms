@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Reklamova\Cms\Admin\AdminView;
 use Reklamova\Cms\Auth\Csrf;
+use Reklamova\Cms\Auth\PermissionManager;
 use Reklamova\Cms\Modules\Leads\LeadRepository;
 use Reklamova\Cms\Support\Url;
 
@@ -12,6 +13,7 @@ require_once __DIR__ . '/src/LeadRepository.php';
 return static function (array $container, PDO $pdo, array $module): array {
     $repo = new LeadRepository($pdo);
     $h = static fn (mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES);
+    $permissions = new PermissionManager($pdo, $container);
     $statuses = [
         'new' => 'Nowy',
         'in_progress' => 'W toku',
@@ -21,8 +23,13 @@ return static function (array $container, PDO $pdo, array $module): array {
         'archived' => 'Archiwum',
     ];
 
-    $inbox = static function (AdminView $view, array $user) use ($repo, $h, $statuses): void {
+    $inbox = static function (AdminView $view, array $user) use ($repo, $h, $statuses, $permissions): void {
+        $canManage = $permissions->can($user, 'manage_inquiries');
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && Csrf::verify($_POST['_csrf'] ?? null)) {
+            if (!$canManage) {
+                $view->render('Zapytania', '<section class="panel error-panel"><h2>Brak uprawnień</h2><p>Możesz czytać zapytania, ale zmiana statusu wymaga dodatkowego uprawnienia.</p></section>', $user);
+                return;
+            }
             $repo->updateStatus((int) ($_POST['id'] ?? 0), (string) ($_POST['status'] ?? 'new'), (int) $user['id'], (string) ($_POST['note'] ?? ''));
             Url::redirect('/admin/leads');
         }
@@ -33,21 +40,36 @@ return static function (array $container, PDO $pdo, array $module): array {
             foreach ($statuses as $value => $label) {
                 $statusOptions .= '<option value="' . $h($value) . '"' . ((string) $lead['status'] === $value ? ' selected' : '') . '>' . $h($label) . '</option>';
             }
+            $statusCell = $canManage
+                ? '<form method="post" class="lead-status-form">' . Csrf::field() . '<input type="hidden" name="id" value="' . (int) $lead['id'] . '"><select name="status">' . $statusOptions . '</select><textarea name="note" placeholder="Notatka">' . $h($lead['note']) . '</textarea><button>Zapisz</button></form>'
+                : '<b>' . $h($statuses[(string) $lead['status']] ?? $lead['status']) . '</b><br><small>' . $h($lead['note']) . '</small>';
             $rows .= '<tr><td><b>' . $h($lead['name'] ?: 'Bez nazwy') . '</b><br>' . $h($lead['email']) . '<br>' . $h($lead['phone']) . '</td>'
                 . '<td>' . $h($lead['form_type']) . '<br><small>' . $h($lead['source']) . '</small></td>'
                 . '<td>' . nl2br($h($lead['message'])) . '</td>'
                 . '<td>' . $h($lead['created_at']) . '</td>'
-                . '<td><form method="post" class="lead-status-form">' . Csrf::field() . '<input type="hidden" name="id" value="' . (int) $lead['id'] . '"><select name="status">' . $statusOptions . '</select><textarea name="note" placeholder="Notatka">' . $h($lead['note']) . '</textarea><button>Zapisz</button></form></td></tr>';
+                . '<td>' . $statusCell . '</td></tr>';
         }
 
         $content = '<section class="panel system-hero"><div><span class="eyebrow">Reklamova Leads</span><h2>Skrzynka zapytań</h2><p>Jedno miejsce na formularze kontaktowe, kalkulatory, landing page i kampanie. Statusy pomagają prowadzić obsługę zapytań bez arkuszy i chaosu.</p></div></section>'
             . '<table><thead><tr><th>Kontakt</th><th>Źródło</th><th>Wiadomość</th><th>Data</th><th>Status</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="5">Brak leadów.</td></tr>') . '</tbody></table>';
 
-        $view->render('Formularze', $content, $user);
+        $view->render('Zapytania', $content, $user);
     };
 
     return [
-        'nav' => ['/admin/leads' => 'Formularze'],
+        'nav' => [
+            '/admin/leads' => [
+                'label' => 'Zapytania',
+                'menu_group' => 'Kontakt',
+                'permission' => 'view_leads',
+                'visible_in_client_nav' => true,
+                'sort_order' => 60,
+                'nav_key' => 'leads',
+            ],
+        ],
         'routes' => ['/admin/leads' => $inbox],
+        'route_permissions' => [
+            '/admin/leads' => ['GET' => 'view_leads', 'POST' => 'manage_inquiries'],
+        ],
     ];
 };

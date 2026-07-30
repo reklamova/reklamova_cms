@@ -651,6 +651,25 @@ pre {
   max-width: 760px;
   margin: 0;
 }
+.catalog-product-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+.catalog-product-form > .editor-section {
+  width: 100%;
+  min-width: 0;
+}
+.catalog-product-form > .editor-section + .editor-section {
+  margin-top: 0;
+}
+.catalog-product-form .field,
+.catalog-product-form input,
+.catalog-product-form select,
+.catalog-product-form textarea {
+  min-width: 0;
+}
 .page-blocks {
   display: grid;
   gap: 16px;
@@ -1715,3 +1734,171 @@ button.secondary,
   border-radius: 10px;
   background: #fff;
 }
+
+/* Client information architecture cleanup. */
+.client-simple-page-list .page-table th:nth-child(4),
+.client-simple-page-list .page-table td:nth-child(4) {
+  display: none;
+}
+
+.screen-help {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+  gap: 24px;
+  align-items: start;
+  background:
+    radial-gradient(circle at 100% 0, rgba(246,178,26,.12), transparent 28%),
+    #fff;
+}
+
+.screen-help p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: var(--admin-muted);
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+.screen-help small,
+.update-client-note {
+  color: var(--admin-muted);
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.update-client-note {
+  max-width: 520px;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.trust-type-help {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.trust-type-help small {
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: #fbfcff;
+  color: var(--admin-muted);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+@media (max-width: 860px) {
+  .screen-help {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    min-height: auto;
+  }
+
+  .main,
+  .content,
+  .panel,
+  .catalog-product-form,
+  .catalog-product-form > .editor-section {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .topbar,
+  .content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .page-editor__head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-editor__head .actions {
+    width: 100%;
+  }
+
+  .editor-section summary,
+  .seo-accordion summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* RC4: wide admin tables scroll locally instead of widening the whole panel. */
+.layout,
+.main,
+.content,
+.panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.content table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.content table th,
+.content table td {
+  min-width: 110px;
+  overflow-wrap: anywhere;
+}
+
+.content table th:first-child,
+.content table td:first-child {
+  min-width: 180px;
+}
+
+.content table td .actions {
+  min-width: max-content;
+  flex-wrap: nowrap;
+}
+
+.content table pre {
+  max-width: 320px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .content table::before {
+    content: "Przesuń tabelę w bok, aby zobaczyć wszystkie kolumny →";
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: block;
+    width: max-content;
+    min-width: min(100%, calc(100vw - 64px));
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--admin-line);
+    background: #fffaf0;
+    color: #7b5b0b;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
