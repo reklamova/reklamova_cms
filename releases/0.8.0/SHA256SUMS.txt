@@ -1,0 +1,3 @@
+4cf9f8937f9f3dd88fd62e05f28693d4fd2959847abd62ac62bb748baee9be9d  mero-admin-0.8.0-1.zip
+f343ddfb87079c7b99d913c3e9fb06b2bd2475d38fb9205219f581afe9c6dbab  mero-frontend-privacy-0.8.0-1.zip
+2ac6b1d2ca490ca082859dc5f53300b23432ba1e8fededde739fd6f173780e30  reklamova-core-0.8.0.zip

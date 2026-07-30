@@ -33,7 +33,7 @@ modules i uploadach, z wyjątkiem jawnie dozwolonego pliku przykładowych
 placementów.
 
 Patch MERO wdrożono osobno zgodnie z
-`docs/releases/mero-custom-patch-0.8.0.md`. Jego backup i sumy są niezależne od
+`docs/archive/0.8.0-rc/mero-custom-patch-0.8.0.md`. Jego backup i sumy są niezależne od
 core.
 
 ## Migracje i lint

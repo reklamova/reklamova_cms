@@ -2,6 +2,22 @@
 
 Data: 2026-07-29
 
+## Status 2026-07-30
+
+Operacja produkcyjna pozostaje **WSTRZYMANA BEZ ZMIAN PLIKÓW**.
+
+Publiczny smoke test potwierdził działanie strony głównej, podstron, kontaktu,
+panelu logowania, odpowiedzi 404 i pojedynczego assetu Privacy Center. W HTML
+nie znaleziono publicznych markerów MERO. Chronione katalogi konfiguracji,
+backupów i private storage nie są dostępne przez URL.
+
+Nie udało się wykonać wymaganej kontroli `app/config/app.php`, `cms_modules`,
+motywu, tras i logów, ponieważ konto SSH hostingu LH wymaga poświadczenia,
+którego nie ma w repozytorium, agencie SSH ani zapisanych lokalnych sesjach.
+Zgodnie z procedurą katalog `app/modules/custom/mero` nie został przeniesiony,
+usunięty ani zmodyfikowany. Po odzyskaniu autoryzowanego dostępu należy wykonać
+całą procedurę poniżej, zaczynając od świeżego backupu i sum kontrolnych.
+
 ## Co wykryto
 
 W produkcyjnej kopii plików PowerTech znajdował się katalog:
@@ -55,6 +71,6 @@ Na stagingu katalog został już zarchiwizowany w:
 
 ## Produkcja
 
-Usunięcie z produkcji wymaga osobnej akceptacji. Przed operacją trzeba wykonać
-backup katalogu, konfiguracji i bazy oraz powtórzyć checklistę stagingową.
-Standardowa paczka core RC2 nie może usuwać ani modyfikować tego katalogu.
+Przed operacją trzeba wykonać backup katalogu, konfiguracji i bazy oraz
+powtórzyć checklistę stagingową. Standardowa paczka core stable nie może usuwać
+ani modyfikować tego katalogu.
