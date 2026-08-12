@@ -1,0 +1,15 @@
+{
+  "slug": "powertech",
+  "name": "PowerTech frontend",
+  "version": "0.1.0",
+  "source": "custom",
+  "enabled_by_default": false,
+  "visible_in_client_nav": false,
+  "visible_in_admin_nav": false,
+  "client_manageable": false,
+  "menu_group": "Strona klienta",
+  "menu_label": "PowerTech frontend",
+  "sort_order": 900,
+  "permissions": [],
+  "description": "Warstwa frontendowa PowerTech: layout strony, katalog, wyszukiwarka i formularz zapytania produktowego."
+}

@@ -21,6 +21,15 @@ Patche modułu custom MERO są wdrażane niezależnie od paczki core:
 
 Paczka core stable nie zawiera `app/modules/custom/**`.
 
+## Warstwa PowerTech
+
+Frontend, katalog, wyszukiwarka i formularz produktowy PowerTech są
+wersjonowane w `app/modules/custom/powertech` oraz `app/themes/powertech`.
+Nie są częścią paczki core i wymagają osobnego wdrożenia protected paths.
+
+Raport migracji historycznych zmian z core:
+[`../operations/client-separation-2026-08-12.md`](../operations/client-separation-2026-08-12.md).
+
 ## Archiwum
 
 Raporty RC1-RC4, checklisty stagingowe, testy migracji i walidacje pakietów są
