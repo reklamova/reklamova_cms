@@ -251,7 +251,7 @@ final class AdminView
     private function adminAssetVersion(string $filename): string
     {
         $root = dirname(__DIR__, 3);
-        foreach ([$root . '/public_html/assets/core/' . $filename, $root . '/public/assets/core/' . $filename] as $path) {
+        foreach ([$root . '/assets/core/' . $filename, $root . '/public_html/assets/core/' . $filename, $root . '/public/assets/core/' . $filename] as $path) {
             if (is_file($path)) {
                 return (string) filemtime($path);
             }
