@@ -83,7 +83,7 @@ final class AdminView
     {
         $groups = [
             '' => [
-                $this->menuItem('/admin', 'Start', 'view_dashboard', 10, true, true),
+                $this->menuItem('/admin', 'Panel główny', 'view_dashboard', 10, true, true),
             ],
             'Treści' => [
                 $this->menuItem('/admin/pages', 'Podstrony', 'manage_pages', 20, true, true),

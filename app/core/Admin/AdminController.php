@@ -345,7 +345,7 @@ final class AdminController
             . implode('', $quickActions)
             . '</div></section>';
 
-        $this->view->render('Dashboard', $content, $user);
+        $this->view->render('Panel główny', $content, $user);
     }
 
     private function pages(array $user): void
@@ -821,15 +821,75 @@ final class AdminController
             Url::redirect('/admin/media');
         }
 
-        $rows = $this->pdo->query('SELECT filename, path, mime_type, size, created_at FROM cms_media ORDER BY created_at DESC')->fetchAll();
-        $body = '';
-        foreach ($rows as $row) {
-            $body .= '<tr><td>' . htmlspecialchars($row['filename'], ENT_QUOTES) . '</td><td>' . htmlspecialchars($row['path'], ENT_QUOTES) . '</td><td>' . htmlspecialchars($row['mime_type'], ENT_QUOTES) . '</td><td>' . (int) $row['size'] . '</td><td>' . htmlspecialchars($row['created_at'], ENT_QUOTES) . '</td></tr>';
+        $query = trim((string) ($_GET['q'] ?? ''));
+        $type = (string) ($_GET['type'] ?? 'all');
+        if (!in_array($type, ['all', 'images', 'documents', 'other'], true)) {
+            $type = 'all';
         }
 
-        $content = '<section class="panel"><form method="post" enctype="multipart/form-data">' . Csrf::field()
-            . '<label>Plik<input type="file" name="upload" required></label><button>Wgraj plik</button></form></section>'
-            . '<table><thead><tr><th>Plik</th><th>Ścieżka</th><th>Typ</th><th>Rozmiar</th><th>Data</th></tr></thead><tbody>' . $body . '</tbody></table>';
+        $conditions = [];
+        $parameters = [];
+        if ($query !== '') {
+            $conditions[] = '(filename LIKE ? OR path LIKE ?)';
+            $parameters[] = '%' . $query . '%';
+            $parameters[] = '%' . $query . '%';
+        }
+        if ($type === 'images') {
+            $conditions[] = 'mime_type LIKE "image/%"';
+        } elseif ($type === 'documents') {
+            $conditions[] = '(mime_type LIKE "application/%" OR mime_type LIKE "text/%")';
+        } elseif ($type === 'other') {
+            $conditions[] = 'mime_type NOT LIKE "image/%" AND mime_type NOT LIKE "application/%" AND mime_type NOT LIKE "text/%"';
+        }
+
+        $where = $conditions !== [] ? ' WHERE ' . implode(' AND ', $conditions) : '';
+        $countStatement = $this->pdo->prepare('SELECT COUNT(*) FROM cms_media' . $where);
+        $countStatement->execute($parameters);
+        $total = (int) $countStatement->fetchColumn();
+        $perPage = 24;
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min($pages, max(1, (int) ($_GET['page'] ?? 1)));
+        $offset = ($page - 1) * $perPage;
+        $statement = $this->pdo->prepare('SELECT filename, path, mime_type, size, created_at FROM cms_media' . $where . ' ORDER BY created_at DESC, id DESC LIMIT ' . $perPage . ' OFFSET ' . $offset);
+        $statement->execute($parameters);
+        $rows = $statement->fetchAll();
+
+        $cards = '';
+        foreach ($rows as $row) {
+            $filename = (string) ($row['filename'] ?? 'Plik');
+            $path = (string) ($row['path'] ?? '');
+            $mimeType = (string) ($row['mime_type'] ?? 'application/octet-stream');
+            $isImage = str_starts_with($mimeType, 'image/');
+            $extension = strtoupper((string) (pathinfo($filename, PATHINFO_EXTENSION) ?: 'PLIK'));
+            $preview = $isImage && $path !== ''
+                ? '<img src="' . $this->h($path) . '" alt="" loading="lazy" decoding="async">'
+                : '<span class="media-card__file-icon" aria-hidden="true">' . $this->h(mb_substr($extension, 0, 5)) . '</span>';
+            $cards .= '<article class="media-card"><div class="media-card__preview">' . $preview . '</div>'
+                . '<div class="media-card__body"><div><strong title="' . $this->h($filename) . '">' . $this->h($filename) . '</strong><small>' . $this->h($this->formatBytes((int) ($row['size'] ?? 0))) . ' · ' . $this->h($extension) . '</small></div>'
+                . ($path !== '' ? '<a href="' . $this->h($path) . '" target="_blank" rel="noopener" aria-label="Otwórz plik ' . $this->h($filename) . '">Otwórz</a>' : '')
+                . '</div></article>';
+        }
+
+        $tabs = '';
+        foreach (['all' => 'Wszystkie', 'images' => 'Obrazy', 'documents' => 'Dokumenty', 'other' => 'Inne'] as $key => $label) {
+            $url = '/admin/media?type=' . rawurlencode($key) . ($query !== '' ? '&q=' . rawurlencode($query) : '');
+            $tabs .= '<a href="' . $this->h($url) . '"' . ($type === $key ? ' aria-current="page"' : '') . '>' . $this->h($label) . '</a>';
+        }
+
+        $pageUrl = static function (int $targetPage) use ($type, $query): string {
+            return '/admin/media?type=' . rawurlencode($type) . ($query !== '' ? '&q=' . rawurlencode($query) : '') . '&page=' . $targetPage;
+        };
+        $pagination = '<div class="media-pagination"><span>Strona ' . $page . ' z ' . $pages . ' · ' . $total . ' plików</span><div>'
+            . ($page > 1 ? '<a class="button secondary" href="' . $this->h($pageUrl($page - 1)) . '">Poprzednia</a>' : '')
+            . ($page < $pages ? '<a class="button secondary" href="' . $this->h($pageUrl($page + 1)) . '">Następna</a>' : '')
+            . '</div></div>';
+
+        $content = '<section class="panel media-toolbar"><div><span class="eyebrow">Biblioteka</span><h2>Pliki i obrazy</h2><p>Wgraj nowe materiały albo znajdź plik używany już na stronie.</p></div>'
+            . '<form method="post" enctype="multipart/form-data" class="media-upload">' . Csrf::field()
+            . '<label><span class="sr-only">Wybierz plik</span><input type="file" name="upload" required></label><button>Wgraj plik</button></form></section>'
+            . '<section class="panel media-library"><div class="media-library__head"><nav class="media-tabs" aria-label="Typ plików">' . $tabs . '</nav>'
+            . '<form method="get" action="/admin/media" class="media-search"><input type="hidden" name="type" value="' . $this->h($type) . '"><label><span class="sr-only">Szukaj pliku</span><input type="search" name="q" value="' . $this->h($query) . '" placeholder="Szukaj plików…"></label><button class="secondary">Szukaj</button></form></div>'
+            . '<div class="media-grid">' . ($cards !== '' ? $cards : '<div class="media-empty"><b>Brak plików</b><span>Zmień filtr lub wgraj pierwszy plik.</span></div>') . '</div>' . $pagination . '</section>';
 
         $this->view->render('Media', $content, $user);
     }
@@ -1391,6 +1451,24 @@ HTML;
     private function metric(string $label, string $value): string
     {
         return '<div class="metric"><span>' . htmlspecialchars($label, ENT_QUOTES) . '</span><b>' . htmlspecialchars($value, ENT_QUOTES) . '</b></div>';
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        }
+
+        $units = ['KB', 'MB', 'GB', 'TB'];
+        $value = $bytes / 1024;
+        foreach ($units as $index => $unit) {
+            if ($value < 1024 || $index === count($units) - 1) {
+                return number_format($value, $value >= 10 ? 0 : 1, ',', ' ') . ' ' . $unit;
+            }
+            $value /= 1024;
+        }
+
+        return $bytes . ' B';
     }
 
     private function moduleSummary(array $modules): string
