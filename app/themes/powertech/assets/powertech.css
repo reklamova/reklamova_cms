@@ -2648,3 +2648,58 @@ body.powertech-catalog {
         grid-template-columns: 1fr;
     }
 }
+
+/* Reklamova site credit */
+.pt-footer__credit {
+    background: var(--pt-dark);
+    border-top: 1px solid rgba(255, 255, 255, .12);
+    color: #bfc6cf;
+}
+
+.pt-footer__credit .pt-footer__credit-inner {
+    display: flex;
+    grid-template-columns: none;
+    align-items: center;
+    justify-content: center;
+    gap: 11px;
+    padding: 18px 0 20px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.pt-footer__credit a {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.pt-footer__credit img {
+    width: 112px;
+    height: auto;
+    filter: brightness(0) invert(1);
+    opacity: .88;
+    transition: opacity .2s ease;
+}
+
+.pt-footer__credit a:hover img,
+.pt-footer__credit a:focus-visible img {
+    opacity: 1;
+}
+
+.pt-footer__credit a:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 5px;
+}
+
+@media (max-width: 520px) {
+    .pt-footer__credit .pt-footer__credit-inner {
+        flex-wrap: wrap;
+        gap: 8px 10px;
+        padding: 17px 0 19px;
+        text-align: center;
+    }
+}

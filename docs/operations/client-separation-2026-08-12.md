@@ -61,6 +61,7 @@ faktycznie serwowanego katalogu:
 app/themes/powertech/assets/powertech.css -> assets/css/powertech.css
 app/themes/powertech/assets/powertech.js  -> assets/js/powertech.js
 app/themes/powertech/assets/favicon.svg   -> favicon.svg
+app/themes/powertech/assets/reklamova-logo.svg -> assets/img/reklamova-logo.svg
 ```
 
 Produkcja PowerTech ma historycznie spłaszczony document root, dlatego powyższe

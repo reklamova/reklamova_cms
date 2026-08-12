@@ -186,7 +186,9 @@ return static function (array $container, PDO $pdo, array $module): array {
         echo json_encode(['query' => $query, 'count' => count($items), 'items' => $items], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     };
 
-    $layout = static function (string $title, string $body, string $description = '', string $image = '', array $schema = []) use ($siteName, $siteUrl, $h, $powertechNavigation, $productSearch): void {
+    $footerCredit = '<div class="pt-footer__credit"><div class="pt-wrap pt-footer__credit-inner"><span>Strona zrealizowana przez</span><a href="https://reklamova.pl/" target="_blank" rel="noopener noreferrer" aria-label="Reklamova.pl"><img src="/assets/img/reklamova-logo.svg" alt=""><span>.pl</span></a></div></div>';
+
+    $layout = static function (string $title, string $body, string $description = '', string $image = '', array $schema = []) use ($siteName, $siteUrl, $h, $powertechNavigation, $productSearch, $footerCredit): void {
         header('Content-Type: text/html; charset=utf-8');
         $schemaHtml = '';
         foreach ($schema as $item) {
@@ -199,7 +201,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . ($image !== '' ? '<meta property="og:image" content="' . $h($image) . '">' : '')
             . '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
             . '<link rel="stylesheet" href="/assets/core/page.css">'
-            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260707-forms1">'
+            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260812-reklamova1">'
             . '<script src="/assets/js/powertech.js?v=20260701-14" defer></script>'
             . $schemaHtml . '</head><body class="powertech-catalog">'
             . '<div class="pt-topbar"><div class="pt-wrap"><div class="pt-topbar__block"><span>PowerTech s.c.</span><span>ul. Beskidzka 23, 32-615 Grojec</span></div><div class="pt-topbar__block"><a href="tel:+48334871447">+48 33 487 14 47</a><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a></div></div></div>'
@@ -207,7 +209,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '<section class="pt-page-title"><div class="pt-wrap"><h1>' . $h($title) . '</h1></div></section>'
             . '<main class="catalog-shell">' . $body . '</main>'
             . '<footer class="pt-footer"><div class="pt-wrap"><div><img src="/uploads/powertech/2025/11/footer-logotype.webp" alt="PowerTech"></div><div><h2>PowerTech s.c.</h2><p>ul. Beskidzka 23<br>32-615 Grojec<br>woj. małopolskie</p></div><div><h2>Kontakt</h2><p><a href="tel:+48334871447">+48 33 487 14 47</a><br><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a><br>NIP: 551 253 62 49</p></div><div><h2>Informacje</h2><p><a href="/nasza-oferta/">Nasza oferta</a><br><a href="/pliki-do-pobrania/">Pliki do pobrania</a><br><a href="/ochrona-danych-osobowych/">Ochrona danych osobowych</a><br><a href="/polityka-plikow-cookies/">Polityka plików cookies</a></p></div></div></footer>'
-            . '</body></html>';
+            . $footerCredit . '</body></html>';
     };
 
     $breadcrumbs = static function (array $segments, string $base) use ($h): string {
@@ -411,7 +413,7 @@ return static function (array $container, PDO $pdo, array $module): array {
 
     $pageRepository = new PageRepository($pdo);
     $pageRenderer = new PageRenderer();
-    $pageFallback = static function (string $slug) use ($pageRepository, $pageRenderer, $siteName, $siteUrl, $powertechNavigation, $productSearch, $h): bool {
+    $pageFallback = static function (string $slug) use ($pageRepository, $pageRenderer, $siteName, $siteUrl, $powertechNavigation, $productSearch, $footerCredit, $h): bool {
         $page = $pageRepository->findPublishedBySlug($slug);
         if (!$page) {
             return false;
@@ -440,7 +442,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . ($image !== '' ? '<meta property="og:image" content="' . $h($image) . '">' : '')
             . '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
             . '<link rel="stylesheet" href="/assets/core/page.css">'
-            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260730-hotfix1">'
+            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260812-reklamova1">'
             . '<script src="/assets/js/powertech.js?v=20260730-hotfix1" defer></script>'
             . $schema
             . '</head><body class="powertech-catalog">'
@@ -449,7 +451,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . ($hideTitle ? '' : '<section class="pt-page-title"><div class="pt-wrap"><h1>' . $h($title) . '</h1></div></section>')
             . $body
             . '<footer class="pt-footer"><div class="pt-wrap"><div><img src="/uploads/powertech/2025/11/footer-logotype.webp" alt="PowerTech"></div><div><h2>PowerTech s.c.</h2><p>ul. Beskidzka 23<br>32-615 Grojec<br>woj. małopolskie</p></div><div><h2>Kontakt</h2><p><a href="tel:+48334871447">+48 33 487 14 47</a><br><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a><br>NIP: 551 253 62 49</p></div><div><h2>Informacje</h2><p><a href="/nasza-oferta/">Nasza oferta</a><br><a href="/pliki-do-pobrania/">Pliki do pobrania</a><br><a href="/ochrona-danych-osobowych/">Ochrona danych osobowych</a><br><a href="/polityka-plikow-cookies/">Polityka plików cookies</a></p></div></div></footer>'
-            . '</body></html>';
+            . $footerCredit . '</body></html>';
 
         return true;
     };
