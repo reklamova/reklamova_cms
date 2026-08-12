@@ -90,6 +90,83 @@
     }
 
     ready(function () {
+        var header = document.querySelector('[data-mobile-header]');
+        if (!header) {
+            return;
+        }
+
+        var toggle = header.querySelector('[data-mobile-menu-toggle]');
+        var menu = header.querySelector('[data-mobile-menu]');
+        var search = header.querySelector('[data-product-search]');
+        var searchToggle = header.querySelector('[data-product-search-toggle]');
+        if (!toggle || !menu) {
+            return;
+        }
+
+        function setMenuOpen(open, restoreFocus) {
+            header.classList.toggle('is-menu-open', open);
+            document.body.classList.toggle('pt-mobile-menu-open', open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            toggle.setAttribute('aria-label', open ? 'Zamknij menu' : 'Otw\u00f3rz menu');
+            if (open && search) {
+                search.classList.remove('is-open');
+                if (searchToggle) {
+                    searchToggle.setAttribute('aria-expanded', 'false');
+                }
+            }
+            if (!open && restoreFocus) {
+                toggle.focus();
+            }
+        }
+
+        toggle.addEventListener('click', function () {
+            setMenuOpen(!header.classList.contains('is-menu-open'), false);
+        });
+
+        if (searchToggle) {
+            searchToggle.addEventListener('click', function () {
+                if (header.classList.contains('is-menu-open')) {
+                    setMenuOpen(false, false);
+                }
+            });
+        }
+
+        menu.addEventListener('click', function (event) {
+            if (event.target.closest('a[href]')) {
+                setMenuOpen(false, false);
+            }
+        });
+
+        document.addEventListener('click', function (event) {
+            if (header.classList.contains('is-menu-open') && !header.contains(event.target)) {
+                setMenuOpen(false, false);
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && header.classList.contains('is-menu-open')) {
+                setMenuOpen(false, true);
+            }
+        });
+
+        window.addEventListener('resize', function () {
+            if (window.innerWidth > 760 && header.classList.contains('is-menu-open')) {
+                setMenuOpen(false, false);
+            }
+        });
+    });
+}());
+
+(function () {
+    function ready(callback) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', callback, { once: true });
+            return;
+        }
+        callback();
+    }
+
+    ready(function () {
         var strips = Array.prototype.slice.call(document.querySelectorAll('.pt-brand-strip'));
         strips.forEach(function (strip) {
             if (strip.dataset.sliderReady === '1') {
