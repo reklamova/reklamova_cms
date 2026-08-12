@@ -24,11 +24,13 @@ final class AuthManager
             return false;
         }
 
+        session_regenerate_id(true);
+        unset($_SESSION['_csrf']);
         $_SESSION['admin_user'] = [
             'id' => (int) $user['id'],
-            'email' => $user['email'],
-            'name' => $user['name'],
-            'role' => $user['role'] ?? 'admin',
+            'email' => (string) $user['email'],
+            'name' => (string) $user['name'],
+            'role' => $this->normalizedRole($user['role'] ?? null),
         ];
 
         return true;
@@ -38,14 +40,25 @@ final class AuthManager
     {
         Csrf::startSession();
         $user = $_SESSION['admin_user'] ?? null;
-        if (!is_array($user) || isset($user['role'])) {
-            return $user;
+        if (!is_array($user)) {
+            return null;
         }
 
-        $statement = $this->pdo->prepare('SELECT role FROM cms_users WHERE id = ? AND active = 1 LIMIT 1');
+        $statement = $this->pdo->prepare('SELECT id, email, name, role FROM cms_users WHERE id = ? AND active = 1 LIMIT 1');
         $statement->execute([(int) ($user['id'] ?? 0)]);
-        $role = $statement->fetchColumn();
-        $user['role'] = is_string($role) && $role !== '' ? $role : 'admin';
+        $currentUser = $statement->fetch();
+
+        if (!is_array($currentUser)) {
+            $this->clearAuthenticatedSession();
+            return null;
+        }
+
+        $user = [
+            'id' => (int) $currentUser['id'],
+            'email' => (string) $currentUser['email'],
+            'name' => (string) $currentUser['name'],
+            'role' => $this->normalizedRole($currentUser['role'] ?? null),
+        ];
         $_SESSION['admin_user'] = $user;
 
         return $user;
@@ -54,7 +67,7 @@ final class AuthManager
     public function logout(): void
     {
         Csrf::startSession();
-        unset($_SESSION['admin_user']);
+        $this->clearAuthenticatedSession();
     }
 
     public function activeUserByEmail(string $email): ?array
@@ -84,5 +97,16 @@ final class AuthManager
 
         $this->setTemporaryPassword($userId, $newPassword);
         return true;
+    }
+
+    private function clearAuthenticatedSession(): void
+    {
+        unset($_SESSION['admin_user'], $_SESSION['_csrf']);
+        session_regenerate_id(true);
+    }
+
+    private function normalizedRole(mixed $role): string
+    {
+        return is_string($role) && $role !== '' ? $role : 'admin';
     }
 }
