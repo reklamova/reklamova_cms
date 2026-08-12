@@ -1,6 +1,6 @@
 # Galeria zdjęć produktów
 
-Status: **GOTOWA DO WALIDACJI WDROŻENIOWEJ**
+Status: **WDROŻONA I ZWERYFIKOWANA NA POWERTECH**
 
 Galeria produktów należy do wspólnego modułu `catalog`, a nie do modułu
 PowerTech. Każda instalacja Reklamova CMS z aktywnym katalogiem otrzymuje ten
@@ -67,3 +67,42 @@ Test `php tools/test-catalog-gallery.php` sprawdza:
 Walidacja interfejsu powinna dodatkowo obejmować upload wielu zdjęć, zmianę
 kolejności, usuwanie, ponowny zapis produktu oraz kontrolę karty produktu na
 froncie.
+
+## Rollout PowerTech 2026-08-12
+
+Źródło wdrożenia: commit
+`7a3711446fb7789b7dfa0788d3bee32fe585224b` z brancha
+`codex/separate-mero-powertech-client-layers`.
+
+Backup stagingu:
+
+```text
+/home/platne/serwer38522/backups/powertech-gallery-staging-20260812_120928
+```
+
+Backup produkcji:
+
+```text
+/home/platne/serwer38522/backups/powertech-gallery-production-20260812_121408
+```
+
+Każdy katalog ma prawa `700` i zawiera archiwum wcześniejszych plików, dump
+bazy oraz `SHA256SUMS.txt`. Sumy kontrolne i integralność gzip zostały
+zweryfikowane.
+
+Wynik końcowy:
+
+- staging i produkcja: zgodność wdrożonych plików z commitem GitHub,
+- PHP lint: 0 błędów,
+- logi `Fatal`, `Uncaught` i `Parse error`: 0 trafień,
+- produkty: 104 przed i po testach,
+- galerie z co najmniej jednym zdjęciem: 94,
+- galerie, w których pierwszy element odpowiada `featured_image`: 94/94,
+- niepoprawny `gallery_json`: 0,
+- poprawny upload PNG: zaliczony, obraz dostępny przez HTTP 200,
+- plik tekstowy podszywający się pod PNG: odrzucony,
+- niepoprawny token CSRF: HTTP 419,
+- zapis kolejności, zmiana zdjęcia głównego i wyczyszczenie galerii: zaliczone,
+- strona produktu: jedno zdjęcie główne, 0 uszkodzonych obrazów,
+- tymczasowe konta, pliki, rekordy Media i dane testowe: usunięte,
+- staging po testach ponownie zwraca anonimowo HTTP 401.
