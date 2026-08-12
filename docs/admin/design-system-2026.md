@@ -91,3 +91,40 @@ się lokalnie, nie poszerzając całego panelu.
 - ikony dekoracyjne są ukryte przed czytnikiem;
 - elementy mobilne mają etykiety `aria`;
 - `prefers-reduced-motion` ogranicza animacje i przejścia.
+
+## Wdrożenie PowerTech z 2026-08-12
+
+Warstwa wizualna i nowa biblioteka mediów zostały wdrożone z commitów:
+
+- `c461d63dbd9dc7eeae48a9d9b59d45d42e6a8aa4` — wspólny shell i design system;
+- `a10145e03165bacbe0a0d201ccb5595ab9d65865` — siatka mediów, filtry,
+  wyszukiwanie i paginacja;
+- `594c242d4e4c6330e6094f3b85bddca9203d0c2e` — wersjonowanie assetów z
+  instalacji publikujących katalog `/assets` bezpośrednio z katalogu głównego.
+
+Zweryfikowano:
+
+- dashboard, listę 21 podstron, bibliotekę 1438 mediów oraz edytor produktu z
+  galerią;
+- wyszukiwarkę nawigacji, menu konta i zwijanie sidebara;
+- widok desktopowy oraz breakpoint mobilny 390 × 844 px bez poziomego
+  przepełnienia;
+- osobno rolę `reklamova_admin` i `client_admin`; konto klienta nie widzi
+  modułów, motywów, aktualizacji ani stanu systemu;
+- 24-elementową paginację mediów, zakładki typów oraz wyszukiwanie;
+- zgodność SHA-256 CSS i JavaScript pomiędzy repozytorium, stagingiem i
+  produkcją;
+- HTTP 200 dla strony, logowania i nowych assetów oraz HTTP 401 dla
+  anonimowego wejścia na staging;
+- brak nowych błędów `Fatal`, `Uncaught` i `Parse` w logach obu środowisk.
+
+Kopie rollback:
+
+- `/home/platne/serwer38522/backups/powertech-admin-design-staging-correct-20260812_145949`;
+- `/home/platne/serwer38522/backups/powertech-admin-media-staging-20260812_150447`;
+- `/home/platne/serwer38522/backups/powertech-admin-design-production-20260812_151144`;
+- `/home/platne/serwer38522/backups/powertech-admin-asset-version-20260812_151355`.
+
+Wszystkie cztery kopie mają tryb `700` i przeszły kontrolę `sha256sum -c`.
+Po testach usunięto konta techniczne, wpis Basic Auth, helpery, checkout oraz
+lokalne pliki dostępowe.
