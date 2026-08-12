@@ -20,7 +20,8 @@ final class AdminView
     public function render(string $title, string $content, ?array $user = null): void
     {
         header('Content-Type: text/html; charset=utf-8');
-        $adminCss = '/assets/core/admin.css?v=' . rawurlencode($this->adminAssetVersion());
+        $adminCss = '/assets/core/admin.css?v=' . rawurlencode($this->adminAssetVersion('admin.css'));
+        $adminGalleryJs = '/assets/core/admin-gallery.js?v=' . rawurlencode($this->adminAssetVersion('admin-gallery.js'));
 
         if (!$user) {
             echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
@@ -54,7 +55,7 @@ final class AdminView
             . $nav
             . '<main class="main"><header class="topbar"><div class="topbar-title"><span class="topbar-kicker">Panel CMS</span><h1>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h1></div><div class="topbar-actions"><a class="view-site-link" href="/" target="_blank" rel="noopener">Zobacz stronę</a>' . $account . '</div></header>'
             . '<section class="content">' . $content . '</section></main>'
-            . '</div></body></html>';
+            . '</div><script src="' . $adminGalleryJs . '" defer></script></body></html>';
     }
 
     private function navigation(array $user): string
@@ -230,10 +231,10 @@ final class AdminView
             || str_contains($host, 'cms.reklamova.pl');
     }
 
-    private function adminAssetVersion(): string
+    private function adminAssetVersion(string $filename): string
     {
         $root = dirname(__DIR__, 3);
-        foreach ([$root . '/public_html/assets/core/admin.css', $root . '/public/assets/core/admin.css'] as $path) {
+        foreach ([$root . '/public_html/assets/core/' . $filename, $root . '/public/assets/core/' . $filename] as $path) {
             if (is_file($path)) {
                 return (string) filemtime($path);
             }

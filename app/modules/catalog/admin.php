@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use Reklamova\Cms\Admin\AdminView;
 use Reklamova\Cms\Auth\Csrf;
+use Reklamova\Cms\Logging\ActivityLogger;
+use Reklamova\Cms\Media\ImageUploadService;
+use Reklamova\Cms\Modules\Catalog\CatalogGallery;
 use Reklamova\Cms\Modules\Catalog\CatalogRepository;
 use Reklamova\Cms\Support\Url;
 
@@ -66,6 +69,35 @@ return static function (array $container, PDO $pdo, array $module): array {
         }
 
         return $html;
+    };
+
+    $galleryManager = static function (array $items) use ($mediaOptions, $h): string {
+        $cards = '';
+        foreach ($items as $index => $url) {
+            $path = parse_url((string) $url, PHP_URL_PATH);
+            $filename = basename(is_string($path) ? $path : (string) $url) ?: 'Zdjęcie';
+            $cards .= '<article class="gallery-card' . ($index === 0 ? ' is-primary' : '') . '" data-gallery-item data-path="' . $h($url) . '" draggable="true">'
+                . '<div class="gallery-card__preview"><img src="' . $h($url) . '" alt="" loading="lazy" decoding="async">'
+                . '<span class="gallery-card__primary" data-gallery-primary' . ($index === 0 ? '' : ' hidden') . '>Zdjęcie główne</span><span class="gallery-card__handle" aria-hidden="true">⠿</span></div>'
+                . '<div class="gallery-card__meta"><strong title="' . $h($filename) . '">' . $h($filename) . '</strong><span data-gallery-position>' . ($index === 0 ? 'Pierwsze w kolejności' : 'Pozycja ' . ($index + 1)) . '</span></div>'
+                . '<div class="gallery-card__actions"><button type="button" class="gallery-card__action" data-gallery-action="left" aria-label="Przesuń zdjęcie w lewo" title="Przesuń w lewo">←</button>'
+                . '<button type="button" class="gallery-card__action" data-gallery-action="right" aria-label="Przesuń zdjęcie w prawo" title="Przesuń w prawo">→</button>'
+                . '<button type="button" class="gallery-card__action" data-gallery-action="remove" aria-label="Usuń zdjęcie z galerii">Usuń</button></div>'
+                . '<input type="hidden" name="gallery[]" value="' . $h($url) . '"></article>';
+        }
+
+        return '<div class="field field--wide catalog-gallery-field"><span class="field__label">Galeria produktu</span>'
+            . '<p class="field__help">Przeciągnij zdjęcia, aby zmienić kolejność. Pierwsze zdjęcie jest automatycznie zdjęciem głównym produktu.</p>'
+            . '<div class="gallery-manager" data-gallery-manager data-upload-url="/admin/catalog/gallery-upload">'
+            . '<input type="hidden" name="gallery_present" value="1">'
+            . '<div class="gallery-dropzone" data-gallery-dropzone role="button" tabindex="0" aria-label="Prześlij zdjęcia do galerii">'
+            . '<span class="gallery-dropzone__icon" aria-hidden="true">↑</span><div><strong>Przeciągnij i upuść zdjęcia tutaj</strong><span>JPG, PNG, WebP, GIF lub AVIF · maks. 12 MB na plik</span></div>'
+            . '<button type="button" class="button secondary" data-gallery-browse>Wybierz zdjęcia</button><input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" multiple hidden data-gallery-file-input></div>'
+            . '<div class="gallery-manager__status" data-gallery-status role="status" aria-live="polite"></div>'
+            . '<div class="gallery-library"><label><span>Lub dodaj z biblioteki Media</span><select data-gallery-library>' . $mediaOptions() . '</select></label><button type="button" class="button secondary" data-gallery-add-library>Dodaj do galerii</button></div>'
+            . '<div class="gallery-manager__summary"><strong>Zdjęcia: <span data-gallery-count>' . count($items) . '</span></strong><span>Przesuń kafelek albo użyj strzałek.</span></div>'
+            . '<p class="gallery-manager__empty" data-gallery-empty' . ($items ? ' hidden' : '') . '>Galeria jest pusta. Dodaj pierwsze zdjęcie — stanie się zdjęciem głównym.</p>'
+            . '<div class="gallery-grid" data-gallery-list>' . $cards . '</div></div></div>';
     };
 
     $queryString = static function (array $overrides = []): string {
@@ -176,14 +208,14 @@ return static function (array $container, PDO $pdo, array $module): array {
         $view->render('Kategorie produktów', $content, $user);
     };
 
-    $productForm = static function (?array $edit = null) use ($repo, $tabs, $statusOptions, $mediaOptions, $h): string {
+    $productForm = static function (?array $edit = null) use ($repo, $tabs, $statusOptions, $mediaOptions, $galleryManager, $h): string {
         $specs = '';
         foreach (json_decode((string) ($edit['specs_json'] ?? '[]'), true) ?: [] as $spec) {
             if (is_array($spec)) {
                 $specs .= (string) ($spec['name'] ?? '') . ' | ' . (string) ($spec['value'] ?? '') . "\n";
             }
         }
-        $gallery = implode("\n", json_decode((string) ($edit['gallery_json'] ?? '[]'), true) ?: []);
+        $gallery = CatalogGallery::forProduct($edit);
         $documents = implode("\n", json_decode((string) ($edit['documents_json'] ?? '[]'), true) ?: []);
 
         return $tabs('/admin/catalog/products')
@@ -202,10 +234,9 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '<label class="field">Model<input name="model" value="' . $h($edit['model'] ?? '') . '"></label>'
             . '</div></details>'
             . '<details class="editor-section" open><summary><b>Opis i zdjęcia</b><span>Treści widoczne na karcie produktu</span></summary><div class="privacy-settings-grid">'
-            . '<label class="field field--half">Zdjęcie główne<select name="featured_image">' . $mediaOptions((string) ($edit['featured_image'] ?? '')) . '</select></label>'
             . '<label class="field field--wide">Krótki opis<textarea name="summary">' . $h($edit['summary'] ?? '') . '</textarea></label>'
             . '<label class="field field--wide">Opis produktu<textarea name="description">' . $h($edit['description'] ?? '') . '</textarea></label>'
-            . '<label class="field field--wide">Galeria, po jednym URL w linii<textarea name="gallery">' . $h($gallery) . '</textarea></label>'
+            . $galleryManager($gallery)
             . '<label class="field field--wide">Dokumenty / katalogi PDF, po jednym URL w linii<textarea name="documents">' . $h($documents) . '</textarea></label>'
             . '</div></details>'
             . '<details class="editor-section"><summary><b>Parametry</b><span>Specyfikacja techniczna produktu</span></summary><label class="field field--wide">Specyfikacja, jedna linia: parametr | wartość<textarea name="specs">' . $h(trim($specs)) . '</textarea></label></details>'
@@ -294,6 +325,73 @@ return static function (array $container, PDO $pdo, array $module): array {
         $view->render('Import katalogu', $content, $user);
     };
 
+    $galleryUpload = static function (AdminView $view, array $user) use ($container, $pdo): void {
+        unset($view);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, max-age=0');
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'message' => 'Ta operacja wymaga żądania POST.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return;
+        }
+        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
+            http_response_code(419);
+            echo json_encode(['ok' => false, 'message' => 'Sesja formularza wygasła. Odśwież stronę i spróbuj ponownie.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return;
+        }
+
+        $upload = $_FILES['uploads'] ?? null;
+        $names = is_array($upload) ? ($upload['name'] ?? []) : [];
+        if (!is_array($names) || $names === []) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'Nie wybrano żadnych zdjęć.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return;
+        }
+        if (count($names) > 20) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'Jednorazowo możesz przesłać maksymalnie 20 zdjęć.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return;
+        }
+
+        $service = new ImageUploadService($pdo, (string) $container['public_path']);
+        $items = [];
+        $errors = [];
+        foreach (array_keys($names) as $index) {
+            $file = [
+                'name' => $upload['name'][$index] ?? '',
+                'type' => $upload['type'][$index] ?? '',
+                'tmp_name' => $upload['tmp_name'][$index] ?? '',
+                'error' => $upload['error'][$index] ?? UPLOAD_ERR_NO_FILE,
+                'size' => $upload['size'][$index] ?? 0,
+            ];
+            try {
+                $items[] = $service->store($file, 'catalog');
+            } catch (Throwable $exception) {
+                $errors[] = basename((string) $file['name']) . ': ' . $exception->getMessage();
+            }
+        }
+
+        if ($items === []) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => $errors[0] ?? 'Nie udało się przesłać zdjęć.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return;
+        }
+
+        (new ActivityLogger($pdo, (string) ($container['root_path'] ?? 'reklamova')))->log(
+            $user,
+            'catalog.gallery_images_uploaded',
+            'catalog_product',
+            null,
+            null,
+            ['paths' => array_column($items, 'path'), 'errors' => $errors]
+        );
+        $message = 'Zdjęcia zostały przesłane.';
+        if ($errors !== []) {
+            $message .= ' Pominięto część plików: ' . implode(' ', $errors);
+        }
+        echo json_encode(['ok' => true, 'message' => $message, 'items' => $items, 'errors' => $errors], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    };
+
     return [
         'nav' => [
             '/admin/catalog/products' => [
@@ -316,12 +414,14 @@ return static function (array $container, PDO $pdo, array $module): array {
             '/admin/catalog/categories' => $categories,
             '/admin/catalog/products' => $products,
             '/admin/catalog/import' => $import,
+            '/admin/catalog/gallery-upload' => $galleryUpload,
         ],
         'route_permissions' => [
             '/admin/catalog' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
             '/admin/catalog/categories' => ['GET' => 'manage_product_categories', 'POST' => 'manage_product_categories'],
             '/admin/catalog/products' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
             '/admin/catalog/import' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
+            '/admin/catalog/gallery-upload' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
         ],
     ];
 };

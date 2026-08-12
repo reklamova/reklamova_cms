@@ -30,6 +30,13 @@ Nie są częścią paczki core i wymagają osobnego wdrożenia protected paths.
 Raport migracji historycznych zmian z core:
 [`../operations/client-separation-2026-08-12.md`](../operations/client-separation-2026-08-12.md).
 
+## Galeria produktów
+
+Nowy menedżer galerii modułu `catalog` ma wersję `0.2.0`. Obsługuje miniatury,
+upload wielu zdjęć przez przeciąganie, sortowanie i automatyczne zdjęcie główne.
+Opis modelu danych, zabezpieczeń i testów:
+[`../modules/catalog-product-gallery.md`](../modules/catalog-product-gallery.md).
+
 ## Archiwum
 
 Raporty RC1-RC4, checklisty stagingowe, testy migracji i walidacje pakietów są

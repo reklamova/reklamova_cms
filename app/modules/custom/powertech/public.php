@@ -306,8 +306,10 @@ return static function (array $container, PDO $pdo, array $module): array {
     $renderProduct = static function (array $product) use ($layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $repo, $siteUrl, $base, $h): void {
         $category = $product['category_path'] ? $repo->findCategoryByPath((string) $product['category_path']) : null;
         $segments = $category ? $categoryAncestors($category) : [];
-        $image = (string) (($product['og_image'] ?? '') ?: ($product['featured_image'] ?? ''));
         $gallery = json_decode((string) ($product['gallery_json'] ?? '[]'), true) ?: [];
+        $mainImage = trim((string) ($product['featured_image'] ?? '')) ?: trim((string) ($gallery[0] ?? ''));
+        $metaImage = trim((string) ($product['og_image'] ?? '')) ?: $mainImage;
+        $gallery = array_values(array_filter($gallery, static fn (mixed $url): bool => is_string($url) && trim($url) !== '' && trim($url) !== $mainImage));
         $specs = json_decode((string) ($product['specs_json'] ?? '[]'), true) ?: [];
         $documents = json_decode((string) ($product['documents_json'] ?? '[]'), true) ?: [];
         $productPath = '/' . $base . '/' . trim((string) $product['full_path'], '/');
@@ -327,7 +329,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '<label><input type="checkbox" name="marketing_consent" value="1"> Wyrażam zgodę na kontakt marketingowy dotyczący produktów, usług i ofert PowerTech s.c. Zgodę można wycofać w dowolnym momencie.</label></div>'
             . '<button class="cms-button" type="submit">Wyślij zapytanie o produkt</button></form></section>';
         $body = $breadcrumbs($segments, $base)
-            . '<section class="catalog-product"><figure class="catalog-product__media">' . ($image !== '' ? '<img src="' . $h($image) . '" alt="">' : '') . '</figure><div class="catalog-product__body">'
+            . '<section class="catalog-product"><figure class="catalog-product__media">' . ($mainImage !== '' ? '<img src="' . $h($mainImage) . '" alt="">' : '') . '</figure><div class="catalog-product__body">'
             . '<div class="catalog-product__meta">' . ((string) ($product['brand'] ?? '') !== '' ? '<span>' . $h($product['brand']) . '</span>' : '') . ((string) ($product['sku'] ?? '') !== '' ? '<span>' . $h($product['sku']) . '</span>' : '') . '</div>'
             . '<h1>' . $h($product['name']) . '</h1><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div>' . nl2br($h((string) ($product['description'] ?? ''))) . '</div>'
             . '<div class="catalog-actions"><a href="#zapytanie-ofertowe">Zapytaj o produkt</a></div></div></section>' . $productInquiry;
@@ -363,10 +365,10 @@ return static function (array $container, PDO $pdo, array $module): array {
                 'sku' => (string) ($product['sku'] ?? ''),
                 'brand' => (string) ($product['brand'] ?? ''),
                 'description' => (string) (($product['meta_description'] ?? '') ?: ($product['summary'] ?? '')),
-                'image' => $image,
+                'image' => $mainImage,
             ]),
         ];
-        $layout((string) (($product['meta_title'] ?? '') ?: $product['name']), $body, (string) (($product['meta_description'] ?? '') ?: ($product['summary'] ?? '')), $image, $schema);
+        $layout((string) (($product['meta_title'] ?? '') ?: $product['name']), $body, (string) (($product['meta_description'] ?? '') ?: ($product['summary'] ?? '')), $metaImage, $schema);
     };
 
     $fallback = static function (string $slug) use ($repo, $renderCategory, $renderProduct, $base): bool {
