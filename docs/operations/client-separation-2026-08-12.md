@@ -66,6 +66,12 @@ app/themes/powertech/assets/favicon.svg   -> favicon.svg
 Produkcja PowerTech ma historycznie spłaszczony document root, dlatego powyższe
 mapowanie jest częścią patcha klienta, nie paczki core.
 
+Od 2026-08-12 produkcyjny CMS działa pod `https://powertechsc.pl`, a domena
+`nowastrona.powertechsc.pl` przekierowuje do domeny kanonicznej. Zainfekowany
+WordPress i historyczny katalog `_old` zostały przeniesione poza `public_html`
+do prywatnej kwarantanny. Szczegóły przełączenia, walidacji i rollbacku opisuje
+raport [Przełączenie PowerTech na domenę produkcyjną](powertech-production-cutover-2026-08-12.md).
+
 ## MERO
 
 Moduł `app/modules/custom/mero` pozostał wyłącznie na instalacjach MERO. Jego
@@ -101,7 +107,9 @@ PowerTech:
 - rozdzielenie produkcyjnego core i warstwy klienta:
   `/home/platne/serwer38522/backups/powertech-core-reconcile-20260812_101347`,
 - wdrożenie i test stagingu:
-  `/home/platne/serwer38522/backups/powertech-client-staging-20260812_100931`.
+  `/home/platne/serwer38522/backups/powertech-client-staging-20260812_100931`,
+- przełączenie domeny produkcyjnej i kwarantanna starego WordPressa:
+  `/home/platne/serwer38522/backups/powertech-cutover-20260812_110931`.
 
 MERO:
 
