@@ -14,6 +14,9 @@ $required = [
     '<meta property="og:url"',
     '<meta property="og:description"',
     "mb_stripos(\$title, \$siteName",
+    "mb_stripos(\$metaTitle, 'kategoria'",
+    "mb_stripos(\$metaTitle, \$sku",
+    "'<h1 class=\"pt-sr-only\">'",
 ];
 
 foreach ($required as $markup) {

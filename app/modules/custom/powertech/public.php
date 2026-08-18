@@ -314,9 +314,10 @@ return static function (array $container, PDO $pdo, array $module): array {
                 $categoryDescription = '';
             }
         }
-        $metaTitle = $category
-            ? (string) (($category['meta_title'] ?? '') ?: ($title . ' – kategoria produktów'))
-            : $title;
+        $metaTitle = $category ? (string) (($category['meta_title'] ?? '') ?: $title) : $title;
+        if ($category && mb_stripos($metaTitle, 'kategoria', 0, 'UTF-8') === false) {
+            $metaTitle .= ' – kategoria produktów';
+        }
         $layout($metaTitle, $hero . $grid . $categoryDescription, $description, $image, $schema, $title);
     };
 
@@ -386,8 +387,9 @@ return static function (array $container, PDO $pdo, array $module): array {
             ]),
         ];
         $metaTitle = (string) (($product['meta_title'] ?? '') ?: $product['name']);
-        if (trim((string) ($product['meta_title'] ?? '')) === '' && trim((string) ($product['sku'] ?? '')) !== '') {
-            $metaTitle .= ' ' . trim((string) $product['sku']);
+        $sku = trim((string) ($product['sku'] ?? ''));
+        if ($sku !== '' && mb_stripos($metaTitle, $sku, 0, 'UTF-8') === false) {
+            $metaTitle .= ' ' . $sku;
         }
         $layout($metaTitle, $body, (string) (($product['meta_description'] ?? '') ?: ($product['summary'] ?? '')), $metaImage, $schema, (string) $product['name']);
     };
@@ -448,6 +450,10 @@ return static function (array $container, PDO $pdo, array $module): array {
         $image = (string) ($meta['image'] ?? '');
         $schema = (string) ($meta['schema'] ?? '');
         $body = $pageRenderer->render($page);
+        $pageHeading = (string) (($page['title'] ?? '') ?: $title);
+        $headingHtml = !$hideTitle
+            ? '<section class="pt-page-title"><div class="pt-wrap"><h1>' . $h($pageHeading) . '</h1></div></section>'
+            : (preg_match('/<h1\b/i', $body) === 1 ? '' : '<h1 class="pt-sr-only">' . $h($pageHeading) . '</h1>');
 
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
@@ -467,7 +473,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '</head><body class="powertech-catalog">'
             . '<div class="pt-topbar"><div class="pt-wrap"><div class="pt-topbar__block"><span>PowerTech s.c.</span><span>ul. Beskidzka 23, 32-615 Grojec</span></div><div class="pt-topbar__block"><a href="tel:+48334871447">+48 33 487 14 47</a><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a></div></div></div>'
             . '<header class="pt-header" data-mobile-header><div class="pt-wrap"><a class="pt-logo" href="/"><img src="/uploads/powertech/2025/11/powertechsc-logotype.webp" alt="Power Tech S.C. logotyp"></a><nav class="pt-menu" id="pt-primary-menu" aria-label="Menu główne" data-mobile-menu>' . $powertechNavigation() . '</nav>' . $productSearch() . '<button class="pt-menu-toggle" type="button" aria-label="Otwórz menu" aria-controls="pt-primary-menu" aria-expanded="false" data-mobile-menu-toggle><span></span><span></span><span></span></button></div></header>'
-            . ($hideTitle ? '' : '<section class="pt-page-title"><div class="pt-wrap"><h1>' . $h($title) . '</h1></div></section>')
+            . $headingHtml
             . $body
             . '<footer class="pt-footer"><div class="pt-wrap"><div><img src="/uploads/powertech/2025/11/footer-logotype.webp" alt="PowerTech"></div><div><h2>PowerTech s.c.</h2><p>ul. Beskidzka 23<br>32-615 Grojec<br>woj. małopolskie</p></div><div><h2>Kontakt</h2><p><a href="tel:+48334871447">+48 33 487 14 47</a><br><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a><br>NIP: 551 253 62 49</p></div><div><h2>Informacje</h2><p><a href="/nasza-oferta/">Nasza oferta</a><br><a href="/pliki-do-pobrania/">Pliki do pobrania</a><br><a href="/ochrona-danych-osobowych/">Ochrona danych osobowych</a><br><a href="/polityka-plikow-cookies/">Polityka plików cookies</a></p></div></div></footer>'
             . $footerCredit . '</body></html>';
