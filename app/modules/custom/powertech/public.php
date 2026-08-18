@@ -188,16 +188,26 @@ return static function (array $container, PDO $pdo, array $module): array {
 
     $footerCredit = '<div class="pt-footer__credit"><div class="pt-wrap pt-footer__credit-inner"><span>Strona zrealizowana przez</span><a href="https://reklamova.pl/" target="_blank" rel="noopener noreferrer" aria-label="Reklamova.pl"><img src="/assets/img/reklamova-logo.svg" alt=""><span>.pl</span></a></div></div>';
 
-    $layout = static function (string $title, string $body, string $description = '', string $image = '', array $schema = []) use ($siteName, $siteUrl, $h, $powertechNavigation, $productSearch, $footerCredit): void {
+    $layout = static function (string $title, string $body, string $description = '', string $image = '', array $schema = [], string $heading = '') use ($siteName, $siteUrl, $h, $powertechNavigation, $productSearch, $footerCredit): void {
         header('Content-Type: text/html; charset=utf-8');
+        $pageTitle = $title . ' - ' . $siteName;
+        $heading = $heading !== '' ? $heading : $title;
+        $requestPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+        $canonical = rtrim($siteUrl, '/') . '/' . ltrim($requestPath, '/');
         $schemaHtml = '';
         foreach ($schema as $item) {
             $schemaHtml .= '<script type="application/ld+json">' . json_encode($item, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '</script>';
         }
         $nav = $powertechNavigation();
         echo '<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-            . '<title>' . $h($title) . ' - ' . $h($siteName) . '</title>'
+            . '<title>' . $h($pageTitle) . '</title>'
             . ($description !== '' ? '<meta name="description" content="' . $h($description) . '">' : '')
+            . '<meta name="robots" content="index,follow">'
+            . '<link rel="canonical" href="' . $h($canonical) . '">'
+            . '<meta property="og:type" content="website">'
+            . '<meta property="og:title" content="' . $h($pageTitle) . '">'
+            . '<meta property="og:url" content="' . $h($canonical) . '">'
+            . ($description !== '' ? '<meta property="og:description" content="' . $h($description) . '">' : '')
             . ($image !== '' ? '<meta property="og:image" content="' . $h($image) . '">' : '')
             . '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
             . '<link rel="stylesheet" href="/assets/core/page.css">'
@@ -206,7 +216,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . $schemaHtml . '</head><body class="powertech-catalog">'
             . '<div class="pt-topbar"><div class="pt-wrap"><div class="pt-topbar__block"><span>PowerTech s.c.</span><span>ul. Beskidzka 23, 32-615 Grojec</span></div><div class="pt-topbar__block"><a href="tel:+48334871447">+48 33 487 14 47</a><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a></div></div></div>'
             . '<header class="pt-header" data-mobile-header><div class="pt-wrap"><a class="pt-logo" href="/"><img src="/uploads/powertech/2025/11/powertechsc-logotype.webp" alt="Power Tech S.C. logotyp"></a><nav class="pt-menu" id="pt-primary-menu" aria-label="Menu główne" data-mobile-menu>' . $nav . '</nav>' . $productSearch() . '<button class="pt-menu-toggle" type="button" aria-label="Otwórz menu" aria-controls="pt-primary-menu" aria-expanded="false" data-mobile-menu-toggle><span></span><span></span><span></span></button></div></header>'
-            . '<section class="pt-page-title"><div class="pt-wrap"><h1>' . $h($title) . '</h1></div></section>'
+            . '<section class="pt-page-title"><div class="pt-wrap"><h1>' . $h($heading) . '</h1></div></section>'
             . '<main class="catalog-shell">' . $body . '</main>'
             . '<footer class="pt-footer"><div class="pt-wrap"><div><img src="/uploads/powertech/2025/11/footer-logotype.webp" alt="PowerTech"></div><div><h2>PowerTech s.c.</h2><p>ul. Beskidzka 23<br>32-615 Grojec<br>woj. małopolskie</p></div><div><h2>Kontakt</h2><p><a href="tel:+48334871447">+48 33 487 14 47</a><br><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a><br>NIP: 551 253 62 49</p></div><div><h2>Informacje</h2><p><a href="/nasza-oferta/">Nasza oferta</a><br><a href="/pliki-do-pobrania/">Pliki do pobrania</a><br><a href="/ochrona-danych-osobowych/">Ochrona danych osobowych</a><br><a href="/polityka-plikow-cookies/">Polityka plików cookies</a></p></div></div></footer>'
             . $footerCredit . '</body></html>';
@@ -264,7 +274,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             ? (string) ($category['summary'] ?? $description)
             : 'Wybierz dział oferty i przejdź do uporządkowanych kategorii oraz produktów PowerTech.';
         $hero = ($category ? $breadcrumbs($segments, $base) : $breadcrumbs([], $base))
-            . '<section class="catalog-hero' . (!$category ? ' catalog-hero--root' : '') . '"><div><span class="catalog-kicker">PowerTech Catalog</span><h1>' . $h($title) . '</h1><p>' . nl2br($h($intro)) . '</p><div class="catalog-metrics"><span>' . $itemsCount . ' pozycji</span><span>Oferta techniczna</span><span>Zapytania B2B</span></div></div>'
+            . '<section class="catalog-hero' . (!$category ? ' catalog-hero--root' : '') . '"><div><span class="catalog-kicker">PowerTech Catalog</span><h2>' . $h($title) . '</h2><p>' . nl2br($h($intro)) . '</p><div class="catalog-metrics"><span>' . $itemsCount . ' pozycji</span><span>Oferta techniczna</span><span>Zapytania B2B</span></div></div>'
             . ($image !== '' ? '<figure><img src="' . $h($image) . '" alt=""></figure>' : '') . '</section>';
         $grid = '<section class="catalog-section"><header><span class="catalog-kicker">' . ($category ? 'Podkategorie i produkty' : 'Główne działy') . '</span><h2>' . ($category ? 'Zawartość kategorii' : 'Główne działy oferty') . '</h2></header><div class="catalog-grid" style="--catalog-product-columns: ' . $productGridColumns() . ';">';
         foreach ($children as $child) {
@@ -302,7 +312,10 @@ return static function (array $container, PDO $pdo, array $module): array {
                 $categoryDescription = '';
             }
         }
-        $layout((string) ($category['meta_title'] ?? $title), $hero . $grid . $categoryDescription, $description, $image, $schema);
+        $metaTitle = $category
+            ? (string) (($category['meta_title'] ?? '') ?: ($title . ' – kategoria produktów'))
+            : $title;
+        $layout($metaTitle, $hero . $grid . $categoryDescription, $description, $image, $schema, $title);
     };
 
     $renderProduct = static function (array $product) use ($layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $repo, $siteUrl, $base, $h): void {
@@ -333,7 +346,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         $body = $breadcrumbs($segments, $base)
             . '<section class="catalog-product"><figure class="catalog-product__media">' . ($mainImage !== '' ? '<img src="' . $h($mainImage) . '" alt="">' : '') . '</figure><div class="catalog-product__body">'
             . '<div class="catalog-product__meta">' . ((string) ($product['brand'] ?? '') !== '' ? '<span>' . $h($product['brand']) . '</span>' : '') . ((string) ($product['sku'] ?? '') !== '' ? '<span>' . $h($product['sku']) . '</span>' : '') . '</div>'
-            . '<h1>' . $h($product['name']) . '</h1><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div>' . nl2br($h((string) ($product['description'] ?? ''))) . '</div>'
+            . '<h2>' . $h($product['name']) . '</h2><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div>' . nl2br($h((string) ($product['description'] ?? ''))) . '</div>'
             . '<div class="catalog-actions"><a href="#zapytanie-ofertowe">Zapytaj o produkt</a></div></div></section>' . $productInquiry;
         if ($specs) {
             $body .= '<table class="catalog-specs">';
@@ -370,7 +383,11 @@ return static function (array $container, PDO $pdo, array $module): array {
                 'image' => $mainImage,
             ]),
         ];
-        $layout((string) (($product['meta_title'] ?? '') ?: $product['name']), $body, (string) (($product['meta_description'] ?? '') ?: ($product['summary'] ?? '')), $metaImage, $schema);
+        $metaTitle = (string) (($product['meta_title'] ?? '') ?: $product['name']);
+        if (trim((string) ($product['meta_title'] ?? '')) === '' && trim((string) ($product['sku'] ?? '')) !== '') {
+            $metaTitle .= ' ' . trim((string) $product['sku']);
+        }
+        $layout($metaTitle, $body, (string) (($product['meta_description'] ?? '') ?: ($product['summary'] ?? '')), $metaImage, $schema, (string) $product['name']);
     };
 
     $fallback = static function (string $slug) use ($repo, $renderCategory, $renderProduct, $base): bool {

@@ -1268,7 +1268,9 @@ body.powertech-catalog {
 }
 
 .catalog-hero h1,
-.catalog-product__body h1 {
+.catalog-hero h2,
+.catalog-product__body h1,
+.catalog-product__body h2 {
     margin: 0 0 16px;
     color: #000;
     font-size: clamp(30px, 3.4vw, 46px);
@@ -1741,7 +1743,9 @@ body.powertech-catalog {
 }
 
 .catalog-hero h1,
-.catalog-product__body h1 {
+.catalog-hero h2,
+.catalog-product__body h1,
+.catalog-product__body h2 {
     margin-bottom: 12px;
     font-size: clamp(30px, 3vw, 42px);
     letter-spacing: 0;
