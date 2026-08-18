@@ -16,6 +16,8 @@ $required = [
     "mb_stripos(\$title, \$siteName",
     "mb_stripos(\$metaTitle, 'kategoria'",
     "mb_stripos(\$metaTitle, \$sku",
+    "' – produkt ' . (int) \$product['id']",
+    "\$bodyHasHeading = preg_match('/<h1\\b/i', \$body)",
     "'<h1 class=\"pt-sr-only\">'",
 ];
 

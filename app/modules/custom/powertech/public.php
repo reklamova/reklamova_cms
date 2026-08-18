@@ -391,6 +391,13 @@ return static function (array $container, PDO $pdo, array $module): array {
         if ($sku !== '' && mb_stripos($metaTitle, $sku, 0, 'UTF-8') === false) {
             $metaTitle .= ' ' . $sku;
         }
+        $model = trim((string) ($product['model'] ?? ''));
+        if ($model !== '' && mb_stripos($metaTitle, $model, 0, 'UTF-8') === false) {
+            $metaTitle .= ' ' . $model;
+        }
+        if ($sku === '' && $model === '') {
+            $metaTitle .= ' – produkt ' . (int) $product['id'];
+        }
         $layout($metaTitle, $body, (string) (($product['meta_description'] ?? '') ?: ($product['summary'] ?? '')), $metaImage, $schema, (string) $product['name']);
     };
 
@@ -451,9 +458,12 @@ return static function (array $container, PDO $pdo, array $module): array {
         $schema = (string) ($meta['schema'] ?? '');
         $body = $pageRenderer->render($page);
         $pageHeading = (string) (($page['title'] ?? '') ?: $title);
-        $headingHtml = !$hideTitle
-            ? '<section class="pt-page-title"><div class="pt-wrap"><h1>' . $h($pageHeading) . '</h1></div></section>'
-            : (preg_match('/<h1\b/i', $body) === 1 ? '' : '<h1 class="pt-sr-only">' . $h($pageHeading) . '</h1>');
+        $bodyHasHeading = preg_match('/<h1\b/i', $body) === 1;
+        $headingHtml = $bodyHasHeading
+            ? ''
+            : (!$hideTitle
+                ? '<section class="pt-page-title"><div class="pt-wrap"><h1>' . $h($pageHeading) . '</h1></div></section>'
+                : '<h1 class="pt-sr-only">' . $h($pageHeading) . '</h1>');
 
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
