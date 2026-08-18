@@ -19,4 +19,11 @@ jobs:
         run: php tools/check-requirements.php
       - name: PHP syntax
         run: find . -name "*.php" -not -path "./vendor/*" -print0 | xargs -0 -n1 php -l
+      - name: Self-contained regression tests
+        run: |
+          php tools/test-catalog-gallery.php
+          php tools/test-leads-accessibility.php
+          php tools/test-page-editor-accessibility.php
+          php tools/test-public-path.php
+          php tools/test-session-cookie-security.php
 

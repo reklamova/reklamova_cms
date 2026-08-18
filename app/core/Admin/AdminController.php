@@ -738,10 +738,10 @@ final class AdminController
                 . '<label class="field field--switch"><input type="checkbox" name="block_schema_enabled[' . $index . ']" value="1"' . (!empty($block['schema_enabled']) ? ' checked' : '') . '> Schema dla tej sekcji</label>'
                 . '<label class="field field--wide">Elementy kart lub FAQ<textarea name="block_items[]" placeholder="Karty: Tytuł | opis | /link&#10;FAQ: Pytanie | odpowiedź">' . $this->h($this->blockItemsText($block)) . '</textarea></label>'
                 . '<div class="field field--wide gallery-picker"><span>Galeria z Media</span><div>'
-                . $this->gallerySelect($media, $index, (string) ($gallery[0]['url'] ?? ''))
-                . $this->gallerySelect($media, $index, (string) ($gallery[1]['url'] ?? ''))
-                . $this->gallerySelect($media, $index, (string) ($gallery[2]['url'] ?? ''))
-                . $this->gallerySelect($media, $index, (string) ($gallery[3]['url'] ?? ''))
+                . $this->gallerySelect($media, $index, 1, (string) ($gallery[0]['url'] ?? ''))
+                . $this->gallerySelect($media, $index, 2, (string) ($gallery[1]['url'] ?? ''))
+                . $this->gallerySelect($media, $index, 3, (string) ($gallery[2]['url'] ?? ''))
+                . $this->gallerySelect($media, $index, 4, (string) ($gallery[3]['url'] ?? ''))
                 . '</div></div>'
                 . '<label class="field field--wide">HTML tej sekcji<textarea name="block_html[]" class="code-area">' . $this->h($block['html'] ?? '') . '</textarea></label>'
                 . '</div></details>';
@@ -790,9 +790,9 @@ final class AdminController
         return $html;
     }
 
-    private function gallerySelect(array $media, int $index, string $selected): string
+    private function gallerySelect(array $media, int $index, int $slot, string $selected): string
     {
-        return '<select name="block_gallery_media_' . $index . '[]">' . $this->mediaSelectOptions($media, $selected) . '</select>';
+        return '<select name="block_gallery_media_' . $index . '[]" aria-label="Zdjęcie ' . $slot . ' galerii w sekcji ' . ($index + 1) . '">' . $this->mediaSelectOptions($media, $selected) . '</select>';
     }
 
     private function blockItemsText(array $block): string
