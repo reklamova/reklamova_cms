@@ -13,6 +13,7 @@ $required = [
     '<meta property="og:title"',
     '<meta property="og:url"',
     '<meta property="og:description"',
+    "mb_stripos(\$title, \$siteName",
 ];
 
 foreach ($required as $markup) {

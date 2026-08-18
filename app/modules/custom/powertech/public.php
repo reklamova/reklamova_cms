@@ -190,7 +190,9 @@ return static function (array $container, PDO $pdo, array $module): array {
 
     $layout = static function (string $title, string $body, string $description = '', string $image = '', array $schema = [], string $heading = '') use ($siteName, $siteUrl, $h, $powertechNavigation, $productSearch, $footerCredit): void {
         header('Content-Type: text/html; charset=utf-8');
-        $pageTitle = $title . ' - ' . $siteName;
+        $pageTitle = mb_stripos($title, $siteName, 0, 'UTF-8') !== false
+            ? $title
+            : $title . ' - ' . $siteName;
         $heading = $heading !== '' ? $heading : $title;
         $requestPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
         $canonical = rtrim($siteUrl, '/') . '/' . ltrim($requestPath, '/');
