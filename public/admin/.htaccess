@@ -2,3 +2,7 @@
     RewriteEngine On
     RewriteRule ^.*$ index.php [L]
 </IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Robots-Tag "noindex, nofollow, noarchive"
+</IfModule>
