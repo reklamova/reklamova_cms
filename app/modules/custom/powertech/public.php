@@ -208,6 +208,10 @@ return static function (array $container, PDO $pdo, array $module): array {
 
     $layout = static function (string $title, string $body, string $description = '', string $image = '', array $schema = [], string $heading = '') use ($siteName, $siteUrl, $h, $powertechNavigation, $productSearch, $footerCredit): void {
         header('Content-Type: text/html; charset=utf-8');
+        $description = trim(preg_replace('/\s+/u', ' ', strip_tags($description)) ?: '');
+        if (mb_strlen($description, 'UTF-8') > 160) {
+            $description = rtrim(mb_substr($description, 0, 157, 'UTF-8'), " \t\n\r\0\x0B,.;:-") . '...';
+        }
         $pageTitle = mb_stripos($title, $siteName, 0, 'UTF-8') !== false
             ? $title
             : $title . ' - ' . $siteName;
@@ -520,8 +524,41 @@ return static function (array $container, PDO $pdo, array $module): array {
         return true;
     };
 
+    $sitemap = static function () use ($pdo, $repo, $siteUrl, $base): void {
+        header('Content-Type: application/xml; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        $origin = rtrim($siteUrl, '/');
+        $urls = [$origin . '/'];
+        $pages = $pdo->query('SELECT slug FROM cms_pages WHERE status = "published" ORDER BY id')->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($pages as $slug) {
+            $slug = trim((string) $slug, '/');
+            if ($slug !== '' && $slug !== 'home') {
+                $urls[] = $origin . '/' . $slug . '/';
+            }
+        }
+        $urls[] = $origin . '/' . $base . '/';
+        foreach ($repo->categories(true) as $category) {
+            $path = trim((string) ($category['full_path'] ?? ''), '/');
+            if ($path !== '') {
+                $urls[] = $origin . '/' . $base . '/' . $path . '/';
+            }
+        }
+        foreach ($repo->products(true) as $product) {
+            $path = trim((string) ($product['full_path'] ?? ''), '/');
+            if ($path !== '') {
+                $urls[] = $origin . '/' . $base . '/' . $path . '/';
+            }
+        }
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'
+            . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+        foreach (array_values(array_unique($urls)) as $url) {
+            $xml .= '<url><loc>' . htmlspecialchars($url, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</loc></url>';
+        }
+        echo $xml . '</urlset>';
+    };
+
     return [
-        'routes' => ['/api/catalog/search' => $searchProducts],
+        'routes' => ['/api/catalog/search' => $searchProducts, '/sitemap.xml' => $sitemap],
         'fallbacks' => [$fallback, $pageFallback],
     ];
 };

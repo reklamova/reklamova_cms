@@ -19,6 +19,8 @@ $required = [
     "' – produkt ' . (int) \$product['id']",
     "\$bodyHasHeading = preg_match('/<h1\\b/i', \$body)",
     "'<h1 class=\"pt-sr-only\">'",
+    "mb_strlen(\$description, 'UTF-8') > 160",
+    "mb_substr(\$description, 0, 157, 'UTF-8')",
 ];
 
 foreach ($required as $markup) {

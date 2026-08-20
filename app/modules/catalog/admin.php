@@ -410,7 +410,12 @@ return static function (array $container, PDO $pdo, array $module): array {
         unset($view);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store, max-age=0');
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' || !Csrf::verify($_POST['_csrf'] ?? null)) {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'message' => 'Ta operacja wymaga żądania POST.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
             http_response_code(419);
             echo json_encode(['ok' => false, 'message' => 'Sesja formularza wygasła. Odśwież stronę.'], JSON_UNESCAPED_UNICODE);
             return;

@@ -34,10 +34,15 @@ final class DocumentUploadService
         if ($size < 1 || $size > self::MAX_BYTES) {
             throw new \RuntimeException('PDF może mieć maksymalnie 25 MB.');
         }
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $mime = strtolower((string) $finfo->file($temporaryPath));
+        $mime = '';
+        if (class_exists(\finfo::class)) {
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $mime = strtolower((string) $finfo->file($temporaryPath));
+        } elseif (function_exists('mime_content_type')) {
+            $mime = strtolower((string) mime_content_type($temporaryPath));
+        }
         $signature = (string) file_get_contents($temporaryPath, false, null, 0, 5);
-        if ($mime !== 'application/pdf' || $signature !== '%PDF-') {
+        if (!in_array($mime, ['application/pdf', 'application/x-pdf'], true) || $signature !== '%PDF-') {
             throw new \RuntimeException('Dozwolone są wyłącznie prawidłowe pliki PDF.');
         }
         $originalName = basename((string) ($file['name'] ?? 'dokument.pdf'));
