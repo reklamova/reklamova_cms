@@ -266,4 +266,50 @@
   };
 
   document.querySelectorAll('[data-gallery-manager]').forEach(enhanceGallery);
+
+  document.querySelectorAll('[data-document-manager]').forEach((manager) => {
+    const form = manager.closest('form');
+    const input = manager.querySelector('[data-document-file-input]');
+    const browse = manager.querySelector('[data-document-browse]');
+    const dropzone = manager.querySelector('[data-document-dropzone]');
+    const list = manager.querySelector('[data-document-list]');
+    const status = manager.querySelector('[data-document-status]');
+    if (!form || !input || !browse || !dropzone || !list) return;
+    const setStatus = (message, type = '') => {
+      status.textContent = message;
+      status.className = 'gallery-manager__status' + (type ? ` is-${type}` : '');
+    };
+    const addItem = (item) => {
+      if (!item.path || list.querySelector(`input[value="${CSS.escape(item.path)}"]`)) return;
+      const row = document.createElement('li');
+      row.dataset.documentItem = '';
+      const badge = document.createElement('span'); badge.textContent = 'PDF'; badge.setAttribute('aria-hidden', 'true');
+      const link = document.createElement('a'); link.href = item.path; link.target = '_blank'; link.rel = 'noopener'; link.textContent = item.filename || 'dokument.pdf';
+      const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'button secondary'; remove.dataset.documentRemove = ''; remove.textContent = 'Usuń';
+      const hidden = document.createElement('input'); hidden.type = 'hidden'; hidden.name = 'documents[]'; hidden.value = item.path;
+      row.append(badge, link, remove, hidden); list.append(row);
+    };
+    const upload = async (filesLike) => {
+      const files = Array.from(filesLike || []).filter(file => file.type === 'application/pdf' || /\.pdf$/i.test(file.name));
+      if (!files.length) { setStatus('Wybierz plik PDF.', 'error'); return; }
+      const payload = new FormData();
+      payload.append('_csrf', form.querySelector('input[name="_csrf"]')?.value || '');
+      files.forEach(file => payload.append('uploads[]', file, file.name));
+      setStatus(`Przesyłanie ${files.length} plików PDF…`, 'progress');
+      try {
+        const response = await fetch(manager.dataset.uploadUrl, {method:'POST', headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'}, body:payload, credentials:'same-origin'});
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Serwer nie przyjął PDF.');
+        (result.items || []).forEach(addItem);
+        setStatus('PDF dodane. Zapisz produkt, aby utrwalić dokumenty.', result.errors?.length ? 'error' : 'success');
+      } catch (error) { setStatus(error instanceof Error ? error.message : 'Przesyłanie PDF nie powiodło się.', 'error'); }
+      finally { input.value = ''; }
+    };
+    browse.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => upload(input.files));
+    dropzone.addEventListener('dragover', event => { event.preventDefault(); dropzone.classList.add('is-dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-dragover'));
+    dropzone.addEventListener('drop', event => { event.preventDefault(); dropzone.classList.remove('is-dragover'); upload(event.dataTransfer.files); });
+    list.addEventListener('click', event => { const button = event.target.closest('[data-document-remove]'); if (button) button.closest('[data-document-item]')?.remove(); });
+  });
 })();

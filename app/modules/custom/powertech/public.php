@@ -16,6 +16,24 @@ return static function (array $container, PDO $pdo, array $module): array {
     $siteUrl = rtrim((string) $config->get('app', 'url', ''), '/');
     $base = 'nasza-oferta';
     $h = static fn (mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    $bestImageUrl = static function (string $url) use ($container): string {
+        $path = parse_url($url, PHP_URL_PATH);
+        if (!is_string($path) || !str_starts_with($path, '/uploads/')) {
+            return $url;
+        }
+        $candidates = [];
+        $candidates[] = preg_replace('/-\d+x\d+(?=\.[^.]+$)/', '', $path) ?: $path;
+        if (str_ends_with($path, '-thumb.webp')) {
+            $candidates[] = substr($path, 0, -strlen('-thumb.webp')) . '-pdf-1024x724.jpg';
+        }
+        foreach (array_unique($candidates) as $candidate) {
+            $file = rtrim((string) ($container['public_path'] ?? ''), '/\\') . str_replace('/', DIRECTORY_SEPARATOR, rawurldecode($candidate));
+            if ($candidate !== $path && is_file($file)) {
+                return $candidate;
+            }
+        }
+        return $url;
+    };
     $catalogSetting = static function (string $key, string $default = '') use ($pdo): string {
         try {
             $statement = $pdo->prepare('SELECT setting_value FROM cms_settings WHERE setting_key = ? LIMIT 1');
@@ -213,8 +231,8 @@ return static function (array $container, PDO $pdo, array $module): array {
             . ($image !== '' ? '<meta property="og:image" content="' . $h($image) . '">' : '')
             . '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
             . '<link rel="stylesheet" href="/assets/core/page.css">'
-            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260812-mobile-header1">'
-            . '<script src="/assets/js/powertech.js?v=20260812-mobile-header1" defer></script>'
+            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260820-media-gallery1">'
+            . '<script src="/assets/js/powertech.js?v=20260820-media-gallery2" defer></script>'
             . $schemaHtml . '</head><body class="powertech-catalog">'
             . '<div class="pt-topbar"><div class="pt-wrap"><div class="pt-topbar__block"><span>PowerTech s.c.</span><span>ul. Beskidzka 23, 32-615 Grojec</span></div><div class="pt-topbar__block"><a href="tel:+48334871447">+48 33 487 14 47</a><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a></div></div></div>'
             . '<header class="pt-header" data-mobile-header><div class="pt-wrap"><a class="pt-logo" href="/"><img src="/uploads/powertech/2025/11/powertechsc-logotype.webp" alt="Power Tech S.C. logotyp"></a><nav class="pt-menu" id="pt-primary-menu" aria-label="Menu główne" data-mobile-menu>' . $nav . '</nav>' . $productSearch() . '<button class="pt-menu-toggle" type="button" aria-label="Otwórz menu" aria-controls="pt-primary-menu" aria-expanded="false" data-mobile-menu-toggle><span></span><span></span><span></span></button></div></header>'
@@ -264,7 +282,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         return ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => $items];
     };
 
-    $renderCategory = static function (?array $category = null) use ($repo, $layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $siteUrl, $base, $h, $pdo, $productGridColumns, $isLegacyVisualDescription, $isLegacyListingDescription): void {
+    $renderCategory = static function (?array $category = null) use ($repo, $layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $siteUrl, $base, $h, $pdo, $productGridColumns, $isLegacyVisualDescription, $isLegacyListingDescription, $bestImageUrl): void {
         $children = $repo->childCategories($category ? (int) $category['id'] : null, true);
         $products = $category ? $repo->productsForCategory((int) $category['id'], true) : [];
         $title = $category ? (string) $category['name'] : 'Nasza oferta';
@@ -283,13 +301,15 @@ return static function (array $container, PDO $pdo, array $module): array {
             $url = '/' . $base . '/' . trim((string) $child['full_path'], '/');
             $summary = trim((string) ($child['summary'] ?? ''));
             $summary = mb_strlen($summary, 'UTF-8') > 150 ? mb_substr($summary, 0, 147, 'UTF-8') . '...' : $summary;
-            $grid .= '<a class="catalog-card" href="' . $h($url) . '">' . ((string) ($child['featured_image'] ?? '') !== '' ? '<figure><img src="' . $h($child['featured_image']) . '" alt=""></figure>' : '') . '<h2>' . $h($child['name']) . '</h2><p>' . $h($summary) . '</p><span class="catalog-card__more">Zobacz dział</span></a>';
+            $childImage = $bestImageUrl((string) ($child['featured_image'] ?? ''));
+            $grid .= '<a class="catalog-card" href="' . $h($url) . '">' . ($childImage !== '' ? '<figure><img src="' . $h($childImage) . '" alt="" loading="lazy" decoding="async"></figure>' : '') . '<h2>' . $h($child['name']) . '</h2><p>' . $h($summary) . '</p><span class="catalog-card__more">Zobacz dział</span></a>';
         }
         foreach ($products as $product) {
             $url = '/' . $base . '/' . trim((string) $product['full_path'], '/');
             $summary = trim((string) ($product['summary'] ?? ''));
             $summary = mb_strlen($summary, 'UTF-8') > 150 ? mb_substr($summary, 0, 147, 'UTF-8') . '...' : $summary;
-            $grid .= '<a class="catalog-card catalog-card--product" href="' . $h($url) . '">' . ((string) ($product['featured_image'] ?? '') !== '' ? '<figure><img src="' . $h($product['featured_image']) . '" alt=""></figure>' : '') . '<h2>' . $h($product['name']) . '</h2><p>' . $h($summary) . '</p><span class="catalog-card__more">Zobacz produkt</span></a>';
+            $productImage = $bestImageUrl((string) ($product['featured_image'] ?? ''));
+            $grid .= '<a class="catalog-card catalog-card--product" href="' . $h($url) . '">' . ($productImage !== '' ? '<figure><img src="' . $h($productImage) . '" alt="" loading="lazy" decoding="async"></figure>' : '') . '<h2>' . $h($product['name']) . '</h2><p>' . $h($summary) . '</p><span class="catalog-card__more">Zobacz produkt</span></a>';
         }
         $grid .= '</div></section>';
         $schema = [];
@@ -321,13 +341,14 @@ return static function (array $container, PDO $pdo, array $module): array {
         $layout($metaTitle, $hero . $grid . $categoryDescription, $description, $image, $schema, $title);
     };
 
-    $renderProduct = static function (array $product) use ($layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $repo, $siteUrl, $base, $h): void {
+    $renderProduct = static function (array $product) use ($layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $repo, $siteUrl, $base, $h, $bestImageUrl): void {
         $category = $product['category_path'] ? $repo->findCategoryByPath((string) $product['category_path']) : null;
         $segments = $category ? $categoryAncestors($category) : [];
         $gallery = json_decode((string) ($product['gallery_json'] ?? '[]'), true) ?: [];
         $mainImage = trim((string) ($product['featured_image'] ?? '')) ?: trim((string) ($gallery[0] ?? ''));
-        $metaImage = trim((string) ($product['og_image'] ?? '')) ?: $mainImage;
-        $gallery = array_values(array_filter($gallery, static fn (mixed $url): bool => is_string($url) && trim($url) !== '' && trim($url) !== $mainImage));
+        $allImages = array_values(array_unique(array_map($bestImageUrl, array_filter(array_merge([$mainImage], $gallery), static fn (mixed $url): bool => is_string($url) && trim($url) !== ''))));
+        $mainImage = $allImages[0] ?? $mainImage;
+        $metaImage = $bestImageUrl(trim((string) ($product['og_image'] ?? '')) ?: $mainImage);
         $specs = json_decode((string) ($product['specs_json'] ?? '[]'), true) ?: [];
         $documents = json_decode((string) ($product['documents_json'] ?? '[]'), true) ?: [];
         $productPath = '/' . $base . '/' . trim((string) $product['full_path'], '/');
@@ -346,8 +367,19 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '<div class="catalog-inquiry__consents"><label><input type="checkbox" name="privacy_consent" value="1" required> Wyrażam zgodę na przetwarzanie danych z formularza w celu obsługi zapytania. Zapoznałem/am się z polityką prywatności.</label>'
             . '<label><input type="checkbox" name="marketing_consent" value="1"> Wyrażam zgodę na kontakt marketingowy dotyczący produktów, usług i ofert PowerTech s.c. Zgodę można wycofać w dowolnym momencie.</label></div>'
             . '<button class="cms-button" type="submit">Wyślij zapytanie o produkt</button></form></section>';
+        $media = '<div class="catalog-product__media">';
+        if (count($allImages) > 1) {
+            $media .= '<div class="catalog-carousel" data-product-carousel aria-roledescription="karuzela" aria-label="Galeria produktu"><div class="catalog-carousel__track" data-carousel-track>';
+            foreach ($allImages as $index => $url) {
+                $media .= '<figure class="catalog-carousel__slide" data-carousel-slide aria-label="Zdjęcie ' . ($index + 1) . ' z ' . count($allImages) . '"><img src="' . $h($url) . '" alt="' . $h($product['name']) . ' – zdjęcie ' . ($index + 1) . '"' . ($index > 0 ? ' loading="lazy"' : '') . ' decoding="async"></figure>';
+            }
+            $media .= '</div><div class="catalog-carousel__controls"><button type="button" data-carousel-prev aria-label="Poprzednie zdjęcie">←</button><span data-carousel-status>1 / ' . count($allImages) . '</span><button type="button" data-carousel-next aria-label="Następne zdjęcie">→</button></div></div>';
+        } elseif ($mainImage !== '') {
+            $media .= '<figure><img src="' . $h($mainImage) . '" alt="' . $h($product['name']) . '" decoding="async"></figure>';
+        }
+        $media .= '</div>';
         $body = $breadcrumbs($segments, $base)
-            . '<section class="catalog-product"><figure class="catalog-product__media">' . ($mainImage !== '' ? '<img src="' . $h($mainImage) . '" alt="">' : '') . '</figure><div class="catalog-product__body">'
+            . '<section class="catalog-product">' . $media . '<div class="catalog-product__body">'
             . '<div class="catalog-product__meta">' . ((string) ($product['brand'] ?? '') !== '' ? '<span>' . $h($product['brand']) . '</span>' : '') . ((string) ($product['sku'] ?? '') !== '' ? '<span>' . $h($product['sku']) . '</span>' : '') . '</div>'
             . '<h2>' . $h($product['name']) . '</h2><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div>' . nl2br($h((string) ($product['description'] ?? ''))) . '</div>'
             . '<div class="catalog-actions"><a href="#zapytanie-ofertowe">Zapytaj o produkt</a></div></div></section>' . $productInquiry;
@@ -360,17 +392,14 @@ return static function (array $container, PDO $pdo, array $module): array {
             }
             $body .= '</table>';
         }
-        if ($gallery) {
-            $body .= '<section class="catalog-gallery">';
-            foreach ($gallery as $url) {
-                $body .= '<img src="' . $h($url) . '" alt="">';
-            }
-            $body .= '</section>';
-        }
         if ($documents) {
-            $body .= '<section class="cms-block cms-cards"><header><h2>Dokumenty</h2></header><div>';
+            $body .= '<section class="cms-block cms-cards catalog-documents"><header><h2>Dokumenty do pobrania</h2></header><div>';
             foreach ($documents as $url) {
-                $body .= '<article><h3>Plik do pobrania</h3><a href="' . $h($url) . '">Pobierz</a></article>';
+                $path = parse_url((string) $url, PHP_URL_PATH);
+                $filename = rawurldecode(basename(is_string($path) ? $path : (string) $url)) ?: 'Dokument PDF';
+                $label = preg_replace('/-[a-f0-9]{12}(?=\.pdf$)/i', '', $filename) ?: $filename;
+                $label = preg_replace('/\.pdf$/i', '', $label) ?: $label;
+                $body .= '<article><span class="catalog-document__badge">PDF</span><h3>' . $h(str_replace('-', ' ', $label)) . '</h3><a href="' . $h($url) . '" target="_blank" rel="noopener">Otwórz lub pobierz PDF</a></article>';
             }
             $body .= '</div></section>';
         }
@@ -477,8 +506,8 @@ return static function (array $container, PDO $pdo, array $module): array {
             . ($image !== '' ? '<meta property="og:image" content="' . $h($image) . '">' : '')
             . '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
             . '<link rel="stylesheet" href="/assets/core/page.css">'
-            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260812-mobile-header1">'
-            . '<script src="/assets/js/powertech.js?v=20260812-mobile-header1" defer></script>'
+            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260820-media-gallery1">'
+            . '<script src="/assets/js/powertech.js?v=20260820-media-gallery2" defer></script>'
             . $schema
             . '</head><body class="powertech-catalog">'
             . '<div class="pt-topbar"><div class="pt-wrap"><div class="pt-topbar__block"><span>PowerTech s.c.</span><span>ul. Beskidzka 23, 32-615 Grojec</span></div><div class="pt-topbar__block"><a href="tel:+48334871447">+48 33 487 14 47</a><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a></div></div></div>'

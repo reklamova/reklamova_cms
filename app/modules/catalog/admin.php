@@ -6,6 +6,7 @@ use Reklamova\Cms\Admin\AdminView;
 use Reklamova\Cms\Auth\Csrf;
 use Reklamova\Cms\Logging\ActivityLogger;
 use Reklamova\Cms\Media\ImageUploadService;
+use Reklamova\Cms\Media\DocumentUploadService;
 use Reklamova\Cms\Modules\Catalog\CatalogGallery;
 use Reklamova\Cms\Modules\Catalog\CatalogRepository;
 use Reklamova\Cms\Support\Url;
@@ -98,6 +99,19 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '<div class="gallery-manager__summary"><strong>Zdjęcia: <span data-gallery-count>' . count($items) . '</span></strong><span>Przesuń kafelek albo użyj strzałek.</span></div>'
             . '<p class="gallery-manager__empty" data-gallery-empty' . ($items ? ' hidden' : '') . '>Galeria jest pusta. Dodaj pierwsze zdjęcie — stanie się zdjęciem głównym.</p>'
             . '<div class="gallery-grid" data-gallery-list>' . $cards . '</div></div></div>';
+    };
+
+    $documentManager = static function (array $items) use ($h): string {
+        $cards = '';
+        foreach ($items as $url) {
+            $path = parse_url((string) $url, PHP_URL_PATH);
+            $name = rawurldecode(basename(is_string($path) ? $path : (string) $url)) ?: 'dokument.pdf';
+            $cards .= '<li data-document-item><span aria-hidden="true">PDF</span><a href="' . $h($url) . '" target="_blank" rel="noopener">' . $h($name) . '</a><button type="button" class="button secondary" data-document-remove>Usuń</button><input type="hidden" name="documents[]" value="' . $h($url) . '"></li>';
+        }
+        return '<div class="field field--wide document-manager" data-document-manager data-upload-url="/admin/catalog/document-upload">'
+            . '<span class="field__label">Katalogi i ulotki PDF</span><p class="field__help">Wgraj pliki bezpośrednio z komputera. Maksymalnie 25 MB na plik.</p>'
+            . '<div class="document-dropzone" data-document-dropzone><strong>Przeciągnij PDF tutaj</strong><button type="button" class="button secondary" data-document-browse>Wybierz PDF</button><input type="file" accept="application/pdf,.pdf" multiple hidden data-document-file-input></div>'
+            . '<div class="gallery-manager__status" data-document-status role="status" aria-live="polite"></div><ul class="document-list" data-document-list>' . $cards . '</ul></div>';
     };
 
     $queryString = static function (array $overrides = []): string {
@@ -208,7 +222,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         $view->render('Kategorie produktów', $content, $user);
     };
 
-    $productForm = static function (?array $edit = null) use ($repo, $tabs, $statusOptions, $mediaOptions, $galleryManager, $h): string {
+    $productForm = static function (?array $edit = null) use ($repo, $tabs, $statusOptions, $mediaOptions, $galleryManager, $documentManager, $h): string {
         $specs = '';
         foreach (json_decode((string) ($edit['specs_json'] ?? '[]'), true) ?: [] as $spec) {
             if (is_array($spec)) {
@@ -216,7 +230,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             }
         }
         $gallery = CatalogGallery::forProduct($edit);
-        $documents = implode("\n", json_decode((string) ($edit['documents_json'] ?? '[]'), true) ?: []);
+        $documents = json_decode((string) ($edit['documents_json'] ?? '[]'), true) ?: [];
 
         return $tabs('/admin/catalog/products')
             . '<section class="panel page-editor__panel"><div class="page-editor__head"><div><span class="eyebrow">Produkty</span><h2>' . ($edit ? 'Edytuj produkt' : 'Dodaj produkt') . '</h2><p>Produkt ma własną kartę, URL, zdjęcia, parametry i opis SEO. Nie pokazujemy pól sklepowych, jeśli katalog nie jest sklepem.</p></div><div class="actions"><a class="button secondary" href="/admin/catalog/products">Wróć do listy</a><button form="catalog-product-form">Zapisz produkt</button></div></div>'
@@ -237,7 +251,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '<label class="field field--wide">Krótki opis<textarea name="summary">' . $h($edit['summary'] ?? '') . '</textarea></label>'
             . '<label class="field field--wide">Opis produktu<textarea name="description">' . $h($edit['description'] ?? '') . '</textarea></label>'
             . $galleryManager($gallery)
-            . '<label class="field field--wide">Dokumenty / katalogi PDF, po jednym URL w linii<textarea name="documents">' . $h($documents) . '</textarea></label>'
+            . $documentManager($documents)
             . '</div></details>'
             . '<details class="editor-section"><summary><b>Parametry</b><span>Specyfikacja techniczna produktu</span></summary><label class="field field--wide">Specyfikacja, jedna linia: parametr | wartość<textarea name="specs">' . $h(trim($specs)) . '</textarea></label></details>'
             . '<details class="editor-section seo-accordion"><summary><b>Ustawienia SEO</b><span>Opcjonalne pola dla Google i social media</span></summary><div class="privacy-settings-grid">'
@@ -392,6 +406,33 @@ return static function (array $container, PDO $pdo, array $module): array {
         echo json_encode(['ok' => true, 'message' => $message, 'items' => $items, 'errors' => $errors], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     };
 
+    $documentUpload = static function (AdminView $view, array $user) use ($container, $pdo): void {
+        unset($view);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, max-age=0');
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' || !Csrf::verify($_POST['_csrf'] ?? null)) {
+            http_response_code(419);
+            echo json_encode(['ok' => false, 'message' => 'Sesja formularza wygasła. Odśwież stronę.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        $upload = $_FILES['uploads'] ?? null;
+        $names = is_array($upload) ? ($upload['name'] ?? []) : [];
+        if (!is_array($names) || $names === [] || count($names) > 10) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => 'Wybierz od 1 do 10 plików PDF.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        $service = new DocumentUploadService($pdo, (string) $container['public_path']);
+        $items = []; $errors = [];
+        foreach (array_keys($names) as $index) {
+            $file = ['name'=>$upload['name'][$index]??'', 'type'=>$upload['type'][$index]??'', 'tmp_name'=>$upload['tmp_name'][$index]??'', 'error'=>$upload['error'][$index]??UPLOAD_ERR_NO_FILE, 'size'=>$upload['size'][$index]??0];
+            try { $items[] = $service->store($file); } catch (Throwable $e) { $errors[] = basename((string) $file['name']) . ': ' . $e->getMessage(); }
+        }
+        if ($items === []) { http_response_code(422); echo json_encode(['ok'=>false,'message'=>$errors[0]??'Nie udało się przesłać PDF.'], JSON_UNESCAPED_UNICODE); return; }
+        (new ActivityLogger($pdo, (string) ($container['root_path'] ?? 'reklamova')))->log($user, 'catalog.documents_uploaded', 'catalog_product', null, null, ['paths'=>array_column($items,'path'),'errors'=>$errors]);
+        echo json_encode(['ok'=>true,'message'=>'PDF zostały przesłane.','items'=>$items,'errors'=>$errors], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    };
+
     return [
         'nav' => [
             '/admin/catalog/products' => [
@@ -415,6 +456,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             '/admin/catalog/products' => $products,
             '/admin/catalog/import' => $import,
             '/admin/catalog/gallery-upload' => $galleryUpload,
+            '/admin/catalog/document-upload' => $documentUpload,
         ],
         'route_permissions' => [
             '/admin/catalog' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
@@ -422,6 +464,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             '/admin/catalog/products' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
             '/admin/catalog/import' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
             '/admin/catalog/gallery-upload' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
+            '/admin/catalog/document-upload' => ['GET' => 'manage_products', 'POST' => 'manage_products'],
         ],
     ];
 };

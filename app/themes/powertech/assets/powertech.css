@@ -1898,6 +1898,18 @@ body.powertech-catalog {
     padding: 20px;
 }
 
+.catalog-product__media > figure { width: 100%; height: 100%; margin: 0; }
+.catalog-carousel { position: relative; width: 100%; min-width: 0; overflow: hidden; }
+.catalog-carousel__track { display: flex; width: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; }
+.catalog-carousel__track::-webkit-scrollbar { display: none; }
+.catalog-carousel__slide { flex: 0 0 100%; width: 100%; aspect-ratio: 4 / 3; margin: 0; scroll-snap-align: start; scroll-snap-stop: always; }
+.catalog-carousel__slide img { width: 100%; height: 100%; padding: clamp(10px, 3vw, 24px); object-fit: contain; }
+.catalog-carousel__controls { position: absolute; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 8px; padding: 5px; border: 1px solid var(--pt-line-strong); border-radius: 999px; background: rgba(255,255,255,.94); box-shadow: 0 4px 14px rgba(16,24,40,.12); }
+.catalog-carousel__controls button { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: var(--pt-primary); color: #fff; cursor: pointer; }
+.catalog-carousel__controls span { min-width: 52px; color: #101828; font-size: 13px; font-weight: 800; text-align: center; }
+.catalog-documents article { position: relative; }
+.catalog-document__badge { display: inline-flex; padding: 5px 8px; background: #c62828; color: #fff; font-size: 12px; font-weight: 800; }
+
 .cms-page--slug-promocje .cms-page__header {
     max-width: 760px;
     margin-bottom: 24px;
@@ -2015,7 +2027,18 @@ body.powertech-catalog {
 
     .catalog-card {
         min-height: 0;
+        grid-template-rows: minmax(190px, 52vw) auto auto auto;
+        min-width: 0;
+        width: 100%;
+        padding: 10px 10px 16px;
     }
+
+    .catalog-card figure { min-height: 0; }
+    .catalog-card img { padding: 8px; image-rendering: auto; }
+    .catalog-card h2 { min-height: 0; font-size: clamp(18px, 5.2vw, 22px); overflow-wrap: anywhere; word-break: normal; }
+    .catalog-card p { min-height: 0; font-size: 15px; -webkit-line-clamp: 4; overflow-wrap: anywhere; }
+    .catalog-product__media { min-width: 0; min-height: 0; }
+    .catalog-carousel__slide { aspect-ratio: 1 / 1; }
 
     .pt-promo-downloads {
         grid-template-columns: 1fr;

@@ -81,6 +81,32 @@
 }());
 
 (function () {
+    function init() {
+        Array.prototype.forEach.call(document.querySelectorAll('[data-product-carousel]'), function (carousel) {
+            var track = carousel.querySelector('[data-carousel-track]');
+            var slides = Array.prototype.slice.call(carousel.querySelectorAll('[data-carousel-slide]'));
+            var status = carousel.querySelector('[data-carousel-status]');
+            var current = 0;
+            if (!track || slides.length < 2) return;
+            function show(index) {
+                current = Math.max(0, Math.min(slides.length - 1, index));
+                track.scrollLeft = current * track.clientWidth;
+                if (status) status.textContent = (current + 1) + ' / ' + slides.length;
+            }
+            carousel.querySelector('[data-carousel-prev]').addEventListener('click', function () { show((current - 1 + slides.length) % slides.length); });
+            carousel.querySelector('[data-carousel-next]').addEventListener('click', function () { show((current + 1) % slides.length); });
+            var update = function () {
+                var width = track.clientWidth || 1;
+                current = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / width)));
+                if (status) status.textContent = (current + 1) + ' / ' + slides.length;
+            };
+            track.addEventListener('scroll', function () { window.requestAnimationFrame(update); }, {passive: true});
+        });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once: true}); else init();
+}());
+
+(function () {
     function ready(callback) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', callback, { once: true });
