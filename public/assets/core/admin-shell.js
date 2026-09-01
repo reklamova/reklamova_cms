@@ -227,6 +227,7 @@
         openButton.dataset.textLinkOpen = '';
         openButton.textContent = '🔗 Link';
         openButton.title = 'Dodaj lub edytuj link';
+        openButton.setAttribute('aria-label', 'Dodaj lub edytuj link');
         openButton.setAttribute('aria-haspopup', 'dialog');
         toolbar.append(openButton);
         textarea.before(editor);

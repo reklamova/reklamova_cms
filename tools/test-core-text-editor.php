@@ -63,7 +63,7 @@ $adminScript = file_get_contents($root . '/public/assets/core/admin-shell.js');
 if (!is_string($adminScript)) {
     throw new RuntimeException('Nie można odczytać skryptu edytora.');
 }
-foreach (['textarea[data-content-editor]', 'content-link-dialog', 'textLinkEditor', 'showModal()', 'setRangeText', "'{new-tab}'", 'findSelectedLink'] as $check) {
+foreach (['textarea[data-content-editor]', 'content-link-dialog', 'textLinkEditor', 'showModal()', 'setRangeText', "'{new-tab}'", 'findSelectedLink', "setAttribute('aria-label', 'Dodaj lub edytuj link')"] as $check) {
     if (!str_contains($adminScript, $check)) {
         throw new RuntimeException('Brak globalnej funkcji edytora: ' . $check);
     }
