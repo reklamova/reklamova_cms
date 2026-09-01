@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Reklamova\Cms\Content\TextFormatter;
+
 use Reklamova\Cms\Modules\Privacy\ConsentModeService;
 use Reklamova\Cms\Modules\Privacy\PrivacyDocumentService;
 use Reklamova\Cms\Modules\Privacy\PrivacyRepository;
@@ -186,7 +188,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             echo 'Nie znaleziono dokumentu.';
             return true;
         }
-        $content = nl2br(htmlspecialchars($documents->renderTemplate((string) $document['content'], $documents->baseVariables($repo)), ENT_QUOTES));
+        $content = TextFormatter::withLinks($documents->renderTemplate((string) $document['content'], $documents->baseVariables($repo)));
         echo '<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . htmlspecialchars((string) $document['title'], ENT_QUOTES) . '</title>' . privacy_head() . '</head><body>' . privacy_body_start() . '<main style="max-width:860px;margin:40px auto;font-family:system-ui,sans-serif;line-height:1.65"><h1>' . htmlspecialchars((string) $document['title'], ENT_QUOTES) . '</h1><article>' . $content . '</article></main>' . privacy_footer_link() . privacy_body_end() . '</body></html>';
         return true;
     };

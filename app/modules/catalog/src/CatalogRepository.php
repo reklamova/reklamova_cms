@@ -6,6 +6,8 @@ namespace Reklamova\Cms\Modules\Catalog;
 
 use PDO;
 
+require_once __DIR__ . '/CatalogGallery.php';
+
 final class CatalogRepository
 {
     public function __construct(private PDO $pdo)
@@ -163,6 +165,13 @@ final class CatalogRepository
 
         $categoryId = $this->nullableInt($data['category_id'] ?? null);
         $slug = trim((string) ($data['slug'] ?? '')) ?: $this->slugify($name);
+        $galleryJson = array_key_exists('gallery', $data) || array_key_exists('gallery_present', $data)
+            ? CatalogGallery::json($data['gallery'] ?? [])
+            : $this->jsonOrNull($data['gallery_json'] ?? null);
+        $galleryItems = json_decode((string) ($galleryJson ?? '[]'), true);
+        $featuredImage = is_array($galleryItems) && isset($galleryItems[0])
+            ? (string) $galleryItems[0]
+            : trim((string) ($data['featured_image'] ?? ''));
         $payload = [
             'category_id' => $categoryId,
             'name' => $name,
@@ -174,9 +183,11 @@ final class CatalogRepository
             'summary' => trim((string) ($data['summary'] ?? '')),
             'description' => trim((string) ($data['description'] ?? '')),
             'specs_json' => $this->specsJson((string) ($data['specs'] ?? ''), $data['specs_json'] ?? null),
-            'gallery_json' => $this->listJson((string) ($data['gallery'] ?? ''), $data['gallery_json'] ?? null),
-            'documents_json' => $this->listJson((string) ($data['documents'] ?? ''), $data['documents_json'] ?? null),
-            'featured_image' => trim((string) ($data['featured_image'] ?? '')),
+            'gallery_json' => $galleryJson,
+            'documents_json' => array_key_exists('documents', $data)
+                ? $this->listJson($data['documents'])
+                : $this->jsonOrNull($data['documents_json'] ?? null),
+            'featured_image' => $featuredImage,
             'status' => $this->status((string) ($data['status'] ?? 'draft')),
             'is_featured' => !empty($data['is_featured']) ? 1 : 0,
             'sort_order' => (int) ($data['sort_order'] ?? 100),
@@ -415,21 +426,18 @@ final class CatalogRepository
         return $specs ? $this->encodeJson($specs) : null;
     }
 
-    private function listJson(string $lines, mixed $existing = null): ?string
+    private function listJson(mixed $value): ?string
     {
-        if (trim($lines) === '' && is_string($existing) && $existing !== '') {
-            return $existing;
-        }
-
         $items = [];
-        foreach (preg_split('/\R/', trim($lines)) ?: [] as $line) {
-            $line = trim($line);
+        $lines = is_array($value) ? $value : (preg_split('/\R/', trim((string) $value)) ?: []);
+        foreach ($lines as $line) {
+            $line = trim((string) $line);
             if ($line !== '') {
                 $items[] = $line;
             }
         }
 
-        return $items ? $this->encodeJson($items) : null;
+        return $items ? $this->encodeJson(array_values(array_unique($items))) : null;
     }
 
     private function encodeJson(array $value): string

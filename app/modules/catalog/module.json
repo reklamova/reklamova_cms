@@ -1,7 +1,7 @@
 {
   "slug": "catalog",
   "name": "Katalog produktów",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "source": "core",
   "enabled_by_default": false,
   "visible_in_client_nav": true,
