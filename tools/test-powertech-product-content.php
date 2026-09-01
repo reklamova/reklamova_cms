@@ -7,8 +7,10 @@ $public = file_get_contents($root . '/app/modules/custom/powertech/public.php');
 $admin = file_get_contents($root . '/app/modules/catalog/admin.php');
 $script = file_get_contents($root . '/app/themes/powertech/assets/powertech.js');
 $style = file_get_contents($root . '/app/themes/powertech/assets/powertech.css');
+$adminScript = file_get_contents($root . '/public/assets/core/admin-shell.js');
+$adminStyle = file_get_contents($root . '/public/assets/core/admin-2026.css');
 
-foreach ([$public, $admin, $script, $style] as $source) {
+foreach ([$public, $admin, $script, $style, $adminScript, $adminStyle] as $source) {
     if (!is_string($source)) {
         throw new RuntimeException('Nie można odczytać plików karty produktu PowerTech.');
     }
@@ -28,10 +30,26 @@ foreach ([
     }
 }
 
-foreach (['[Katalog PDF]', '[Film na YouTube]', 'Tekst w nawiasie kwadratowym będzie klikalny'] as $check) {
+foreach (['data-text-link-editor', 'data-text-link-open', 'data-text-link-input', 'Zaznacz tekst'] as $check) {
     if (!str_contains($admin, $check)) {
         throw new RuntimeException('Brak instrukcji linkowania w panelu: ' . $check);
     }
+}
+
+foreach (['text-link-dialog', 'showModal()', "'{new-tab}'", 'Otwórz link w nowej karcie', 'setRangeText'] as $check) {
+    if (!str_contains($adminScript, $check)) {
+        throw new RuntimeException('Brak obsługi modala linków w edytorze: ' . $check);
+    }
+}
+
+foreach (['(\\{new-tab\\})?', 'target="_blank" rel="noopener noreferrer"'] as $check) {
+    if (!str_contains($public, $check)) {
+        throw new RuntimeException('Brak obsługi ustawienia nowej karty: ' . $check);
+    }
+}
+
+if (!str_contains($adminStyle, '.text-link-dialog')) {
+    throw new RuntimeException('Brak stylów modala linków.');
 }
 
 foreach (['pt-lightbox', 'aria-modal', 'Powiększone zdjęcie produktu', "event.key === 'Escape'", "event.key === 'ArrowRight'"] as $check) {

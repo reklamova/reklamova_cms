@@ -1881,3 +1881,17 @@ table small {
     animation-iteration-count: 1 !important;
   }
 }
+
+.text-link-editor { display: grid; gap: 8px; }
+.text-link-editor__toolbar { display: flex; align-items: center; }
+.text-link-editor__toolbar .button { width: auto; min-height: 38px; padding: 8px 13px; }
+.text-link-dialog { width: min(540px, calc(100% - 28px)); padding: 0; border: 0; border-radius: 14px; color: var(--admin-ink); box-shadow: 0 24px 80px rgba(20, 20, 45, .28); }
+.text-link-dialog::backdrop { background: rgba(21, 20, 37, .6); backdrop-filter: blur(2px); }
+.text-link-dialog__card { display: grid; gap: 18px; padding: 24px; }
+.text-link-dialog__head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.text-link-dialog__head h2 { margin: 3px 0 0; }
+.text-link-dialog__close { width: 38px; min-width: 38px; min-height: 38px; padding: 0; border-radius: 50%; font-size: 25px; line-height: 1; }
+.text-link-dialog__check { display: flex; align-items: center; gap: 10px; font-weight: 650; }
+.text-link-dialog__check input { width: 18px; height: 18px; margin: 0; }
+.text-link-dialog__error { margin: 0; padding: 10px 12px; border-radius: 8px; background: #fff0f0; color: #a32323; }
+.text-link-dialog .actions { justify-content: flex-end; }

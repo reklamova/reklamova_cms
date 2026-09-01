@@ -161,4 +161,75 @@
   window.matchMedia('(min-width: 901px)').addEventListener('change', (event) => {
     if (event.matches) setSidebarOpen(false);
   });
+
+  document.querySelectorAll('[data-text-link-editor]').forEach((editor, editorIndex) => {
+    const textarea = editor.querySelector('[data-text-link-input]');
+    const openButton = editor.querySelector('[data-text-link-open]');
+    if (!textarea || !openButton) return;
+
+    const dialog = document.createElement('dialog');
+    dialog.className = 'text-link-dialog';
+    const titleId = `text-link-dialog-title-${editorIndex}`;
+    dialog.setAttribute('aria-labelledby', titleId);
+    dialog.innerHTML = '<form method="dialog" class="text-link-dialog__card">'
+      + `<div class="text-link-dialog__head"><div><span class="eyebrow">Odnośnik w opisie</span><h2 id="${titleId}">Dodaj link</h2></div><button type="button" class="text-link-dialog__close" data-link-cancel aria-label="Zamknij">×</button></div>`
+      + '<label>Tekst linku<input name="label" required autocomplete="off"></label>'
+      + '<label>Adres URL<input name="url" type="text" inputmode="url" required placeholder="https://… lub /uploads/…" autocomplete="url"></label>'
+      + '<label class="text-link-dialog__check"><input name="new_tab" type="checkbox"> Otwórz link w nowej karcie</label>'
+      + '<p class="text-link-dialog__error" data-link-error role="alert" hidden></p>'
+      + '<div class="actions"><button type="button" class="button secondary" data-link-cancel>Anuluj</button><button type="submit">Wstaw link</button></div>'
+      + '</form>';
+    document.body.append(dialog);
+
+    const form = dialog.querySelector('form');
+    const labelInput = form.elements.label;
+    const urlInput = form.elements.url;
+    const newTabInput = form.elements.new_tab;
+    const error = dialog.querySelector('[data-link-error]');
+    let selectionStart = 0;
+    let selectionEnd = 0;
+
+    const close = () => dialog.close();
+    dialog.querySelectorAll('[data-link-cancel]').forEach((button) => button.addEventListener('click', close));
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) close();
+    });
+
+    openButton.addEventListener('click', () => {
+      selectionStart = textarea.selectionStart;
+      selectionEnd = textarea.selectionEnd;
+      const selected = textarea.value.slice(selectionStart, selectionEnd);
+      const existing = selected.match(/^\[([^\]\r\n]+)\]\(([^)\s]+)\)(\{new-tab\})?$/u);
+      labelInput.value = existing ? existing[1] : selected;
+      urlInput.value = existing ? existing[2] : '';
+      newTabInput.checked = Boolean(existing?.[3]);
+      error.hidden = true;
+      dialog.showModal();
+      (labelInput.value ? urlInput : labelInput).focus();
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const label = labelInput.value.trim();
+      const url = urlInput.value.trim();
+      const isLocal = url.startsWith('/') && !url.startsWith('//');
+      let isWeb = false;
+      try {
+        const parsed = new URL(url);
+        isWeb = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      } catch (_) {
+        isWeb = false;
+      }
+      if (!label || (!isLocal && !isWeb)) {
+        error.textContent = 'Wpisz tekst linku oraz poprawny adres https://… lub ścieżkę zaczynającą się od /.';
+        error.hidden = false;
+        return;
+      }
+      const markup = `[${label.replace(/[\[\]]/g, '')}](${url})${newTabInput.checked ? '{new-tab}' : ''}`;
+      textarea.setRangeText(markup, selectionStart, selectionEnd, 'end');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      close();
+      textarea.focus();
+    });
+  });
 })();

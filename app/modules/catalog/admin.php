@@ -249,7 +249,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '</div></details>'
             . '<details class="editor-section" open><summary><b>Opis i zdjęcia</b><span>Treści widoczne na karcie produktu</span></summary><div class="privacy-settings-grid">'
             . '<label class="field field--wide">Krótki opis<textarea name="summary">' . $h($edit['summary'] ?? '') . '</textarea></label>'
-            . '<label class="field field--wide">Opis produktu<span class="field__help">Link w treści dodaj w formacie: [Katalog PDF](/uploads/katalog.pdf) lub [Film na YouTube](https://youtube.com/watch?v=...). Tekst w nawiasie kwadratowym będzie klikalny.</span><textarea name="description" placeholder="Opis produktu. Przykład linku: [Zobacz katalog](https://example.com/katalog.pdf)">' . $h($edit['description'] ?? '') . '</textarea></label>'
+            . '<label class="field field--wide">Opis produktu<span class="field__help">Zaznacz tekst i użyj przycisku „Link”, aby wskazać katalog, film lub inną stronę.</span><span class="text-link-editor" data-text-link-editor><span class="text-link-editor__toolbar"><button type="button" class="button secondary" data-text-link-open aria-haspopup="dialog" title="Dodaj lub edytuj link">🔗 Link</button></span><textarea name="description" data-text-link-input placeholder="Opis produktu">' . $h($edit['description'] ?? '') . '</textarea></span></label>'
             . $galleryManager($gallery)
             . $documentManager($documents)
             . '</div></details>'

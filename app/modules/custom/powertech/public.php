@@ -17,7 +17,7 @@ return static function (array $container, PDO $pdo, array $module): array {
     $base = 'nasza-oferta';
     $h = static fn (mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     $renderTextWithLinks = static function (string $text) use ($h): string {
-        $pattern = '/\[([^\]\r\n]+)\]\(([^)\s]+)\)/u';
+        $pattern = '/\[([^\]\r\n]+)\]\(([^)\s]+)\)(\{new-tab\})?/u';
         if (preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE) !== 1 && empty($matches[0])) {
             return nl2br($h($text));
         }
@@ -33,7 +33,8 @@ return static function (array $container, PDO $pdo, array $module): array {
             $isLocal = str_starts_with($url, '/') && !str_starts_with($url, '//');
             $isWeb = in_array($scheme, ['http', 'https'], true) && filter_var($url, FILTER_VALIDATE_URL) !== false;
             if ($isLocal || $isWeb) {
-                $external = $isWeb ? ' target="_blank" rel="noopener noreferrer"' : '';
+                $newTab = (string) ($matches[3][$index][0] ?? '') === '{new-tab}';
+                $external = $newTab ? ' target="_blank" rel="noopener noreferrer"' : '';
                 $html .= '<a href="' . $h($url) . '"' . $external . '>' . $h($label) . '</a>';
             } else {
                 $html .= $h($full);
