@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Reklamova\Cms\Modules\Catalog\CatalogRepository;
+use Reklamova\Cms\Content\TextFormatter;
 use Reklamova\Cms\Support\Config;
 
 require_once __DIR__ . '/src/CatalogRepository.php';
@@ -94,7 +95,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         if ($category) {
             $schema[] = $breadcrumbSchema($segments, $title, $siteUrl . '/' . $base . '/' . $category['full_path']);
         }
-        $layout((string) ($category['meta_title'] ?? $title), $hero . $grid . ($category ? '<article class="cms-page__content">' . nl2br($h($category['description'] ?? '')) . '</article>' : ''), $description, $image, $schema);
+        $layout((string) ($category['meta_title'] ?? $title), $hero . $grid . ($category ? '<article class="cms-page__content">' . TextFormatter::withLinks((string) ($category['description'] ?? '')) . '</article>' : ''), $description, $image, $schema);
     };
 
     $renderProduct = static function (array $product) use ($layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $repo, $siteUrl, $base, $h): void {
@@ -109,7 +110,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         $body = $breadcrumbs($segments, $base)
             . '<section class="catalog-product"><figure class="catalog-product__media">' . ($mainImage !== '' ? '<img src="' . $h($mainImage) . '" alt="">' : '') . '</figure><div class="catalog-product__body">'
             . '<div class="catalog-product__meta">' . ((string) ($product['brand'] ?? '') !== '' ? '<span>' . $h($product['brand']) . '</span>' : '') . ((string) ($product['sku'] ?? '') !== '' ? '<span>' . $h($product['sku']) . '</span>' : '') . '</div>'
-            . '<h1>' . $h($product['name']) . '</h1><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div>' . nl2br($h((string) ($product['description'] ?? ''))) . '</div>'
+            . '<h1>' . $h($product['name']) . '</h1><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div>' . TextFormatter::withLinks((string) ($product['description'] ?? '')) . '</div>'
             . '<div class="catalog-actions"><a href="/kontakt?produkt=' . rawurlencode((string) $product['name']) . '">Zapytaj o produkt</a></div></div></section>';
         if ($specs) {
             $body .= '<table class="catalog-specs">';

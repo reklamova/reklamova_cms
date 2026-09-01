@@ -162,6 +162,21 @@
     if (event.matches) setSidebarOpen(false);
   });
 
+  const contentFieldNames = new Set(['content', 'description', 'excerpt', 'summary', 'text', 'answer', 'bio', 'quote', 'challenge', 'solution', 'result', 'full_description']);
+  document.querySelectorAll('textarea[name]').forEach((textarea) => {
+    const fieldName = textarea.name.match(/(?:^|\[)([a-z_]+)\]?$/i)?.[1] || textarea.name;
+    if (!contentFieldNames.has(fieldName) || textarea.classList.contains('code-area') || textarea.closest('[data-text-link-editor]')) return;
+    const wrapper = document.createElement('span');
+    wrapper.className = 'text-link-editor';
+    wrapper.dataset.textLinkEditor = '';
+    const toolbar = document.createElement('span');
+    toolbar.className = 'text-link-editor__toolbar';
+    toolbar.innerHTML = '<button type="button" class="button secondary" data-text-link-open aria-haspopup="dialog" title="Dodaj lub edytuj link">🔗 Link</button>';
+    textarea.before(wrapper);
+    wrapper.append(toolbar, textarea);
+    textarea.dataset.textLinkInput = '';
+  });
+
   document.querySelectorAll('[data-text-link-editor]').forEach((editor, editorIndex) => {
     const textarea = editor.querySelector('[data-text-link-input]');
     const openButton = editor.querySelector('[data-text-link-open]');

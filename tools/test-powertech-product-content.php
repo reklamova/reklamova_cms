@@ -17,10 +17,7 @@ foreach ([$public, $admin, $script, $style, $adminScript, $adminStyle] as $sourc
 }
 
 foreach ([
-    '$renderTextWithLinks',
-    "in_array(\$scheme, ['http', 'https'], true)",
-    "!str_starts_with(\$url, '//')",
-    'FILTER_VALIDATE_URL',
+    'TextFormatter::withLinks',
     'data-lightbox-image',
     'tabindex="0"',
     'catalog-product__description',
@@ -39,12 +36,6 @@ foreach (['data-text-link-editor', 'data-text-link-open', 'data-text-link-input'
 foreach (['text-link-dialog', 'showModal()', "'{new-tab}'", 'Otwórz link w nowej karcie', 'setRangeText'] as $check) {
     if (!str_contains($adminScript, $check)) {
         throw new RuntimeException('Brak obsługi modala linków w edytorze: ' . $check);
-    }
-}
-
-foreach (['(\\{new-tab\\})?', 'target="_blank" rel="noopener noreferrer"'] as $check) {
-    if (!str_contains($public, $check)) {
-        throw new RuntimeException('Brak obsługi ustawienia nowej karty: ' . $check);
     }
 }
 

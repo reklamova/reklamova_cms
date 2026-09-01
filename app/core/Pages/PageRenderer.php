@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Reklamova\Cms\Pages;
 
+use Reklamova\Cms\Content\TextFormatter;
+
 final class PageRenderer
 {
     public function render(array $page): string
@@ -108,7 +110,7 @@ final class PageRenderer
         $html = '<section class="cms-block cms-hero"><div class="cms-hero__content">'
             . '<span class="cms-eyebrow">Reklamova CMS</span>'
             . '<h1>' . $this->e((string) ($block['title'] ?? '')) . '</h1>'
-            . '<p>' . nl2br($this->e((string) ($block['text'] ?? ''))) . '</p>'
+            . '<p>' . TextFormatter::withLinks((string) ($block['text'] ?? '')) . '</p>'
             . $this->button($block)
             . '</div>';
         if ($media !== '') {
@@ -122,7 +124,7 @@ final class PageRenderer
     {
         return '<section class="cms-block cms-text">'
             . '<h2>' . $this->e((string) ($block['title'] ?? '')) . '</h2>'
-            . '<div>' . nl2br($this->e((string) ($block['text'] ?? ''))) . '</div>'
+            . '<div>' . TextFormatter::withLinks((string) ($block['text'] ?? '')) . '</div>'
             . '</section>';
     }
 
@@ -132,7 +134,7 @@ final class PageRenderer
 
         return '<section class="cms-block cms-image-text">'
             . ($media !== '' ? '<figure><img src="' . $this->e($media) . '" alt=""></figure>' : '')
-            . '<div><h2>' . $this->e((string) ($block['title'] ?? '')) . '</h2><p>' . nl2br($this->e((string) ($block['text'] ?? ''))) . '</p>' . $this->button($block) . '</div>'
+            . '<div><h2>' . $this->e((string) ($block['title'] ?? '')) . '</h2><p>' . TextFormatter::withLinks((string) ($block['text'] ?? '')) . '</p>' . $this->button($block) . '</div>'
             . '</section>';
     }
 

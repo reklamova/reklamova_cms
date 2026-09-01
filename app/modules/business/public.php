@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Reklamova\Cms\Modules\Business\BusinessRepository;
+use Reklamova\Cms\Content\TextFormatter;
 use Reklamova\Cms\Support\Config;
 
 require_once __DIR__ . '/src/BusinessRepository.php';
@@ -47,7 +48,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         }
         $html = '<section class="biz-faq"><h2>Najczęstsze pytania</h2>';
         foreach ($items as $item) {
-            $html .= '<details><summary>' . $h($item['question']) . '</summary><p>' . nl2br($h($item['answer'])) . '</p></details>';
+            $html .= '<details><summary>' . $h($item['question']) . '</summary><p>' . TextFormatter::withLinks((string) $item['answer']) . '</p></details>';
         }
 
         return $html . '</section>';
@@ -77,7 +78,7 @@ return static function (array $container, PDO $pdo, array $module): array {
                 return false;
             }
             $body = '<section class="biz-hero"><h1>' . $h($item['title']) . '</h1><p>' . $h($item['summary'] ?? '') . '</p></section>'
-                . '<article class="biz-content"><section>' . nl2br($h($item['description'] ?? '')) . '</section>' . $faq('service', $item['slug']) . $cta('service') . '</article>';
+                . '<article class="biz-content"><section>' . TextFormatter::withLinks((string) ($item['description'] ?? '')) . '</section>' . $faq('service', $item['slug']) . $cta('service') . '</article>';
             $layout((string) ($item['meta_title'] ?: $item['title']), $body, ['@context' => 'https://schema.org', '@type' => 'Service', 'name' => $item['title'], 'description' => $item['summary'] ?? '']);
             return true;
         }
@@ -91,9 +92,9 @@ return static function (array $container, PDO $pdo, array $module): array {
                 return false;
             }
             $body = '<section class="biz-hero"><h1>' . $h($item['title']) . '</h1><p>' . $h($item['summary'] ?? '') . '</p></section><article class="biz-content">'
-                . '<section><h2>Wyzwanie</h2><p>' . nl2br($h($item['challenge'] ?? '')) . '</p></section>'
-                . '<section><h2>Rozwiązanie</h2><p>' . nl2br($h($item['solution'] ?? '')) . '</p></section>'
-                . '<section><h2>Efekt</h2><p>' . nl2br($h($item['result'] ?? '')) . '</p></section>' . $cta('case') . '</article>';
+                . '<section><h2>Wyzwanie</h2><p>' . TextFormatter::withLinks((string) ($item['challenge'] ?? '')) . '</p></section>'
+                . '<section><h2>Rozwiązanie</h2><p>' . TextFormatter::withLinks((string) ($item['solution'] ?? '')) . '</p></section>'
+                . '<section><h2>Efekt</h2><p>' . TextFormatter::withLinks((string) ($item['result'] ?? '')) . '</p></section>' . $cta('case') . '</article>';
             $layout((string) ($item['meta_title'] ?: $item['title']), $body);
             return true;
         }
@@ -103,14 +104,14 @@ return static function (array $container, PDO $pdo, array $module): array {
                 return false;
             }
             $body = '<section class="biz-hero"><h1>' . $h($item['name']) . '</h1><p>' . $h($item['summary'] ?? '') . '</p></section>'
-                . '<article class="biz-content"><section>' . nl2br($h($item['description'] ?? '')) . '</section>' . $faq('area', $item['slug']) . $cta('area') . '</article>';
+                . '<article class="biz-content"><section>' . TextFormatter::withLinks((string) ($item['description'] ?? '')) . '</section>' . $faq('area', $item['slug']) . $cta('area') . '</article>';
             $layout((string) ($item['meta_title'] ?: $item['name']), $body);
             return true;
         }
         if ($slug === 'zespol') {
             $body = '<section class="biz-hero"><h1>Zespół</h1><p>Ludzie, którzy stoją za jakością obsługi, doradztwa i realizacji.</p></section><section class="biz-grid">';
             foreach ($repo->all('team', true) as $person) {
-                $body .= '<article class="biz-card"><h2>' . $h($person['name']) . '</h2><p><b>' . $h($person['role'] ?? '') . '</b></p><p>' . $h($person['bio'] ?? '') . '</p></article>';
+                $body .= '<article class="biz-card"><h2>' . $h($person['name']) . '</h2><p><b>' . $h($person['role'] ?? '') . '</b></p><p>' . TextFormatter::withLinks((string) ($person['bio'] ?? '')) . '</p></article>';
             }
             $layout('Zespół', $body . '</section>');
             return true;

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Reklamova\Cms\Modules\Catalog\CatalogRepository;
+use Reklamova\Cms\Content\TextFormatter;
 use Reklamova\Cms\Pages\PageRenderer;
 use Reklamova\Cms\Pages\PageRepository;
 use Reklamova\Cms\Support\Config;
@@ -16,34 +17,6 @@ return static function (array $container, PDO $pdo, array $module): array {
     $siteUrl = rtrim((string) $config->get('app', 'url', ''), '/');
     $base = 'nasza-oferta';
     $h = static fn (mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
-    $renderTextWithLinks = static function (string $text) use ($h): string {
-        $pattern = '/\[([^\]\r\n]+)\]\(([^)\s]+)\)(\{new-tab\})?/u';
-        if (preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE) !== 1 && empty($matches[0])) {
-            return nl2br($h($text));
-        }
-        $html = '';
-        $offset = 0;
-        foreach ($matches[0] as $index => $match) {
-            $full = (string) $match[0];
-            $position = (int) $match[1];
-            $html .= $h(substr($text, $offset, $position - $offset));
-            $label = (string) ($matches[1][$index][0] ?? '');
-            $url = (string) ($matches[2][$index][0] ?? '');
-            $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
-            $isLocal = str_starts_with($url, '/') && !str_starts_with($url, '//');
-            $isWeb = in_array($scheme, ['http', 'https'], true) && filter_var($url, FILTER_VALIDATE_URL) !== false;
-            if ($isLocal || $isWeb) {
-                $newTab = (string) ($matches[3][$index][0] ?? '') === '{new-tab}';
-                $external = $newTab ? ' target="_blank" rel="noopener noreferrer"' : '';
-                $html .= '<a href="' . $h($url) . '"' . $external . '>' . $h($label) . '</a>';
-            } else {
-                $html .= $h($full);
-            }
-            $offset = $position + strlen($full);
-        }
-        $html .= $h(substr($text, $offset));
-        return nl2br($html);
-    };
     $bestImageUrl = static function (string $url) use ($container): string {
         $path = parse_url($url, PHP_URL_PATH);
         if (!is_string($path) || !str_starts_with($path, '/uploads/')) {
@@ -373,7 +346,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         $layout($metaTitle, $hero . $grid . $categoryDescription, $description, $image, $schema, $title);
     };
 
-    $renderProduct = static function (array $product) use ($layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $repo, $siteUrl, $base, $h, $bestImageUrl, $renderTextWithLinks): void {
+    $renderProduct = static function (array $product) use ($layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $repo, $siteUrl, $base, $h, $bestImageUrl): void {
         $category = $product['category_path'] ? $repo->findCategoryByPath((string) $product['category_path']) : null;
         $segments = $category ? $categoryAncestors($category) : [];
         $gallery = json_decode((string) ($product['gallery_json'] ?? '[]'), true) ?: [];
@@ -413,7 +386,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         $body = $breadcrumbs($segments, $base)
             . '<section class="catalog-product">' . $media . '<div class="catalog-product__body">'
             . '<div class="catalog-product__meta">' . ((string) ($product['brand'] ?? '') !== '' ? '<span>' . $h($product['brand']) . '</span>' : '') . ((string) ($product['sku'] ?? '') !== '' ? '<span>' . $h($product['sku']) . '</span>' : '') . '</div>'
-            . '<h2>' . $h($product['name']) . '</h2><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div class="catalog-product__description">' . $renderTextWithLinks((string) ($product['description'] ?? '')) . '</div>'
+            . '<h2>' . $h($product['name']) . '</h2><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div class="catalog-product__description">' . TextFormatter::withLinks((string) ($product['description'] ?? '')) . '</div>'
             . '<div class="catalog-actions"><a href="#zapytanie-ofertowe">Zapytaj o produkt</a></div></div></section>' . $productInquiry;
         if ($specs) {
             $body .= '<table class="catalog-specs">';
