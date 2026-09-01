@@ -165,7 +165,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '<label class="field">Ikona<input name="icon" value="' . $h($edit['icon'] ?? '') . '"></label>'
             . '<label class="field field--half">Obraz z Media<select name="featured_image">' . $mediaOptions((string) ($edit['featured_image'] ?? '')) . '</select></label>'
             . '<label class="field field--wide">Krótki opis<textarea name="summary">' . $h($edit['summary'] ?? '') . '</textarea></label>'
-            . '<label class="field field--wide">Opis kategorii<textarea name="description">' . $h($edit['description'] ?? '') . '</textarea></label>'
+            . '<label class="field field--wide">Opis kategorii<textarea name="description" data-content-editor>' . $h($edit['description'] ?? '') . '</textarea></label>'
             . '<details class="field field--wide seo-accordion"><summary><span class="eyebrow">Ustawienia SEO</span><b>Opis dla Google i udostępnień</b></summary><div class="privacy-settings-grid">'
             . '<label class="field field--half">Tytuł w Google<input name="meta_title" value="' . $h($edit['meta_title'] ?? '') . '"></label>'
             . '<label class="field field--half">Obraz Open Graph<select name="og_image">' . $mediaOptions((string) (($edit['og_image'] ?? '') ?: ($edit['featured_image'] ?? ''))) . '</select></label>'
@@ -249,7 +249,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '</div></details>'
             . '<details class="editor-section" open><summary><b>Opis i zdjęcia</b><span>Treści widoczne na karcie produktu</span></summary><div class="privacy-settings-grid">'
             . '<label class="field field--wide">Krótki opis<textarea name="summary">' . $h($edit['summary'] ?? '') . '</textarea></label>'
-            . '<label class="field field--wide">Opis produktu<span class="field__help">Zaznacz tekst i użyj przycisku „Link”, aby wskazać katalog, film lub inną stronę.</span><span class="text-link-editor" data-text-link-editor><span class="text-link-editor__toolbar"><button type="button" class="button secondary" data-text-link-open aria-haspopup="dialog" title="Dodaj lub edytuj link">🔗 Link</button></span><textarea name="description" data-text-link-input placeholder="Opis produktu">' . $h($edit['description'] ?? '') . '</textarea></span></label>'
+            . '<label class="field field--wide">Opis produktu<span class="field__help">Zaznacz tekst i użyj przycisku „Link”, aby wskazać katalog, film lub inną stronę.</span><textarea name="description" data-content-editor placeholder="Opis produktu">' . $h($edit['description'] ?? '') . '</textarea></label>'
             . $galleryManager($gallery)
             . $documentManager($documents)
             . '</div></details>'

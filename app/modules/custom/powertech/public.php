@@ -334,7 +334,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             ) {
                 $categoryDescription = '<article class="cms-page__content pt-wp-content catalog-description">' . $rawDescription . '</article>';
             } elseif (($settings['description_format'] ?? '') !== 'html') {
-                $categoryDescription = '<article class="cms-page__content catalog-description">' . nl2br($h($rawDescription)) . '</article>';
+                $categoryDescription = '<article class="cms-page__content catalog-description">' . TextFormatter::withLinks($rawDescription) . '</article>';
             } else {
                 $categoryDescription = '';
             }

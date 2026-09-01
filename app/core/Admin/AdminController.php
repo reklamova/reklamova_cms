@@ -728,7 +728,7 @@ final class AdminController
                 . '<label class="field field--half">Typ sekcji<select name="block_type[]">' . $this->options($typeLabels, $type) . '</select></label>'
                 . '<label class="field field--half">Nagłówek<input name="block_title[]" value="' . $this->h($block['title'] ?? '') . '"></label>'
                 . '<label class="field field--half">Obraz z Media<select name="block_media_url[]">' . $this->mediaSelectOptions($media, (string) ($block['media_url'] ?? '')) . '</select></label>'
-                . '<label class="field field--wide">Tekst<textarea name="block_text[]">' . $this->h($block['text'] ?? '') . '</textarea></label>'
+                . '<label class="field field--wide">Tekst<textarea name="block_text[]" data-content-editor>' . $this->h($block['text'] ?? '') . '</textarea></label>'
                 . '<label class="field field--half">Przycisk - tekst<input name="block_button_label[]" value="' . $this->h($block['button_label'] ?? '') . '"></label>'
                 . '<label class="field field--half">Przycisk - URL<input name="block_button_url[]" value="' . $this->h($block['button_url'] ?? '') . '"></label>'
                 . '<label class="field">Typ formularza<select name="block_form_type[]">' . $this->options(['contact' => 'Kontakt', 'offer' => 'Zapytanie ofertowe', 'newsletter' => 'Newsletter', 'order' => 'Zamówienie'], (string) ($block['form_type'] ?? 'contact')) . '</select></label>'

@@ -37,7 +37,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             return '';
         }
 
-        return '<section class="biz-cta"><h2>' . $h($item['headline']) . '</h2><p>' . $h($item['text'] ?? '') . '</p>'
+        return '<section class="biz-cta"><h2>' . $h($item['headline']) . '</h2><p>' . TextFormatter::withLinks((string) ($item['text'] ?? '')) . '</p>'
             . (($item['button_label'] ?? '') !== '' ? '<a href="' . $h($item['button_url'] ?? '#') . '">' . $h($item['button_label']) . '</a>' : '') . '</section>';
     };
 

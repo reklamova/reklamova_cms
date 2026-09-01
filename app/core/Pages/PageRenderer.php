@@ -140,7 +140,7 @@ final class PageRenderer
 
     private function cards(array $block): string
     {
-        $html = '<section class="cms-block cms-cards"><header><h2>' . $this->e((string) ($block['title'] ?? '')) . '</h2><p>' . nl2br($this->e((string) ($block['text'] ?? ''))) . '</p></header><div>';
+        $html = '<section class="cms-block cms-cards"><header><h2>' . $this->e((string) ($block['title'] ?? '')) . '</h2><p>' . TextFormatter::withLinks((string) ($block['text'] ?? '')) . '</p></header><div>';
         foreach (($block['items'] ?? []) as $item) {
             if (!is_array($item)) {
                 continue;
@@ -172,7 +172,7 @@ final class PageRenderer
         $variant = $this->className((string) ($block['cta_variant'] ?? 'standard'));
 
         return '<section class="cms-block cms-cta cms-cta--' . $variant . '"><h2>' . $this->e((string) ($block['title'] ?? '')) . '</h2><p>'
-            . nl2br($this->e((string) ($block['text'] ?? ''))) . '</p>' . $this->button($block) . '</section>';
+            . TextFormatter::withLinks((string) ($block['text'] ?? '')) . '</p>' . $this->button($block) . '</section>';
     }
 
     private function gallery(array $block): string
@@ -182,7 +182,7 @@ final class PageRenderer
             return '';
         }
 
-        $html = '<section class="cms-block cms-gallery"><header><h2>' . $this->e((string) ($block['title'] ?? 'Galeria')) . '</h2><p>' . nl2br($this->e((string) ($block['text'] ?? ''))) . '</p></header><div>';
+        $html = '<section class="cms-block cms-gallery"><header><h2>' . $this->e((string) ($block['title'] ?? 'Galeria')) . '</h2><p>' . TextFormatter::withLinks((string) ($block['text'] ?? '')) . '</p></header><div>';
         foreach ($items as $item) {
             if (!is_array($item) || trim((string) ($item['url'] ?? '')) === '') {
                 continue;
@@ -197,7 +197,7 @@ final class PageRenderer
     {
         $address = trim((string) ($block['map_address'] ?? ''));
         $embed = trim((string) ($block['map_embed_url'] ?? ''));
-        $html = '<section class="cms-block cms-map"><div><h2>' . $this->e((string) ($block['title'] ?? 'Mapa')) . '</h2><p>' . nl2br($this->e((string) (($block['text'] ?? '') ?: $address))) . '</p></div>';
+        $html = '<section class="cms-block cms-map"><div><h2>' . $this->e((string) ($block['title'] ?? 'Mapa')) . '</h2><p>' . TextFormatter::withLinks((string) (($block['text'] ?? '') ?: $address)) . '</p></div>';
         if ($embed !== '') {
             $html .= '<iframe src="' . $this->e($embed) . '" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>';
         } elseif ($address !== '') {
@@ -253,7 +253,7 @@ final class PageRenderer
         $marketing = !empty($config['marketing_consent']);
 
         return '<section class="cms-block cms-form cms-form--' . $type . '"><header><h2>' . $this->e($title) . '</h2>'
-            . ($text !== '' ? '<p>' . nl2br($this->e($text)) . '</p>' : '')
+            . ($text !== '' ? '<p>' . TextFormatter::withLinks($text) . '</p>' : '')
             . '</header><form method="post" action="/api/forms/submit"><input type="hidden" name="form_type" value="' . $this->e($type) . '">'
             . '<label>Imie i nazwisko<input name="name" autocomplete="name"></label>'
             . '<label>E-mail<input type="email" name="email" autocomplete="email" required></label>'

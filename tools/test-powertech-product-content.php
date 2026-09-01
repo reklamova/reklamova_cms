@@ -27,7 +27,7 @@ foreach ([
     }
 }
 
-foreach (['data-text-link-editor', 'data-text-link-open', 'data-text-link-input', 'Zaznacz tekst'] as $check) {
+foreach (['data-content-editor', 'Zaznacz tekst'] as $check) {
     if (!str_contains($admin, $check)) {
         throw new RuntimeException('Brak instrukcji linkowania w panelu: ' . $check);
     }

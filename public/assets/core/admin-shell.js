@@ -162,32 +162,18 @@
     if (event.matches) setSidebarOpen(false);
   });
 
-  const contentFieldNames = new Set(['content', 'description', 'excerpt', 'summary', 'text', 'answer', 'bio', 'quote', 'challenge', 'solution', 'result', 'full_description']);
-  document.querySelectorAll('textarea[name]').forEach((textarea) => {
-    const fieldName = textarea.name.match(/(?:^|\[)([a-z_]+)\]?$/i)?.[1] || textarea.name;
-    if (!contentFieldNames.has(fieldName) || textarea.classList.contains('code-area') || textarea.closest('[data-text-link-editor]')) return;
-    const wrapper = document.createElement('span');
-    wrapper.className = 'text-link-editor';
-    wrapper.dataset.textLinkEditor = '';
-    const toolbar = document.createElement('span');
-    toolbar.className = 'text-link-editor__toolbar';
-    toolbar.innerHTML = '<button type="button" class="button secondary" data-text-link-open aria-haspopup="dialog" title="Dodaj lub edytuj link">🔗 Link</button>';
-    textarea.before(wrapper);
-    wrapper.append(toolbar, textarea);
-    textarea.dataset.textLinkInput = '';
-  });
+  const textareas = Array.from(new Set([
+    ...document.querySelectorAll('textarea[data-content-editor]'),
+    ...document.querySelectorAll('[data-text-link-editor] textarea[data-text-link-input]'),
+  ])).filter((textarea) => !textarea.classList.contains('code-area'));
 
-  document.querySelectorAll('[data-text-link-editor]').forEach((editor, editorIndex) => {
-    const textarea = editor.querySelector('[data-text-link-input]');
-    const openButton = editor.querySelector('[data-text-link-open]');
-    if (!textarea || !openButton) return;
-
+  if (textareas.length) {
     const dialog = document.createElement('dialog');
     dialog.className = 'text-link-dialog';
-    const titleId = `text-link-dialog-title-${editorIndex}`;
-    dialog.setAttribute('aria-labelledby', titleId);
+    dialog.id = 'content-link-dialog';
+    dialog.setAttribute('aria-labelledby', 'content-link-dialog-title');
     dialog.innerHTML = '<form method="dialog" class="text-link-dialog__card">'
-      + `<div class="text-link-dialog__head"><div><span class="eyebrow">Odnośnik w opisie</span><h2 id="${titleId}">Dodaj link</h2></div><button type="button" class="text-link-dialog__close" data-link-cancel aria-label="Zamknij">×</button></div>`
+      + '<div class="text-link-dialog__head"><div><span class="eyebrow">Odnośnik w treści</span><h2 id="content-link-dialog-title">Dodaj link</h2></div><button type="button" class="text-link-dialog__close" data-link-cancel aria-label="Zamknij">×</button></div>'
       + '<label>Tekst linku<input name="label" required autocomplete="off"></label>'
       + '<label>Adres URL<input name="url" type="text" inputmode="url" required placeholder="https://… lub /uploads/…" autocomplete="url"></label>'
       + '<label class="text-link-dialog__check"><input name="new_tab" type="checkbox"> Otwórz link w nowej karcie</label>'
@@ -201,37 +187,84 @@
     const urlInput = form.elements.url;
     const newTabInput = form.elements.new_tab;
     const error = dialog.querySelector('[data-link-error]');
+    let activeTextarea = null;
     let selectionStart = 0;
     let selectionEnd = 0;
 
-    const close = () => dialog.close();
+    const findSelectedLink = (value, start, end) => {
+      const pattern = /\[([^\]\r\n]+)\]\(([^()\s]+)\)(\{new-tab\})?/gu;
+      let match;
+      while ((match = pattern.exec(value)) !== null) {
+        const matchEnd = match.index + match[0].length;
+        if ((start === end && start >= match.index && start <= matchEnd) || (start === match.index && end === matchEnd)) {
+          return { match, start: match.index, end: matchEnd };
+        }
+      }
+      return null;
+    };
+
+    const close = () => {
+      if (dialog.open) dialog.close();
+    };
     dialog.querySelectorAll('[data-link-cancel]').forEach((button) => button.addEventListener('click', close));
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) close();
     });
+    dialog.addEventListener('close', () => activeTextarea?.focus());
 
-    openButton.addEventListener('click', () => {
-      selectionStart = textarea.selectionStart;
-      selectionEnd = textarea.selectionEnd;
-      const selected = textarea.value.slice(selectionStart, selectionEnd);
-      const existing = selected.match(/^\[([^\]\r\n]+)\]\(([^)\s]+)\)(\{new-tab\})?$/u);
-      labelInput.value = existing ? existing[1] : selected;
-      urlInput.value = existing ? existing[2] : '';
-      newTabInput.checked = Boolean(existing?.[3]);
-      error.hidden = true;
-      dialog.showModal();
-      (labelInput.value ? urlInput : labelInput).focus();
+    textareas.forEach((textarea) => {
+      let editor = textarea.closest('[data-text-link-editor]');
+      let openButton = editor?.querySelector('[data-text-link-open]');
+      if (!editor) {
+        editor = document.createElement('span');
+        editor.className = 'text-link-editor';
+        editor.dataset.textLinkEditor = '';
+        const toolbar = document.createElement('span');
+        toolbar.className = 'text-link-editor__toolbar';
+        openButton = document.createElement('button');
+        openButton.type = 'button';
+        openButton.className = 'button secondary';
+        openButton.dataset.textLinkOpen = '';
+        openButton.textContent = '🔗 Link';
+        openButton.title = 'Dodaj lub edytuj link';
+        openButton.setAttribute('aria-haspopup', 'dialog');
+        toolbar.append(openButton);
+        textarea.before(editor);
+        editor.append(toolbar, textarea);
+      }
+      if (!openButton) return;
+      textarea.dataset.textLinkInput = '';
+      openButton.setAttribute('aria-controls', dialog.id);
+
+      openButton.addEventListener('click', () => {
+        activeTextarea = textarea;
+        selectionStart = textarea.selectionStart;
+        selectionEnd = textarea.selectionEnd;
+        const existing = findSelectedLink(textarea.value, selectionStart, selectionEnd);
+        if (existing) {
+          selectionStart = existing.start;
+          selectionEnd = existing.end;
+        }
+        const selected = textarea.value.slice(selectionStart, selectionEnd);
+        labelInput.value = existing ? existing.match[1] : selected;
+        urlInput.value = existing ? existing.match[2] : '';
+        newTabInput.checked = Boolean(existing?.match[3]);
+        error.hidden = true;
+        dialog.showModal();
+        (labelInput.value ? urlInput : labelInput).focus();
+      });
     });
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
-      const label = labelInput.value.trim();
+      if (!activeTextarea) return;
+      const label = labelInput.value.trim().replace(/[\[\]\r\n]/g, '');
       const url = urlInput.value.trim();
-      const isLocal = url.startsWith('/') && !url.startsWith('//');
+      const isLocal = /^\/(?![\/\\])[^\x00-\x20\\]*$/u.test(url);
       let isWeb = false;
       try {
         const parsed = new URL(url);
-        isWeb = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        isWeb = (parsed.protocol === 'http:' || parsed.protocol === 'https:') && !/[\s()]/u.test(url);
       } catch (_) {
         isWeb = false;
       }
@@ -240,11 +273,10 @@
         error.hidden = false;
         return;
       }
-      const markup = `[${label.replace(/[\[\]]/g, '')}](${url})${newTabInput.checked ? '{new-tab}' : ''}`;
-      textarea.setRangeText(markup, selectionStart, selectionEnd, 'end');
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      const markup = `[${label}](${url})${newTabInput.checked ? '{new-tab}' : ''}`;
+      activeTextarea.setRangeText(markup, selectionStart, selectionEnd, 'end');
+      activeTextarea.dispatchEvent(new Event('input', { bubbles: true }));
       close();
-      textarea.focus();
     });
-  });
+  }
 })();
