@@ -81,6 +81,115 @@
 }());
 
 (function () {
+    function initLightbox() {
+        var images = Array.prototype.slice.call(document.querySelectorAll('[data-lightbox-image]'));
+        if (!images.length) {
+            return;
+        }
+
+        var lightbox = document.createElement('div');
+        lightbox.className = 'pt-lightbox';
+        lightbox.hidden = true;
+        lightbox.setAttribute('role', 'dialog');
+        lightbox.setAttribute('aria-modal', 'true');
+        lightbox.setAttribute('aria-label', 'Powiększone zdjęcie produktu');
+        lightbox.innerHTML = '<button class="pt-lightbox__button pt-lightbox__close" type="button" aria-label="Zamknij powiększenie">×</button>'
+            + '<button class="pt-lightbox__button pt-lightbox__prev" type="button" aria-label="Poprzednie zdjęcie">←</button>'
+            + '<figure class="pt-lightbox__figure"><img class="pt-lightbox__image" alt=""></figure>'
+            + '<button class="pt-lightbox__button pt-lightbox__next" type="button" aria-label="Następne zdjęcie">→</button>'
+            + '<span class="pt-lightbox__status" aria-live="polite"></span>';
+        document.body.appendChild(lightbox);
+
+        var enlarged = lightbox.querySelector('.pt-lightbox__image');
+        var closeButton = lightbox.querySelector('.pt-lightbox__close');
+        var previousButton = lightbox.querySelector('.pt-lightbox__prev');
+        var nextButton = lightbox.querySelector('.pt-lightbox__next');
+        var status = lightbox.querySelector('.pt-lightbox__status');
+        var current = 0;
+        var returnFocus = null;
+        var pointerStart = null;
+        var pointerMoved = false;
+
+        function show(index) {
+            current = (index + images.length) % images.length;
+            enlarged.src = images[current].currentSrc || images[current].src;
+            enlarged.alt = images[current].alt || 'Zdjęcie produktu';
+            status.textContent = (current + 1) + ' / ' + images.length;
+            previousButton.hidden = images.length < 2;
+            nextButton.hidden = images.length < 2;
+        }
+
+        function open(index, trigger) {
+            returnFocus = trigger;
+            show(index);
+            lightbox.hidden = false;
+            document.body.classList.add('pt-lightbox-open');
+            closeButton.focus();
+        }
+
+        function close() {
+            lightbox.hidden = true;
+            document.body.classList.remove('pt-lightbox-open');
+            enlarged.removeAttribute('src');
+            if (returnFocus) {
+                returnFocus.focus();
+            }
+        }
+
+        images.forEach(function (image, index) {
+            image.addEventListener('pointerdown', function (event) {
+                pointerStart = { x: event.clientX, y: event.clientY };
+                pointerMoved = false;
+            });
+            image.addEventListener('pointermove', function (event) {
+                if (pointerStart && (Math.abs(event.clientX - pointerStart.x) > 8 || Math.abs(event.clientY - pointerStart.y) > 8)) {
+                    pointerMoved = true;
+                }
+            });
+            image.addEventListener('click', function () {
+                if (!pointerMoved) {
+                    open(index, image);
+                }
+                pointerStart = null;
+            });
+            image.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    open(index, image);
+                }
+            });
+        });
+
+        closeButton.addEventListener('click', close);
+        previousButton.addEventListener('click', function () { show(current - 1); });
+        nextButton.addEventListener('click', function () { show(current + 1); });
+        lightbox.addEventListener('click', function (event) {
+            if (event.target === lightbox) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (lightbox.hidden) {
+                return;
+            }
+            if (event.key === 'Escape') {
+                close();
+            } else if (event.key === 'ArrowLeft') {
+                show(current - 1);
+            } else if (event.key === 'ArrowRight') {
+                show(current + 1);
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initLightbox, { once: true });
+    } else {
+        initLightbox();
+    }
+}());
+
+(function () {
     function init() {
         Array.prototype.forEach.call(document.querySelectorAll('[data-product-carousel]'), function (carousel) {
             var track = carousel.querySelector('[data-carousel-track]');

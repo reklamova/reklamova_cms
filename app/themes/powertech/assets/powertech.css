@@ -1904,11 +1904,25 @@ body.powertech-catalog {
 .catalog-carousel__track::-webkit-scrollbar { display: none; }
 .catalog-carousel__slide { flex: 0 0 100%; width: 100%; aspect-ratio: 4 / 3; margin: 0; scroll-snap-align: start; scroll-snap-stop: always; }
 .catalog-carousel__slide img { width: 100%; height: 100%; padding: clamp(10px, 3vw, 24px); object-fit: contain; }
+.catalog-product__media [data-lightbox-image] { cursor: zoom-in; }
+.catalog-product__media [data-lightbox-image]:focus-visible { outline: 3px solid var(--pt-primary); outline-offset: -3px; }
 .catalog-carousel__controls { position: absolute; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 8px; padding: 5px; border: 1px solid var(--pt-line-strong); border-radius: 999px; background: rgba(255,255,255,.94); box-shadow: 0 4px 14px rgba(16,24,40,.12); }
 .catalog-carousel__controls button { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: var(--pt-primary); color: #fff; cursor: pointer; }
 .catalog-carousel__controls span { min-width: 52px; color: #101828; font-size: 13px; font-weight: 800; text-align: center; }
 .catalog-documents article { position: relative; }
 .catalog-document__badge { display: inline-flex; padding: 5px 8px; background: #c62828; color: #fff; font-size: 12px; font-weight: 800; }
+.catalog-product__description a { color: var(--pt-primary); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.pt-lightbox-open { overflow: hidden; }
+.pt-lightbox { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: clamp(12px, 3vw, 32px); background: rgba(5, 10, 20, .92); }
+.pt-lightbox[hidden] { display: none; }
+.pt-lightbox__figure { display: grid; place-items: center; width: min(1180px, 100%); height: min(86vh, 900px); margin: 0; }
+.pt-lightbox__image { max-width: 100%; max-height: 100%; object-fit: contain; }
+.pt-lightbox__button { position: absolute; display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(0,0,0,.5); color: #fff; font-size: 28px; cursor: pointer; }
+.pt-lightbox__button:hover, .pt-lightbox__button:focus-visible { background: var(--pt-primary); outline: 3px solid #fff; outline-offset: 2px; }
+.pt-lightbox__close { top: 18px; right: 18px; }
+.pt-lightbox__prev { top: 50%; left: 18px; transform: translateY(-50%); }
+.pt-lightbox__next { top: 50%; right: 18px; transform: translateY(-50%); }
+.pt-lightbox__status { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); padding: 7px 12px; border-radius: 999px; background: rgba(0,0,0,.58); color: #fff; font-size: 14px; font-weight: 700; }
 
 .cms-page--slug-promocje .cms-page__header {
     max-width: 760px;
@@ -2039,6 +2053,11 @@ body.powertech-catalog {
     .catalog-card p { min-height: 0; font-size: 15px; -webkit-line-clamp: 4; overflow-wrap: anywhere; }
     .catalog-product__media { min-width: 0; min-height: 0; }
     .catalog-carousel__slide { aspect-ratio: 1 / 1; }
+    .pt-lightbox { padding: 64px 8px 76px; }
+    .pt-lightbox__button { width: 44px; height: 44px; }
+    .pt-lightbox__close { top: 10px; right: 10px; }
+    .pt-lightbox__prev { left: 8px; }
+    .pt-lightbox__next { right: 8px; }
 
     .pt-promo-downloads {
         grid-template-columns: 1fr;

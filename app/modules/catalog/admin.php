@@ -249,7 +249,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '</div></details>'
             . '<details class="editor-section" open><summary><b>Opis i zdjęcia</b><span>Treści widoczne na karcie produktu</span></summary><div class="privacy-settings-grid">'
             . '<label class="field field--wide">Krótki opis<textarea name="summary">' . $h($edit['summary'] ?? '') . '</textarea></label>'
-            . '<label class="field field--wide">Opis produktu<textarea name="description">' . $h($edit['description'] ?? '') . '</textarea></label>'
+            . '<label class="field field--wide">Opis produktu<span class="field__help">Link w treści dodaj w formacie: [Katalog PDF](/uploads/katalog.pdf) lub [Film na YouTube](https://youtube.com/watch?v=...). Tekst w nawiasie kwadratowym będzie klikalny.</span><textarea name="description" placeholder="Opis produktu. Przykład linku: [Zobacz katalog](https://example.com/katalog.pdf)">' . $h($edit['description'] ?? '') . '</textarea></label>'
             . $galleryManager($gallery)
             . $documentManager($documents)
             . '</div></details>'

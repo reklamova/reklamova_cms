@@ -16,6 +16,33 @@ return static function (array $container, PDO $pdo, array $module): array {
     $siteUrl = rtrim((string) $config->get('app', 'url', ''), '/');
     $base = 'nasza-oferta';
     $h = static fn (mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    $renderTextWithLinks = static function (string $text) use ($h): string {
+        $pattern = '/\[([^\]\r\n]+)\]\(([^)\s]+)\)/u';
+        if (preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE) !== 1 && empty($matches[0])) {
+            return nl2br($h($text));
+        }
+        $html = '';
+        $offset = 0;
+        foreach ($matches[0] as $index => $match) {
+            $full = (string) $match[0];
+            $position = (int) $match[1];
+            $html .= $h(substr($text, $offset, $position - $offset));
+            $label = (string) ($matches[1][$index][0] ?? '');
+            $url = (string) ($matches[2][$index][0] ?? '');
+            $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+            $isLocal = str_starts_with($url, '/') && !str_starts_with($url, '//');
+            $isWeb = in_array($scheme, ['http', 'https'], true) && filter_var($url, FILTER_VALIDATE_URL) !== false;
+            if ($isLocal || $isWeb) {
+                $external = $isWeb ? ' target="_blank" rel="noopener noreferrer"' : '';
+                $html .= '<a href="' . $h($url) . '"' . $external . '>' . $h($label) . '</a>';
+            } else {
+                $html .= $h($full);
+            }
+            $offset = $position + strlen($full);
+        }
+        $html .= $h(substr($text, $offset));
+        return nl2br($html);
+    };
     $bestImageUrl = static function (string $url) use ($container): string {
         $path = parse_url($url, PHP_URL_PATH);
         if (!is_string($path) || !str_starts_with($path, '/uploads/')) {
@@ -235,8 +262,8 @@ return static function (array $container, PDO $pdo, array $module): array {
             . ($image !== '' ? '<meta property="og:image" content="' . $h($image) . '">' : '')
             . '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
             . '<link rel="stylesheet" href="/assets/core/page.css">'
-            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260820-media-gallery1">'
-            . '<script src="/assets/js/powertech.js?v=20260820-media-gallery2" defer></script>'
+            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260901-product-media1">'
+            . '<script src="/assets/js/powertech.js?v=20260901-product-media1" defer></script>'
             . $schemaHtml . '</head><body class="powertech-catalog">'
             . '<div class="pt-topbar"><div class="pt-wrap"><div class="pt-topbar__block"><span>PowerTech s.c.</span><span>ul. Beskidzka 23, 32-615 Grojec</span></div><div class="pt-topbar__block"><a href="tel:+48334871447">+48 33 487 14 47</a><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a></div></div></div>'
             . '<header class="pt-header" data-mobile-header><div class="pt-wrap"><a class="pt-logo" href="/"><img src="/uploads/powertech/2025/11/powertechsc-logotype.webp" alt="Power Tech S.C. logotyp"></a><nav class="pt-menu" id="pt-primary-menu" aria-label="Menu główne" data-mobile-menu>' . $nav . '</nav>' . $productSearch() . '<button class="pt-menu-toggle" type="button" aria-label="Otwórz menu" aria-controls="pt-primary-menu" aria-expanded="false" data-mobile-menu-toggle><span></span><span></span><span></span></button></div></header>'
@@ -345,7 +372,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         $layout($metaTitle, $hero . $grid . $categoryDescription, $description, $image, $schema, $title);
     };
 
-    $renderProduct = static function (array $product) use ($layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $repo, $siteUrl, $base, $h, $bestImageUrl): void {
+    $renderProduct = static function (array $product) use ($layout, $breadcrumbs, $categoryAncestors, $breadcrumbSchema, $repo, $siteUrl, $base, $h, $bestImageUrl, $renderTextWithLinks): void {
         $category = $product['category_path'] ? $repo->findCategoryByPath((string) $product['category_path']) : null;
         $segments = $category ? $categoryAncestors($category) : [];
         $gallery = json_decode((string) ($product['gallery_json'] ?? '[]'), true) ?: [];
@@ -375,17 +402,17 @@ return static function (array $container, PDO $pdo, array $module): array {
         if (count($allImages) > 1) {
             $media .= '<div class="catalog-carousel" data-product-carousel aria-roledescription="karuzela" aria-label="Galeria produktu"><div class="catalog-carousel__track" data-carousel-track>';
             foreach ($allImages as $index => $url) {
-                $media .= '<figure class="catalog-carousel__slide" data-carousel-slide aria-label="Zdjęcie ' . ($index + 1) . ' z ' . count($allImages) . '"><img src="' . $h($url) . '" alt="' . $h($product['name']) . ' – zdjęcie ' . ($index + 1) . '"' . ($index > 0 ? ' loading="lazy"' : '') . ' decoding="async"></figure>';
+                $media .= '<figure class="catalog-carousel__slide" data-carousel-slide aria-label="Zdjęcie ' . ($index + 1) . ' z ' . count($allImages) . '"><img src="' . $h($url) . '" alt="' . $h($product['name']) . ' – zdjęcie ' . ($index + 1) . '" data-lightbox-image tabindex="0" role="button" aria-label="Powiększ zdjęcie ' . ($index + 1) . '"' . ($index > 0 ? ' loading="lazy"' : '') . ' decoding="async"></figure>';
             }
             $media .= '</div><div class="catalog-carousel__controls"><button type="button" data-carousel-prev aria-label="Poprzednie zdjęcie">←</button><span data-carousel-status>1 / ' . count($allImages) . '</span><button type="button" data-carousel-next aria-label="Następne zdjęcie">→</button></div></div>';
         } elseif ($mainImage !== '') {
-            $media .= '<figure><img src="' . $h($mainImage) . '" alt="' . $h($product['name']) . '" decoding="async"></figure>';
+            $media .= '<figure><img src="' . $h($mainImage) . '" alt="' . $h($product['name']) . '" data-lightbox-image tabindex="0" role="button" aria-label="Powiększ zdjęcie" decoding="async"></figure>';
         }
         $media .= '</div>';
         $body = $breadcrumbs($segments, $base)
             . '<section class="catalog-product">' . $media . '<div class="catalog-product__body">'
             . '<div class="catalog-product__meta">' . ((string) ($product['brand'] ?? '') !== '' ? '<span>' . $h($product['brand']) . '</span>' : '') . ((string) ($product['sku'] ?? '') !== '' ? '<span>' . $h($product['sku']) . '</span>' : '') . '</div>'
-            . '<h2>' . $h($product['name']) . '</h2><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div>' . nl2br($h((string) ($product['description'] ?? ''))) . '</div>'
+            . '<h2>' . $h($product['name']) . '</h2><p>' . nl2br($h((string) ($product['summary'] ?? ''))) . '</p><div class="catalog-product__description">' . $renderTextWithLinks((string) ($product['description'] ?? '')) . '</div>'
             . '<div class="catalog-actions"><a href="#zapytanie-ofertowe">Zapytaj o produkt</a></div></div></section>' . $productInquiry;
         if ($specs) {
             $body .= '<table class="catalog-specs">';
@@ -510,8 +537,8 @@ return static function (array $container, PDO $pdo, array $module): array {
             . ($image !== '' ? '<meta property="og:image" content="' . $h($image) . '">' : '')
             . '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
             . '<link rel="stylesheet" href="/assets/core/page.css">'
-            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260820-media-gallery1">'
-            . '<script src="/assets/js/powertech.js?v=20260820-media-gallery2" defer></script>'
+            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260901-product-media1">'
+            . '<script src="/assets/js/powertech.js?v=20260901-product-media1" defer></script>'
             . $schema
             . '</head><body class="powertech-catalog">'
             . '<div class="pt-topbar"><div class="pt-wrap"><div class="pt-topbar__block"><span>PowerTech s.c.</span><span>ul. Beskidzka 23, 32-615 Grojec</span></div><div class="pt-topbar__block"><a href="tel:+48334871447">+48 33 487 14 47</a><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a></div></div></div>'
