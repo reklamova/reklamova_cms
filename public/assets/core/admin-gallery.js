@@ -313,3 +313,159 @@
     list.addEventListener('click', event => { const button = event.target.closest('[data-document-remove]'); if (button) button.closest('[data-document-item]')?.remove(); });
   });
 })();
+
+(() => {
+  'use strict';
+
+  const imageFieldNames = new Set(['image', 'featured_image', 'cover_image', 'og_image', 'hero_image', 'photo', 'media_url', 'block_media_url']);
+  const candidates = Array.from(document.querySelectorAll('input[name], select[name]')).filter((field) => {
+    if (field.matches('[type="hidden"], [type="file"]') || field.closest('[data-gallery-manager]')) return false;
+    const normalized = field.name.replace(/\[\]$/, '');
+    const leaf = normalized.match(/(?:^|\[)([a-z_]+)\]?$/i)?.[1] || normalized;
+    return imageFieldNames.has(leaf) || /^block_gallery_media_\d+$/.test(normalized);
+  });
+  if (!candidates.length) return;
+
+  const dialog = document.createElement('dialog');
+  dialog.className = 'media-picker-dialog';
+  dialog.setAttribute('aria-labelledby', 'media-picker-title');
+  dialog.innerHTML = '<div class="media-picker-dialog__card">'
+    + '<header class="media-picker-dialog__head"><div><span class="eyebrow">Biblioteka mediów</span><h2 id="media-picker-title">Wybierz obraz</h2><p>Wgraj nowy plik albo wybierz istniejący obraz.</p></div><button type="button" data-media-picker-close aria-label="Zamknij">×</button></header>'
+    + '<div class="media-picker-dialog__tools"><label class="media-picker-search"><span class="sr-only">Szukaj obrazu</span><input type="search" placeholder="Szukaj po nazwie…" data-media-picker-search></label><button type="button" class="button" data-media-picker-upload>Wgraj nowy obraz</button><input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" hidden data-media-picker-file></div>'
+    + '<div class="media-picker-dropzone" data-media-picker-dropzone tabindex="0" role="button"><strong>Przeciągnij obraz tutaj</strong><span>lub kliknij, aby wybrać plik · maks. 12 MB</span></div>'
+    + '<p class="media-picker-status" data-media-picker-status role="status" aria-live="polite"></p>'
+    + '<div class="media-picker-grid" data-media-picker-grid></div>'
+    + '</div>';
+  document.body.append(dialog);
+
+  const grid = dialog.querySelector('[data-media-picker-grid]');
+  const search = dialog.querySelector('[data-media-picker-search]');
+  const uploadButton = dialog.querySelector('[data-media-picker-upload]');
+  const fileInput = dialog.querySelector('[data-media-picker-file]');
+  const dropzone = dialog.querySelector('[data-media-picker-dropzone]');
+  const status = dialog.querySelector('[data-media-picker-status]');
+  let activeField = null;
+  let activeWidget = null;
+  let searchTimer = null;
+
+  const valueOf = (field) => String(field.value || '').trim();
+  const filenameFromItem = (item) => item.filename || filenameFromPath(item.path || '');
+  const setStatus = (message, type = '') => {
+    status.textContent = message;
+    status.className = 'media-picker-status' + (type ? ` is-${type}` : '');
+  };
+  const updateWidget = (widget, path) => {
+    const preview = widget.querySelector('[data-media-field-preview]');
+    const empty = widget.querySelector('[data-media-field-empty]');
+    const remove = widget.querySelector('[data-media-field-remove]');
+    preview.src = path || '';
+    preview.hidden = !path;
+    empty.hidden = Boolean(path);
+    remove.hidden = !path;
+  };
+  const setFieldValue = (field, path, label = '') => {
+    if (field instanceof HTMLSelectElement && path && !Array.from(field.options).some((option) => option.value === path)) {
+      field.add(new Option(label || filenameFromPath(path), path));
+    }
+    field.value = path;
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+    if (activeWidget) updateWidget(activeWidget, path);
+  };
+  const choose = (item) => {
+    if (!activeField || !item.path) return;
+    setFieldValue(activeField, item.path, filenameFromItem(item));
+    if (dialog.open) dialog.close();
+    activeWidget?.querySelector('[data-media-field-open]')?.focus();
+  };
+  const renderItems = (items) => {
+    grid.innerHTML = '';
+    if (!items.length) {
+      grid.innerHTML = '<div class="media-picker-empty"><b>Brak obrazów</b><span>Wgraj pierwszy obraz albo zmień wyszukiwanie.</span></div>';
+      return;
+    }
+    items.forEach((item) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'media-picker-card';
+      button.title = filenameFromItem(item);
+      const image = document.createElement('img');
+      image.src = item.path;
+      image.alt = '';
+      image.loading = 'lazy';
+      const name = document.createElement('span');
+      name.textContent = filenameFromItem(item);
+      button.append(image, name);
+      button.addEventListener('click', () => choose(item));
+      grid.append(button);
+    });
+  };
+  const loadItems = async (query = '') => {
+    setStatus('Wczytywanie obrazów…', 'progress');
+    try {
+      const response = await fetch(`/admin/media/picker?q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.message || 'Nie udało się wczytać biblioteki.');
+      renderItems(result.items || []);
+      setStatus(`${(result.items || []).length} obrazów`, 'success');
+    } catch (error) {
+      renderItems([]);
+      setStatus(error instanceof Error ? error.message : 'Nie udało się wczytać biblioteki.', 'error');
+    }
+  };
+  const csrfToken = () => activeField?.closest('form')?.querySelector('input[name="_csrf"]')?.value || document.querySelector('input[name="_csrf"]')?.value || '';
+  const upload = async (file) => {
+    if (!file) return;
+    const payload = new FormData();
+    payload.append('_csrf', csrfToken());
+    payload.append('upload', file, file.name);
+    setStatus(`Przesyłanie „${file.name}”…`, 'progress');
+    dialog.classList.add('is-uploading');
+    try {
+      const response = await fetch('/admin/media/upload', { method: 'POST', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: payload, credentials: 'same-origin' });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.message || 'Nie udało się przesłać obrazu.');
+      choose(result.item);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Nie udało się przesłać obrazu.', 'error');
+    } finally {
+      dialog.classList.remove('is-uploading');
+      fileInput.value = '';
+    }
+  };
+
+  dialog.querySelector('[data-media-picker-close]').addEventListener('click', () => { if (dialog.open) dialog.close(); });
+  dialog.addEventListener('click', (event) => { if (event.target === dialog && dialog.open) dialog.close(); });
+  uploadButton.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => upload(fileInput.files?.[0]));
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInput.click(); } });
+  ['dragenter', 'dragover'].forEach((name) => dropzone.addEventListener(name, (event) => { event.preventDefault(); dropzone.classList.add('is-dragover'); }));
+  ['dragleave', 'drop'].forEach((name) => dropzone.addEventListener(name, () => dropzone.classList.remove('is-dragover')));
+  dropzone.addEventListener('drop', (event) => { event.preventDefault(); upload(event.dataTransfer?.files?.[0]); });
+  search.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadItems(search.value.trim()), 250); });
+
+  candidates.forEach((field) => {
+    const widget = document.createElement('span');
+    widget.className = 'media-field';
+    widget.dataset.mediaField = '';
+    widget.innerHTML = '<span class="media-field__preview"><img data-media-field-preview alt="" hidden><span data-media-field-empty>Brak wybranego obrazu</span></span><span class="media-field__actions"><button type="button" class="button secondary" data-media-field-open>Wybierz lub wgraj</button><button type="button" class="button secondary" data-media-field-remove>Usuń</button></span>';
+    field.before(widget);
+    widget.append(field);
+    field.classList.add('media-field__source');
+    updateWidget(widget, valueOf(field));
+    widget.querySelector('[data-media-field-open]').addEventListener('click', () => {
+      activeField = field;
+      activeWidget = widget;
+      search.value = '';
+      dialog.showModal();
+      loadItems();
+      search.focus();
+    });
+    widget.querySelector('[data-media-field-remove]').addEventListener('click', () => {
+      activeField = field;
+      activeWidget = widget;
+      setFieldValue(field, '');
+    });
+  });
+})();

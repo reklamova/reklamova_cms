@@ -1895,3 +1895,42 @@ table small {
 .text-link-dialog__check input { width: 18px; height: 18px; margin: 0; }
 .text-link-dialog__error { margin: 0; padding: 10px 12px; border-radius: 8px; background: #fff0f0; color: #a32323; }
 .text-link-dialog .actions { justify-content: flex-end; }
+
+.media-field { display: grid; gap: 10px; min-width: 0; }
+.media-field__source { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+.media-field__preview { display: grid; place-items: center; min-height: 150px; overflow: hidden; border: 1px dashed #cfd5e2; border-radius: 12px; background: #f8f9fc; color: #70798b; }
+.media-field__preview img { display: block; width: 100%; height: 190px; object-fit: contain; background: #fff; }
+.media-field__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.media-field__actions .button { width: auto; }
+.media-picker-dialog { width: min(980px, calc(100% - 28px)); max-height: min(850px, calc(100vh - 28px)); padding: 0; overflow: hidden; border: 0; border-radius: 16px; color: var(--admin-ink); box-shadow: 0 28px 90px rgba(20, 20, 45, .32); }
+.media-picker-dialog::backdrop { background: rgba(21, 20, 37, .64); backdrop-filter: blur(3px); }
+.media-picker-dialog__card { display: grid; grid-template-rows: auto auto auto auto minmax(180px, 1fr); max-height: min(850px, calc(100vh - 28px)); }
+.media-picker-dialog__head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; padding: 22px 24px 14px; }
+.media-picker-dialog__head h2 { margin: 3px 0; }
+.media-picker-dialog__head p { margin: 0; color: var(--admin-muted); }
+.media-picker-dialog__head > button { width: 40px; min-width: 40px; min-height: 40px; padding: 0; border-radius: 50%; font-size: 26px; line-height: 1; }
+.media-picker-dialog__tools { display: flex; gap: 10px; padding: 0 24px 14px; }
+.media-picker-search { flex: 1; }
+.media-picker-dialog__tools .button { width: auto; }
+.media-picker-dropzone { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 0 24px; padding: 14px; border: 2px dashed #c7cce0; border-radius: 10px; background: #fafaff; cursor: pointer; color: var(--admin-muted); transition: border-color .15s ease, background .15s ease; }
+.media-picker-dropzone strong { color: var(--admin-ink); }
+.media-picker-dropzone.is-dragover { border-color: #6846e8; background: #f1edff; }
+.media-picker-status { min-height: 22px; margin: 10px 24px 4px; color: var(--admin-muted); }
+.media-picker-status.is-error { color: #a32323; }
+.media-picker-status.is-success { color: #24714b; }
+.media-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; overflow-y: auto; padding: 10px 24px 24px; align-content: start; }
+.media-picker-card { display: grid; gap: 8px; min-width: 0; min-height: 0; padding: 8px; border: 1px solid #e0e4ed; border-radius: 10px; background: #fff; color: var(--admin-ink); text-align: left; box-shadow: none; }
+.media-picker-card:hover, .media-picker-card:focus-visible { border-color: #6846e8; background: #f8f6ff; transform: none; }
+.media-picker-card img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 7px; background: #f2f4f8; }
+.media-picker-card span { overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.media-picker-empty { grid-column: 1 / -1; display: grid; place-items: center; gap: 5px; min-height: 190px; color: var(--admin-muted); }
+.media-picker-dialog.is-uploading { cursor: progress; }
+
+@media (max-width: 640px) {
+  .media-picker-dialog__tools { align-items: stretch; flex-direction: column; }
+  .media-picker-dialog__tools .button { width: 100%; }
+  .media-picker-dropzone { text-align: center; }
+  .media-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-inline: 14px; }
+  .media-picker-dialog__head, .media-picker-dialog__tools { padding-inline: 14px; }
+  .media-picker-dropzone, .media-picker-status { margin-inline: 14px; }
+}

@@ -13,6 +13,7 @@ use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Health\HealthCheck;
 use Reklamova\Cms\Logging\ActivityLogger;
+use Reklamova\Cms\Media\ImageUploadService;
 use Reklamova\Cms\Modules\ModuleManager;
 use Reklamova\Cms\Pages\PageRenderer;
 use Reklamova\Cms\Pages\PageRepository;
@@ -89,6 +90,8 @@ final class AdminController
             '/admin/pages/edit' => $this->editPage($user),
             '/admin/pages/preview' => $this->previewPage($user),
             '/admin/media' => $this->media($user),
+            '/admin/media/picker' => $this->mediaPicker(),
+            '/admin/media/upload' => $this->mediaUpload($user),
             '/admin/settings' => $this->settings($user),
             '/admin/account' => $this->account($user),
             '/admin/modules' => $this->modules($user),
@@ -894,6 +897,50 @@ final class AdminController
         $this->view->render('Media', $content, $user);
     }
 
+    private function mediaPicker(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, max-age=0');
+        $query = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100, 'UTF-8');
+        $parameters = [];
+        $where = ' WHERE mime_type LIKE "image/%"';
+        if ($query !== '') {
+            $where .= ' AND (filename LIKE ? OR path LIKE ?)';
+            $parameters = ['%' . $query . '%', '%' . $query . '%'];
+        }
+        $statement = $this->pdo->prepare('SELECT id, filename, path, mime_type, size, created_at FROM cms_media' . $where . ' ORDER BY created_at DESC, id DESC LIMIT 120');
+        $statement->execute($parameters);
+        $items = array_map(static fn (array $row): array => [
+            'id' => (int) ($row['id'] ?? 0),
+            'filename' => (string) ($row['filename'] ?? ''),
+            'path' => (string) ($row['path'] ?? ''),
+            'mime_type' => (string) ($row['mime_type'] ?? ''),
+            'size' => (int) ($row['size'] ?? 0),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+        ], $statement->fetchAll(\PDO::FETCH_ASSOC) ?: []);
+        echo json_encode(['ok' => true, 'items' => $items], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    private function mediaUpload(array $user): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, max-age=0');
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' || !Csrf::verify($_POST['_csrf'] ?? null)) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Sesja formularza wygasła. Odśwież stronę i spróbuj ponownie.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        try {
+            $item = (new ImageUploadService($this->pdo, (string) $this->container['public_path']))
+                ->store($_FILES['upload'] ?? [], 'media');
+            $this->activity->log($user, 'media.uploaded_from_picker', 'media', null, null, ['path' => $item['path'], 'filename' => $item['filename']]);
+            echo json_encode(['ok' => true, 'item' => $item], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } catch (\Throwable $exception) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'message' => $exception->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     private function settings(array $user): void
     {
         $config = new Config($this->container);
@@ -1311,7 +1358,7 @@ final class AdminController
         return match ($path) {
             '/admin', '/admin/' => 'view_dashboard',
             '/admin/pages', '/admin/pages/edit', '/admin/pages/preview' => 'manage_pages',
-            '/admin/media' => 'manage_media',
+            '/admin/media', '/admin/media/picker', '/admin/media/upload' => 'manage_media',
             '/admin/settings' => 'manage_basic_settings',
             '/admin/modules' => 'manage_modules',
             '/admin/installations', '/admin/installations/modules' => 'manage_installations',
