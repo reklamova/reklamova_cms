@@ -13,4 +13,5 @@ return [
     'central_update_server_url' => 'https://updates.reklamova.pl',
     'central_update_server_token' => '',
     'central_update_server_path' => '',
+    'media_max_upload_bytes' => 26214400,
 ];

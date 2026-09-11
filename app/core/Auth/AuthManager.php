@@ -24,6 +24,7 @@ final class AuthManager
             return false;
         }
 
+        Csrf::rotateSession();
         $_SESSION['admin_user'] = [
             'id' => (int) $user['id'],
             'email' => $user['email'],
@@ -55,6 +56,7 @@ final class AuthManager
     {
         Csrf::startSession();
         unset($_SESSION['admin_user']);
+        Csrf::rotateSession();
     }
 
     public function activeUserByEmail(string $email): ?array

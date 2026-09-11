@@ -13,6 +13,7 @@ use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Health\HealthCheck;
 use Reklamova\Cms\Logging\ActivityLogger;
+use Reklamova\Cms\Media\MediaUploadPolicy;
 use Reklamova\Cms\Modules\ModuleManager;
 use Reklamova\Cms\Pages\PageRenderer;
 use Reklamova\Cms\Pages\PageRepository;
@@ -1431,12 +1432,12 @@ HTML;
 
     private function storeUpload(array $file): string
     {
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            throw new \RuntimeException('Upload pliku nie powiodl sie.');
-        }
+        $config = new Config($this->container);
+        $policy = new MediaUploadPolicy((int) $config->get('app', 'media_max_upload_bytes', 25 * 1024 * 1024));
+        $validated = $policy->validate($file);
 
-        $originalName = basename((string) $file['name']);
-        $extension = pathinfo($originalName, PATHINFO_EXTENSION);
+        $originalName = $validated['original_name'];
+        $extension = $validated['extension'];
         $safeName = $this->slugify(pathinfo($originalName, PATHINFO_FILENAME)) . '-' . bin2hex(random_bytes(4));
         if ($extension !== '') {
             $safeName .= '.' . strtolower($extension);
@@ -1453,13 +1454,18 @@ HTML;
             throw new \RuntimeException('Nie można zapisać pliku uploadu.');
         }
 
-        $statement = $this->pdo->prepare('INSERT INTO cms_media (filename, path, mime_type, size) VALUES (?, ?, ?, ?)');
-        $statement->execute([
-            $originalName,
-            '/' . $relativeDir . '/' . $safeName,
-            mime_content_type($targetPath) ?: null,
-            filesize($targetPath) ?: 0,
-        ]);
+        try {
+            $statement = $this->pdo->prepare('INSERT INTO cms_media (filename, path, mime_type, size) VALUES (?, ?, ?, ?)');
+            $statement->execute([
+                $originalName,
+                '/' . $relativeDir . '/' . $safeName,
+                $validated['mime_type'],
+                $validated['size'],
+            ]);
+        } catch (\Throwable $exception) {
+            @unlink($targetPath);
+            throw $exception;
+        }
 
         return '/' . $relativeDir . '/' . $safeName;
     }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Reklamova\Cms\Auth;
 
 use PDO;
-use Reklamova\Cms\Support\Config;
 
 final class PermissionManager
 {
@@ -257,12 +256,8 @@ final class PermissionManager
     public function isInternalUser(array $user): bool
     {
         $role = $this->normalizedRole($user);
-        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
-        $appUrl = strtolower((string) (new Config($this->container))->get('app', 'url', ''));
 
-        return in_array($role, ['super_admin', 'reklamova_admin', 'reklamova', 'developer'], true)
-            || str_contains($host, 'cms.reklamova.pl')
-            || str_contains($appUrl, 'cms.reklamova.pl');
+        return in_array($role, ['super_admin', 'reklamova_admin', 'reklamova', 'developer'], true);
     }
 
     /**

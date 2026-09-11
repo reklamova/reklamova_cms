@@ -30,8 +30,33 @@ final class Csrf
     public static function startSession(): void
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
+            ini_set('session.use_strict_mode', '1');
+            ini_set('session.use_only_cookies', '1');
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'secure' => self::isSecureRequest(),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
             session_start();
         }
+    }
+
+    public static function rotateSession(): void
+    {
+        self::startSession();
+        session_regenerate_id(true);
+        unset($_SESSION['_csrf']);
+    }
+
+    private static function isSecureRequest(): bool
+    {
+        if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
+            return true;
+        }
+
+        return strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
     }
 }
 
