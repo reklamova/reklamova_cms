@@ -200,6 +200,42 @@ final class StorefrontRepository
         return $rows;
     }
 
+    /** @return array<int, array{path: string, updated_at: string}> */
+    public function seoEntries(): array
+    {
+        $entries = [];
+        $categories = $this->pdo->prepare(
+            'SELECT c.full_path, c.updated_at
+             FROM commerce_categories c
+             INNER JOIN commerce_stores s ON s.id = c.store_id
+             WHERE s.code = ? AND c.status = "published" AND c.full_path <> ""
+             ORDER BY c.full_path'
+        );
+        $categories->execute([$this->storeCode]);
+        foreach ($categories->fetchAll(PDO::FETCH_ASSOC) as $category) {
+            $entries[] = [
+                'path' => '/kategoria-produktu/' . trim((string) $category['full_path'], '/'),
+                'updated_at' => (string) $category['updated_at'],
+            ];
+        }
+        $products = $this->pdo->prepare(
+            'SELECT p.slug, p.updated_at
+             FROM commerce_products p
+             INNER JOIN commerce_stores s ON s.id = p.store_id
+             WHERE s.code = ? AND p.status = "published" AND p.visibility <> "hidden" AND p.slug <> ""
+             ORDER BY p.slug'
+        );
+        $products->execute([$this->storeCode]);
+        foreach ($products->fetchAll(PDO::FETCH_ASSOC) as $product) {
+            $entries[] = [
+                'path' => '/produkt/' . rawurlencode((string) $product['slug']),
+                'updated_at' => (string) $product['updated_at'],
+            ];
+        }
+
+        return $entries;
+    }
+
     /** @return array<int, array<string, mixed>> */
     private function variants(int $productId): array
     {

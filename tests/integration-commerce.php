@@ -234,6 +234,10 @@ $assert($cartView !== null && $cartView['subtotal_minor'] === 24600, 'Storefront
 $assert($cartView['items'][0]['product_slug'] === 'baner', 'Storefront cart product is wrong.');
 $assert(count($storefront->shippingMethods()) === 1, 'Storefront shipping methods are wrong.');
 $assert($storefront->paymentMethods()[0]['code'] === 'integration_pay', 'Storefront payment methods are wrong.');
+$seoEntries = $storefront->seoEntries();
+$assert(count($seoEntries) === 2, 'Storefront SEO entries are incomplete.');
+$assert(in_array('/produkt/baner', array_column($seoEntries, 'path'), true), 'Product is missing from SEO entries.');
+$assert(in_array('/kategoria-produktu/banery', array_column($seoEntries, 'path'), true), 'Category is missing from SEO entries.');
 
 $checkoutData = new CheckoutData(
     'buyer@example.com',
