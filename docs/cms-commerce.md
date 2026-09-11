@@ -53,7 +53,9 @@ Importer pobiera dane bezpośrednio z bazy WooCommerce, kopiuje referencjonowane
 
 ## Płatności
 
-`PaymentProviderInterface` oddziela domenę zamówień od operatora. Provider zwraca obiekt przekierowania i przekształca surową, zweryfikowaną notyfikację w `PaymentNotification`. Warstwa aplikacyjna ma dodatkowo porównać order ID, transaction ID, kwotę i walutę z oczekiwanym payment attempt, a event zapisać idempotentnie.
+`PaymentProviderInterface` oddziela domenę zamówień od operatora. Provider zwraca obiekt przekierowania i przekształca surową notyfikację w `PaymentNotification`. `PaymentNotificationProcessor` przyjmuje wyłącznie prawidłowo podpisane zdarzenia, atomowo rezerwuje ich klucz i porównuje transaction ID, order ID, kwotę oraz walutę z zablokowanym rekordem payment attempt. Duplikat nie wykonuje ponownie aktualizacji, a niedozwolone cofnięcie statusu jest odrzucane.
+
+Powrót użytkownika z bramki jest tylko ekranem informacyjnym. Status `paid` może ustawić wyłącznie zweryfikowana notyfikacja albo jawne odpytanie API poddane tym samym kontrolom zgodności.
 
 ING Pay musi mieć osobną konfigurację sandbox/production. Identyfikatory i sekrety są dostarczane przez konfigurację środowiska, nie przez manifest modułu.
 

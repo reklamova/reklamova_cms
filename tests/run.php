@@ -17,6 +17,10 @@ use Reklamova\Cms\Commerce\Payments\PaymentRequest;
 use Reklamova\Cms\Commerce\Payments\HttpClientInterface;
 use Reklamova\Cms\Commerce\Payments\HttpResponse;
 use Reklamova\Cms\Commerce\Payments\IngPayProvider;
+use Reklamova\Cms\Commerce\Payments\PaymentAttempt;
+use Reklamova\Cms\Commerce\Payments\PaymentNotification;
+use Reklamova\Cms\Commerce\Payments\PaymentNotificationProcessor;
+use Reklamova\Cms\Commerce\Payments\PaymentNotificationStoreInterface;
 use Reklamova\Cms\Commerce\Pricing\CartCalculator;
 use Reklamova\Cms\Commerce\Pricing\TaxCalculator;
 use Reklamova\Cms\Commerce\Shared\Money;
@@ -38,6 +42,60 @@ final class FakePaymentHttpClient implements HttpClientInterface
         }
 
         return array_shift($this->responses);
+    }
+}
+
+final class FakePaymentNotificationStore implements PaymentNotificationStoreInterface
+{
+    public bool $claimed = false;
+    public int $claimCalls = 0;
+    /** @var array<int, array<string, mixed>> */
+    public array $rejections = [];
+    /** @var array<int, array<string, mixed>> */
+    public array $applications = [];
+
+    public function __construct(public ?PaymentAttempt $paymentAttempt)
+    {
+    }
+
+    public function transaction(callable $callback): mixed
+    {
+        return $callback();
+    }
+
+    public function claim(string $provider, PaymentNotification $notification): bool
+    {
+        $this->claimCalls++;
+        if ($this->claimed) {
+            return false;
+        }
+        $this->claimed = true;
+
+        return true;
+    }
+
+    public function attempt(string $provider, string $providerTransactionId): ?PaymentAttempt
+    {
+        if ($this->paymentAttempt?->provider !== $provider
+            || $this->paymentAttempt?->providerTransactionId !== $providerTransactionId) {
+            return null;
+        }
+
+        return $this->paymentAttempt;
+    }
+
+    public function reject(string $provider, string $eventKey, string $errorCode, ?int $attemptId = null): void
+    {
+        $this->rejections[] = compact('provider', 'eventKey', 'errorCode', 'attemptId');
+    }
+
+    public function apply(
+        string $provider,
+        PaymentNotification $notification,
+        PaymentAttempt $attempt,
+        PaymentStatus $newStatus,
+    ): void {
+        $this->applications[] = compact('provider', 'notification', 'attempt', 'newStatus');
     }
 }
 
@@ -343,6 +401,101 @@ $test('ING Pay notification validates raw-body signature', static function () us
     $tampered = str_replace('4999', '5000', $body);
     $invalid = $provider->parseNotification($tampered, ['X-Imoje-Signature' => $header]);
     $assert(!$invalid->signatureValid);
+});
+
+$paymentAttempt = static function (PaymentStatus $status = PaymentStatus::Pending): PaymentAttempt {
+    return new PaymentAttempt(
+        7,
+        42,
+        'DR-42',
+        'ing_pay',
+        'payment-42',
+        new Money(4999, 'PLN'),
+        $status,
+    );
+};
+
+$paymentNotification = static function (
+    bool $signatureValid = true,
+    string $status = 'settled',
+    string $orderId = 'DR-42',
+    int $amountMinor = 4999,
+    string $currency = 'PLN',
+): PaymentNotification {
+    return new PaymentNotification(
+        hash('sha256', implode('|', [$status, $orderId, $amountMinor, $currency])),
+        'payment-42',
+        $orderId,
+        new Money($amountMinor, $currency),
+        $status,
+        $signatureValid,
+        hash('sha256', 'payload'),
+    );
+};
+
+$test('payment notification settles the matching pending order', static function () use ($assert, $paymentAttempt, $paymentNotification): void {
+    $store = new FakePaymentNotificationStore($paymentAttempt());
+    $result = (new PaymentNotificationProcessor($store))->process('ing_pay', $paymentNotification());
+    $assert($result->status === 'processed');
+    $assert($result->orderId === 42);
+    $assert(count($store->applications) === 1);
+    $assert($store->applications[0]['newStatus'] === PaymentStatus::Paid);
+    $assert($store->rejections === []);
+});
+
+$test('payment notification duplicate is acknowledged without a second update', static function () use ($assert, $paymentAttempt, $paymentNotification): void {
+    $store = new FakePaymentNotificationStore($paymentAttempt());
+    $processor = new PaymentNotificationProcessor($store);
+    $first = $processor->process('ing_pay', $paymentNotification());
+    $second = $processor->process('ing_pay', $paymentNotification());
+    $assert($first->status === 'processed');
+    $assert($second->status === 'duplicate');
+    $assert(count($store->applications) === 1);
+});
+
+$test('invalid payment signature cannot poison duplicate handling', static function () use ($assert, $paymentAttempt, $paymentNotification): void {
+    $store = new FakePaymentNotificationStore($paymentAttempt());
+    $result = (new PaymentNotificationProcessor($store))->process('ing_pay', $paymentNotification(false));
+    $assert($result->status === 'rejected');
+    $assert($result->reason === 'invalid_signature');
+    $assert($store->claimCalls === 0);
+    $assert($store->applications === []);
+});
+
+$test('payment notification rejects amount mismatch', static function () use ($assert, $paymentAttempt, $paymentNotification): void {
+    $store = new FakePaymentNotificationStore($paymentAttempt());
+    $result = (new PaymentNotificationProcessor($store))->process('ing_pay', $paymentNotification(amountMinor: 5000));
+    $assert($result->status === 'rejected');
+    $assert($result->reason === 'amount_mismatch');
+    $assert($store->applications === []);
+    $assert($store->rejections[0]['attemptId'] === 7);
+});
+
+$test('payment notification rejects order and currency mismatch', static function () use ($assert, $paymentAttempt, $paymentNotification): void {
+    $orderStore = new FakePaymentNotificationStore($paymentAttempt());
+    $orderResult = (new PaymentNotificationProcessor($orderStore))->process(
+        'ing_pay',
+        $paymentNotification(orderId: 'DR-99'),
+    );
+    $assert($orderResult->reason === 'order_mismatch');
+
+    $currencyStore = new FakePaymentNotificationStore($paymentAttempt());
+    $currencyResult = (new PaymentNotificationProcessor($currencyStore))->process(
+        'ing_pay',
+        $paymentNotification(currency: 'EUR'),
+    );
+    $assert($currencyResult->reason === 'currency_mismatch');
+});
+
+$test('payment notification rejects backwards paid transition', static function () use ($assert, $paymentAttempt, $paymentNotification): void {
+    $store = new FakePaymentNotificationStore($paymentAttempt(PaymentStatus::Paid));
+    $result = (new PaymentNotificationProcessor($store))->process(
+        'ing_pay',
+        $paymentNotification(status: 'pending'),
+    );
+    $assert($result->status === 'rejected');
+    $assert($result->reason === 'invalid_status_transition');
+    $assert($store->applications === []);
 });
 
 echo "\n{$passed} passed, {$failed} failed\n";
