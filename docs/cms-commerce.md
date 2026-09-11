@@ -45,7 +45,7 @@ Wiadomości transakcyjne są pobierane z trwałego outboxu. Uruchamiaj worker co
 php tools/process-commerce-notifications.php --limit=100
 ```
 
-Nieudane dostawy są ponawiane z rosnącym opóźnieniem, maksymalnie pięć razy. Dane odbiorcy nie są zapisywane w tabeli audytowej — pozostaje w niej wyłącznie skrót SHA-256.
+Nieudane dostawy są ponawiane z rosnącym opóźnieniem, maksymalnie pięć razy. Dane odbiorcy nie są zapisywane w tabeli audytowej — pozostaje w niej wyłącznie skrót SHA-256. Po skutecznym doręczeniu wiadomości aktywacyjnej lub resetującej surowy token jest usuwany z outboxu.
 
 ## Import z WooCommerce
 
@@ -74,6 +74,8 @@ Hashy haseł WordPress nie kopiujemy. Konto klienta jest migrowane z pustym has�
 `CheckoutService` nie przyjmuje cen z przeglądarki. `PdoCheckoutStore` blokuje koszyk i ponownie pobiera opublikowany produkt, aktywny wariant, opcje, cenę, VAT, stan, wymagania plikowe, kupon i metodę dostawy. Utworzenie zamówienia, immutable snapshotów pozycji, wykorzystania kuponu, zmiany stanu, historii i zdarzenia outbox odbywa się w jednej transakcji. `checkout_key` uniemożliwia podwójne zamówienie po ponowieniu requestu.
 
 Checkout obsługuje gościa lub konto należące do tego samego sklepu i adresu e-mail, osobny adres wysyłki, dane firmy/NIP, fakturę, punkt odbioru i obowiązkowe zgody. Limit kuponu per klient jest liczony po hashu e-mail także dla gościa. Stan jest zmniejszany pod blokadą; produkt wymagający pliku rozpoczyna od `awaiting_files`.
+
+Zmiany statusów realizacji przechodzą przez `OrderLifecycleService`. Anulowanie zamówienia odtwarza śledzony stan produktu albo wariantu dokładnie raz i zapisuje `stock_released_at`, historię oraz zdarzenie e-mail w tej samej transakcji.
 
 ## Płatności
 

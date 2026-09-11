@@ -27,6 +27,8 @@ use Reklamova\Cms\Commerce\Shared\Money;
 use Reklamova\Cms\Commerce\Import\CommerceImportRepository;
 use Reklamova\Cms\Commerce\Import\WordPressImporter;
 use Reklamova\Cms\Commerce\Orders\OrderAccessRepository;
+use Reklamova\Cms\Commerce\Orders\OrderLifecycleService;
+use Reklamova\Cms\Commerce\Orders\OrderStatus;
 use Reklamova\Cms\Commerce\Notifications\NotificationOutbox;
 use Reklamova\Cms\Commerce\Notifications\NotificationWorker;
 use Reklamova\Cms\Commerce\Uploads\OrderFileService;
@@ -388,6 +390,15 @@ $freeShippingOrder = $checkout->place(
 );
 $assert($freeShippingOrder->totals['subtotal_minor'] === 36900, 'Free-shipping subtotal is wrong.');
 $assert($freeShippingOrder->totals['shipping']['total_minor'] === 0, 'Free-shipping threshold was not applied.');
+$assert((int) $pdo->query("SELECT stock_quantity FROM commerce_products WHERE id = {$productId}")->fetchColumn() === 5, 'Second checkout stock was not decremented.');
+$lifecycle = new OrderLifecycleService($pdo);
+$assert($lifecycle->changeOrderStatus($freeShippingOrder->orderId, $storeId, OrderStatus::Cancelled, 'admin', 1, 'integration_cancel'), 'Cancellation status was not changed.');
+$assert((int) $pdo->query("SELECT stock_quantity FROM commerce_products WHERE id = {$productId}")->fetchColumn() === 8, 'Cancelled order stock was not released.');
+$assert(!$lifecycle->changeOrderStatus($freeShippingOrder->orderId, $storeId, OrderStatus::Cancelled, 'admin', 1, 'duplicate_cancel'), 'Duplicate cancellation was not idempotent.');
+$assert((int) $pdo->query("SELECT stock_quantity FROM commerce_products WHERE id = {$productId}")->fetchColumn() === 8, 'Duplicate cancellation released stock twice.');
+$assert($notificationWorker->processNext() === 'sent', 'Second order confirmation notification was not sent.');
+$assert($notificationWorker->processNext() === 'sent', 'Cancellation notification was not sent.');
+$assert(str_contains($emailSender->messages[4]['subject'], 'anulowane'), 'Cancellation email has the wrong template.');
 
 $importSnapshot = [
     'source_system' => 'woocommerce',

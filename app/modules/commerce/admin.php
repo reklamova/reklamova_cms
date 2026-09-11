@@ -6,7 +6,7 @@ use Reklamova\Cms\Admin\AdminView;
 use Reklamova\Cms\Auth\Csrf;
 use Reklamova\Cms\Commerce\Import\DecimalMoneyParser;
 use Reklamova\Cms\Commerce\Orders\OrderStatus;
-use Reklamova\Cms\Commerce\Orders\StatusTransitionGuard;
+use Reklamova\Cms\Commerce\Orders\OrderLifecycleService;
 use Reklamova\Cms\Support\Config;
 use Reklamova\Cms\Support\Url;
 
@@ -44,7 +44,6 @@ return static function (array $container, PDO $pdo, array $module): array {
     };
 
     $orders = static function (AdminView $view, array $user) use ($pdo, $storeId, $tabs, $h, $money, $pill): void {
-        $guard = new StatusTransitionGuard();
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!Csrf::verify(isset($_POST['_csrf']) ? (string) $_POST['_csrf'] : null)) {
                 http_response_code(419);
@@ -53,22 +52,17 @@ return static function (array $container, PDO $pdo, array $module): array {
             }
             $id = (int) ($_POST['id'] ?? 0);
             $target = OrderStatus::tryFrom((string) ($_POST['order_status'] ?? ''));
-            $currentStatement = $pdo->prepare('SELECT order_status FROM commerce_orders WHERE id = ? AND store_id = ? LIMIT 1');
-            $currentStatement->execute([$id, $storeId]);
-            $currentValue = $currentStatement->fetchColumn();
-            $current = is_string($currentValue) ? OrderStatus::tryFrom($currentValue) : null;
-            if (!$current || !$target || !$guard->canChangeOrder($current, $target)) {
+            if (!$target) {
                 throw new DomainException('Niedozwolona zmiana statusu zamówienia.');
             }
-            $pdo->beginTransaction();
-            try {
-                $pdo->prepare('UPDATE commerce_orders SET order_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND store_id = ?')->execute([$target->value, $id, $storeId]);
-                $pdo->prepare('INSERT INTO commerce_order_status_history (order_id, dimension, from_status, to_status, actor_type, actor_id, reason) VALUES (?, "order", ?, ?, "admin", ?, "manual_admin_change")')->execute([$id, $current->value, $target->value, (int) ($user['id'] ?? 0)]);
-                $pdo->commit();
-            } catch (Throwable $exception) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                throw $exception;
-            }
+            (new OrderLifecycleService($pdo))->changeOrderStatus(
+                $id,
+                $storeId,
+                $target,
+                'admin',
+                (int) ($user['id'] ?? 0),
+                'manual_admin_change',
+            );
             Url::redirect('/admin/commerce/orders?id=' . $id . '&saved=1');
         }
         if (isset($_GET['id'])) {

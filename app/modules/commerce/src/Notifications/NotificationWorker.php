@@ -86,7 +86,7 @@ final class NotificationWorker
     private function notification(array $event): ?array
     {
         $type = (string) $event['event_type'];
-        if ($type === 'commerce.order.created' || $type === 'commerce.order.paid') {
+        if (in_array($type, ['commerce.order.created', 'commerce.order.paid', 'commerce.order.cancelled'], true)) {
             return $this->orderNotification((int) $event['aggregate_id'], $type);
         }
         if ($type === 'commerce.customer.activate_requested' || $type === 'commerce.customer.reset_requested') {
@@ -126,6 +126,14 @@ final class NotificationWorker
                 'subject' => "Płatność za zamówienie {$number} potwierdzona",
                 'body' => "Dzień dobry,\n\npotwierdzamy płatność za zamówienie {$number}.\nKwota: {$total}\n{$accountLine}\nRozpoczynamy obsługę zamówienia.\n\n{$this->siteName}",
                 'template' => 'order_paid',
+            ];
+        }
+        if ($eventType === 'commerce.order.cancelled') {
+            return [
+                'to' => (string) $order['customer_email'],
+                'subject' => "Zamówienie {$number} zostało anulowane",
+                'body' => "Dzień dobry,\n\nzamówienie {$number} zostało anulowane.\nKwota zamówienia: {$total}\n{$accountLine}\nW razie pytań odpowiedz na tę wiadomość.\n\n{$this->siteName}",
+                'template' => 'order_cancelled',
             ];
         }
 
