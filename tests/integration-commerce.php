@@ -97,6 +97,14 @@ $assert(
     ($adminExtensions['route_permissions']['/admin/commerce/orders']['POST'] ?? null) === 'manage_orders',
     'Commerce admin order permission is wrong.',
 );
+$assert(
+    ($adminExtensions['route_permissions']['/admin/commerce/categories']['POST'] ?? null) === 'manage_product_categories'
+        && ($adminExtensions['route_permissions']['/admin/commerce/shipping']['POST'] ?? null) === 'manage_shipping'
+        && ($adminExtensions['route_permissions']['/admin/commerce/payments']['POST'] ?? null) === 'manage_payments'
+        && ($adminExtensions['route_permissions']['/admin/commerce/coupons']['POST'] ?? null) === 'manage_discounts'
+        && ($adminExtensions['route_permissions']['/admin/commerce/order-file']['GET'] ?? null) === 'manage_order_files',
+    'Commerce configuration routes are missing permission boundaries.',
+);
 
 $columns = $pdo->query('SHOW COLUMNS FROM commerce_orders')->fetchAll(PDO::FETCH_COLUMN);
 $assert(in_array('checkout_key', $columns, true), 'Checkout idempotency migration did not run.');
@@ -293,11 +301,39 @@ $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_notification_deliveries
 $account = new CustomerAccountRepository($pdo, 'drukarnia');
 $assert($account->orders($customerId)[0]['id'] === $result->orderId, 'Customer order history is missing the order.');
 $assert($account->order($customerId, $result->orderId)['order_number'] === $result->orderNumber, 'Customer order detail access failed.');
+$addressId = $account->saveAddress($customerId, [
+    'type' => 'billing',
+    'label' => 'Biuro',
+    'first_name' => 'Jan',
+    'last_name' => 'Kowalski',
+    'address_line1' => 'Testowa 1',
+    'postal_code' => '00-001',
+    'city' => 'Warszawa',
+    'country_code' => 'PL',
+    'is_default' => true,
+]);
+$assert($account->defaultAddress($customerId, 'billing')['id'] === $addressId, 'Customer default billing address was not saved.');
 $otherCustomer = $pdo->prepare(
     'INSERT INTO commerce_customers (store_id, email, status) VALUES (?, "other@example.com", "active")'
 );
 $otherCustomer->execute([$storeId]);
 $otherCustomerId = (int) $pdo->lastInsertId();
+$assert($account->deleteAddress($otherCustomerId, $addressId) === false, 'Customer deleted another customer address.');
+$addressIdorBlocked = false;
+try {
+    $account->saveAddress($otherCustomerId, [
+        'type' => 'billing',
+        'address_line1' => 'Obca 2',
+        'postal_code' => '00-002',
+        'city' => 'Warszawa',
+        'country_code' => 'PL',
+        'is_default' => true,
+    ], $addressId);
+} catch (DomainException) {
+    $addressIdorBlocked = true;
+}
+$assert($addressIdorBlocked, 'Customer edited another customer address.');
+$assert($account->defaultAddress($customerId, 'billing')['address_line1'] === 'Testowa 1', 'Blocked address edit changed the owner data.');
 $assert($account->order($otherCustomerId, $result->orderId) === null, 'Customer accessed another customer order.');
 $orderItemId = (int) $pdo->query("SELECT id FROM commerce_order_items WHERE order_id = {$result->orderId} LIMIT 1")->fetchColumn();
 $uploadRoot = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'reklamova-order-files-' . bin2hex(random_bytes(6));
@@ -327,6 +363,9 @@ $assert($orderWithFile['items'][0]['file_requirements'][0]['id'] > 0, 'Order fil
 $assert($orderWithFile['items'][0]['files'][0]['id'] === $uploaded['id'], 'Uploaded file is missing from order view.');
 $download = $fileService->download($uploaded['id'], 'integration-checkout-token-42', 'drukarnia');
 $assert($download !== null && is_file($download['path']), 'Authorized order file download failed.');
+$adminDownload = $fileService->downloadForAdmin($uploaded['id'], $storeId);
+$assert($adminDownload !== null && $adminDownload['name'] === 'projekt.pdf', 'Admin cannot download an order file in its store.');
+$assert($fileService->downloadForAdmin($uploaded['id'], $storeId + 999) === null, 'Admin order file access crossed the store boundary.');
 $assert($fileService->download($uploaded['id'], 'wrong-token-value-42', 'drukarnia') === null, 'Wrong token accessed an order file.');
 $assert($fileService->download($uploaded['id'], '', 'drukarnia', $customerId) !== null, 'Owning customer could not access an order file.');
 $assert($fileService->download($uploaded['id'], '', 'drukarnia', $otherCustomerId) === null, 'Another customer accessed an order file.');

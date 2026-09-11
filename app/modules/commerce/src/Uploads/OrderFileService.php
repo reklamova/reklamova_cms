@@ -144,6 +144,24 @@ final class OrderFileService
         return ['path' => $path, 'name' => (string) $file['original_name'], 'mime' => (string) $file['mime_type'], 'size' => (int) $file['size_bytes']];
     }
 
+    /** @return array{path:string,name:string,mime:string,size:int}|null */
+    public function downloadForAdmin(int $fileId, int $storeId): ?array
+    {
+        if ($fileId <= 0 || $storeId <= 0) {
+            return null;
+        }
+        $file = $this->repository->accessibleFileForAdmin($fileId, $storeId);
+        if (!$file) {
+            return null;
+        }
+        $path = $this->path((string) $file['storage_key']);
+        if (!is_file($path) || !hash_equals((string) $file['checksum_sha256'], (string) hash_file('sha256', $path))) {
+            return null;
+        }
+
+        return ['path' => $path, 'name' => (string) $file['original_name'], 'mime' => (string) $file['mime_type'], 'size' => (int) $file['size_bytes']];
+    }
+
     private function path(string $storageKey): string
     {
         if (preg_match('~^[a-f0-9]{32}/[a-f0-9]{48}\.[a-z0-9]{1,15}$~', $storageKey) !== 1) {

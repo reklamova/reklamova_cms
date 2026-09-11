@@ -144,4 +144,19 @@ final class PdoOrderFileRepository
 
         return $row ?: null;
     }
+
+    /** @return array<string, mixed>|null */
+    public function accessibleFileForAdmin(int $fileId, int $storeId): ?array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT f.id, f.storage_key, f.original_name, f.mime_type, f.size_bytes, f.checksum_sha256
+             FROM commerce_order_files f
+             INNER JOIN commerce_orders o ON o.id = f.order_id
+             WHERE f.id = ? AND f.status <> "deleted" AND o.store_id = ? LIMIT 1'
+        );
+        $statement->execute([$fileId, $storeId]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
 }
