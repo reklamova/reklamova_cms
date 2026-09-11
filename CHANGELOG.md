@@ -19,6 +19,7 @@ Wszystkie istotne zmiany CMS Reklamova są dokumentowane w tym pliku.
 - Publiczny read model storefrontu dla aktywnego sklepu, drzewa kategorii, listingu, wyszukiwania i pełnej konfiguracji produktu.
 - Konfigurowalne metody płatności per sklep, bezpieczny odczyt koszyka i tokenizowany dostęp gościa do potwierdzenia zamówienia.
 - Jednorazowe, trwałe claimy zdarzeń analitycznych, aby `purchase` nie był emitowany ponownie po odświeżeniu strony.
+- Bezpieczny `OrderFiles`: storage poza webrootem, autoryzacja tokenem zamówienia, limity, MIME, rozszerzenia, losowe klucze i kontrolowany download z checksumą.
 
 ### Security
 

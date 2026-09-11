@@ -25,6 +25,8 @@ use Reklamova\Cms\Commerce\Shared\Money;
 use Reklamova\Cms\Commerce\Import\CommerceImportRepository;
 use Reklamova\Cms\Commerce\Import\WordPressImporter;
 use Reklamova\Cms\Commerce\Orders\OrderAccessRepository;
+use Reklamova\Cms\Commerce\Uploads\OrderFileService;
+use Reklamova\Cms\Commerce\Uploads\PdoOrderFileRepository;
 use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Modules\ModuleManager;
@@ -208,6 +210,48 @@ $assert(
     ) === null,
     'Wrong order access token was accepted.',
 );
+$orderItemId = (int) $pdo->query("SELECT id FROM commerce_order_items WHERE order_id = {$result->orderId} LIMIT 1")->fetchColumn();
+$uploadRoot = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'reklamova-order-files-' . bin2hex(random_bytes(6));
+$sourceFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'reklamova-upload-' . bin2hex(random_bytes(6)) . '.pdf';
+file_put_contents($sourceFile, "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF");
+$fileService = new OrderFileService(
+    new PdoOrderFileRepository($pdo),
+    $uploadRoot,
+    static fn (string $source, string $target): bool => rename($source, $target),
+);
+$uploaded = $fileService->upload(
+    $result->orderId,
+    $orderItemId,
+    (int) $pdo->query("SELECT id FROM commerce_product_file_requirements WHERE product_id = {$productId}")->fetchColumn(),
+    'integration-checkout-token-42',
+    'drukarnia',
+    $sourceFile,
+    'projekt.pdf',
+);
+$assert($uploaded['id'] > 0, 'Order file was not persisted.');
+$download = $fileService->download($uploaded['id'], 'integration-checkout-token-42', 'drukarnia');
+$assert($download !== null && is_file($download['path']), 'Authorized order file download failed.');
+$assert($fileService->download($uploaded['id'], 'wrong-token-value-42', 'drukarnia') === null, 'Wrong token accessed an order file.');
+$secondSource = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'reklamova-upload-' . bin2hex(random_bytes(6)) . '.pdf';
+file_put_contents($secondSource, "%PDF-1.4\n%%EOF");
+try {
+    $fileService->upload(
+        $result->orderId,
+        $orderItemId,
+        (int) $pdo->query("SELECT id FROM commerce_product_file_requirements WHERE product_id = {$productId}")->fetchColumn(),
+        'integration-checkout-token-42',
+        'drukarnia',
+        $secondSource,
+        'drugi.pdf',
+    );
+    throw new RuntimeException('Order file limit was not enforced.');
+} catch (DomainException) {
+    @unlink($secondSource);
+}
+$storedPath = $download['path'];
+@unlink($storedPath);
+@rmdir(dirname($storedPath));
+@rmdir($uploadRoot);
 
 $provider = new IntegrationPaymentProvider();
 $redirect = (new PaymentInitiationService(new PdoPaymentInitiationStore($pdo), $provider))->start(
