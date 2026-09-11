@@ -197,7 +197,13 @@ final class NotificationWorker
     {
         $this->pdo->prepare(
             'UPDATE commerce_outbox SET status = "processed", processed_at = CURRENT_TIMESTAMP,
-                last_error_code = NULL WHERE id = ?'
+                last_error_code = NULL,
+                payload_json = CASE
+                    WHEN event_type IN ("commerce.customer.activate_requested", "commerce.customer.reset_requested")
+                    THEN JSON_OBJECT()
+                    ELSE payload_json
+                END
+             WHERE id = ?'
         )->execute([$outboxId]);
     }
 

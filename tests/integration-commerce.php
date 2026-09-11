@@ -127,6 +127,8 @@ $emailSender = new IntegrationEmailSender();
 $notificationWorker = new NotificationWorker($pdo, $emailSender, 'https://shop.example.com', 'Drukarnia');
 $assert($notificationWorker->processNext() === 'sent', 'Customer activation notification was not sent.');
 $assert(str_contains($emailSender->messages[0]['message'], '/moje-konto/haslo?token='), 'Activation email lacks its one-time link.');
+$storedTokenPayload = (string) $pdo->query('SELECT payload_json FROM commerce_outbox WHERE event_type = "commerce.customer.activate_requested"')->fetchColumn();
+$assert($storedTokenPayload === '{}', 'Delivered activation token was not removed from the outbox.');
 $activatedCustomer = $customerAuth->completePasswordToken($passwordToken['token'], 'BezpieczneHaslo2026');
 $assert($activatedCustomer['id'] === $customerId, 'Activation token did not activate the expected customer.');
 try {
