@@ -16,6 +16,7 @@
     "app/migrations/core",
     "app/modules/business",
     "app/modules/catalog",
+    "app/modules/commerce",
     "app/modules/forms",
     "app/modules/knowledge",
     "app/modules/landing",

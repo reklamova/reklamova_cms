@@ -1,0 +1,25 @@
+{
+  "slug": "commerce",
+  "name": "Commerce",
+  "version": "0.1.0",
+  "source": "core",
+  "enabled_by_default": false,
+  "visible_in_client_nav": true,
+  "visible_in_admin_nav": true,
+  "client_manageable": true,
+  "menu_group": "Sklep",
+  "menu_label": "Sklep",
+  "sort_order": 90,
+  "permissions": [
+    "manage_products",
+    "manage_product_categories",
+    "manage_orders",
+    "manage_customers",
+    "manage_payments",
+    "manage_shipping",
+    "manage_order_files",
+    "manage_discounts",
+    "manage_commerce_settings"
+  ],
+  "description": "Generyczny silnik sprzedaży: katalog, ceny, koszyk, zamówienia, płatności, dostawy, pliki i powiadomienia."
+}

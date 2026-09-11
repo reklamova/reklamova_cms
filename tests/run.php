@@ -6,7 +6,15 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 
 use Reklamova\Cms\Auth\Csrf;
 use Reklamova\Cms\Auth\PermissionManager;
+use Reklamova\Cms\Commerce\Orders\OrderStatus;
+use Reklamova\Cms\Commerce\Orders\PaymentStatus;
+use Reklamova\Cms\Commerce\Orders\StatusTransitionGuard;
+use Reklamova\Cms\Commerce\Payments\PaymentRequest;
+use Reklamova\Cms\Commerce\Pricing\CartCalculator;
+use Reklamova\Cms\Commerce\Pricing\TaxCalculator;
+use Reklamova\Cms\Commerce\Shared\Money;
 use Reklamova\Cms\Media\MediaUploadPolicy;
+use Reklamova\Cms\Support\Config;
 
 $passed = 0;
 $failed = 0;
@@ -36,6 +44,19 @@ $test('admin session cookies use secure defaults', static function () use ($asse
     $assert($params['httponly'] === true);
     $assert(($params['samesite'] ?? '') === 'Lax');
     $assert(ini_get('session.use_strict_mode') === '1');
+});
+
+$test('environment overrides typed configuration', static function () use ($assert): void {
+    putenv('REKLAMOVA_APP_DEBUG=true');
+    putenv('REKLAMOVA_APP_MEDIA_MAX_UPLOAD_BYTES=4096');
+    try {
+        $config = new Config(['config_path' => sys_get_temp_dir()]);
+        $assert($config->get('app', 'debug', false) === true);
+        $assert($config->get('app', 'media_max_upload_bytes', 1) === 4096);
+    } finally {
+        putenv('REKLAMOVA_APP_DEBUG');
+        putenv('REKLAMOVA_APP_MEDIA_MAX_UPLOAD_BYTES');
+    }
 });
 
 $test('internal access depends on role, not hostname', static function () use ($assert): void {
@@ -84,6 +105,82 @@ $test('media policy rejects mismatched extension', static function (): void {
     } finally {
         @unlink($path);
     }
+});
+
+$test('money rejects mixed currencies', static function (): void {
+    try {
+        (new Money(100, 'PLN'))->add(new Money(100, 'EUR'));
+    } catch (InvalidArgumentException) {
+        return;
+    }
+    throw new RuntimeException('Mixed currencies were accepted.');
+});
+
+$test('inclusive VAT calculation balances exactly', static function () use ($assert): void {
+    $result = (new TaxCalculator())->fromGross(new Money(12300, 'PLN'), 2300);
+    $assert($result->net->amountMinor === 10000);
+    $assert($result->tax->amountMinor === 2300);
+    $assert($result->gross->amountMinor === 12300);
+});
+
+$test('cart calculation covers discount VAT and shipping', static function () use ($assert): void {
+    $result = (new CartCalculator())->calculate([
+        [
+            'id' => 'line-1',
+            'unit_price_minor' => 1000,
+            'quantity' => 2,
+            'discount_minor' => 100,
+            'tax_rate_bps' => 2300,
+        ],
+    ], [
+        'method' => 'inpost',
+        'amount_minor' => 1219,
+        'tax_rate_bps' => 2300,
+    ]);
+    $assert($result['subtotal_minor'] === 2000);
+    $assert($result['discount_minor'] === 100);
+    $assert($result['net_minor'] === 2536);
+    $assert($result['tax_minor'] === 583);
+    $assert($result['total_minor'] === 3119);
+});
+
+$test('cart rejects discount greater than line value', static function (): void {
+    try {
+        (new CartCalculator())->calculate([[
+            'unit_price_minor' => 1000,
+            'quantity' => 1,
+            'discount_minor' => 1001,
+            'tax_rate_bps' => 2300,
+        ]]);
+    } catch (InvalidArgumentException) {
+        return;
+    }
+    throw new RuntimeException('Invalid discount was accepted.');
+});
+
+$test('order and payment transitions are explicit', static function () use ($assert): void {
+    $guard = new StatusTransitionGuard();
+    $assert($guard->canChangePayment(PaymentStatus::Pending, PaymentStatus::Paid));
+    $assert(!$guard->canChangePayment(PaymentStatus::Paid, PaymentStatus::Pending));
+    $assert($guard->canChangeOrder(OrderStatus::AwaitingFiles, OrderStatus::FilesReceived));
+    $assert(!$guard->canChangeOrder(OrderStatus::Completed, OrderStatus::InProduction));
+});
+
+$test('payment requests require HTTPS callbacks', static function (): void {
+    try {
+        new PaymentRequest(
+            '1',
+            'DR-1',
+            new Money(1000, 'PLN'),
+            'buyer@example.com',
+            'http://example.com/return',
+            'https://example.com/notify',
+            'payment-1',
+        );
+    } catch (InvalidArgumentException) {
+        return;
+    }
+    throw new RuntimeException('Insecure payment callback was accepted.');
 });
 
 echo "\n{$passed} passed, {$failed} failed\n";

@@ -6,6 +6,7 @@ namespace Reklamova\Cms\Database;
 
 use PDO;
 use PDOException;
+use Reklamova\Cms\Support\Config;
 use RuntimeException;
 
 final class ConnectionFactory
@@ -17,17 +18,25 @@ final class ConnectionFactory
     public function make(): PDO
     {
         $path = $this->container['config_path'] . '/database.php';
-        if (!is_file($path)) {
+        $fileConfig = is_file($path) ? require $path : [];
+        $configReader = new Config($this->container);
+        $config = [
+            'host' => $configReader->get('database', 'host', $fileConfig['host'] ?? ''),
+            'port' => $configReader->get('database', 'port', $fileConfig['port'] ?? 3306),
+            'database' => $configReader->get('database', 'database', $fileConfig['database'] ?? ''),
+            'username' => $configReader->get('database', 'username', $fileConfig['username'] ?? ''),
+            'password' => $configReader->get('database', 'password', $fileConfig['password'] ?? ''),
+            'charset' => $configReader->get('database', 'charset', $fileConfig['charset'] ?? 'utf8mb4'),
+        ];
+        if ($config['host'] === '' || $config['database'] === '' || $config['username'] === '') {
             throw new RuntimeException('Database config is missing.');
         }
-
-        $config = require $path;
         $dsn = sprintf(
             'mysql:host=%s;port=%d;dbname=%s;charset=%s',
             $config['host'],
-            $config['port'] ?? 3306,
+            $config['port'],
             $config['database'],
-            $config['charset'] ?? 'utf8mb4'
+            $config['charset']
         );
 
         $options = [
