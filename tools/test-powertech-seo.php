@@ -25,6 +25,7 @@ $required = [
     "trim(\$currentPrefix . \$suffix, '/')",
     "header('Location: /' . \$base",
     "true, 301",
+    "\$repo->redirectForPath(\$path)",
 ];
 
 foreach ($required as $markup) {

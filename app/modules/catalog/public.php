@@ -172,6 +172,12 @@ return static function (array $container, PDO $pdo, array $module): array {
             return true;
         }
 
+        $redirectPath = $repo->redirectForPath($path);
+        if ($redirectPath !== null) {
+            header('Location: /' . $base . '/' . $redirectPath . '/', true, 301);
+            return true;
+        }
+
         return false;
     };
 

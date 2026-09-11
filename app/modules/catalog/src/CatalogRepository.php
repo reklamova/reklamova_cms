@@ -120,6 +120,38 @@ final class CatalogRepository
         return $row ?: null;
     }
 
+    public function redirectForPath(string $path): ?string
+    {
+        $current = trim($path, '/');
+        if ($current === '') {
+            return null;
+        }
+        try {
+            $statement = $this->pdo->prepare('SELECT new_path FROM catalog_redirects WHERE old_path = ? LIMIT 1');
+            $visited = [];
+            for ($hop = 0; $hop < 8; $hop++) {
+                if (isset($visited[$current])) {
+                    return null;
+                }
+                $visited[$current] = true;
+                $statement->execute([$current]);
+                $next = $statement->fetchColumn();
+                if (!is_string($next) || trim($next, '/') === '') {
+                    break;
+                }
+                $current = trim($next, '/');
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if ($current === trim($path, '/') || (!$this->findCategoryByPath($current) && !$this->findProductByPath($current))) {
+            return null;
+        }
+
+        return $current;
+    }
+
     public function saveCategory(array $data, ?int $id = null): int
     {
         $name = trim((string) ($data['name'] ?? ''));
@@ -148,8 +180,10 @@ final class CatalogRepository
         ];
 
         if ($id) {
+            $beforePaths = $this->catalogPathsForCategoryTree($id);
             $this->update('catalog_categories', $payload, $id);
             $this->rebuildCategoryDescendants($id);
+            $this->rememberChangedPaths($beforePaths);
             return $id;
         }
 
@@ -198,7 +232,11 @@ final class CatalogRepository
         ];
 
         if ($id) {
+            $before = $this->findProduct($id);
             $this->update('catalog_products', $payload, $id);
+            if ($before) {
+                $this->rememberRedirect((string) ($before['full_path'] ?? ''), (string) $payload['full_path'], 'product', $id);
+            }
             return $id;
         }
 
@@ -438,6 +476,58 @@ final class CatalogRepository
         }
 
         return $items ? $this->encodeJson(array_values(array_unique($items))) : null;
+    }
+
+    /** @return array<string, array{type:string,id:int,path:string}> */
+    private function catalogPathsForCategoryTree(int $categoryId): array
+    {
+        $paths = [];
+        $walk = function (int $id) use (&$walk, &$paths): void {
+            $category = $this->findCategory($id);
+            if (!$category) {
+                return;
+            }
+            $paths['category:' . $id] = ['type' => 'category', 'id' => $id, 'path' => (string) ($category['full_path'] ?? '')];
+            foreach ($this->productsForCategory($id, false) as $product) {
+                $productId = (int) ($product['id'] ?? 0);
+                $paths['product:' . $productId] = ['type' => 'product', 'id' => $productId, 'path' => (string) ($product['full_path'] ?? '')];
+            }
+            foreach ($this->childCategories($id, false) as $child) {
+                $walk((int) $child['id']);
+            }
+        };
+        $walk($categoryId);
+
+        return $paths;
+    }
+
+    /** @param array<string, array{type:string,id:int,path:string}> $beforePaths */
+    private function rememberChangedPaths(array $beforePaths): void
+    {
+        foreach ($beforePaths as $item) {
+            $current = $item['type'] === 'category' ? $this->findCategory($item['id']) : $this->findProduct($item['id']);
+            if (!$current) {
+                continue;
+            }
+            $this->rememberRedirect($item['path'], (string) ($current['full_path'] ?? ''), $item['type'], $item['id']);
+        }
+    }
+
+    private function rememberRedirect(string $oldPath, string $newPath, string $type, int $id): void
+    {
+        $oldPath = trim($oldPath, '/');
+        $newPath = trim($newPath, '/');
+        if ($oldPath === '' || $newPath === '' || $oldPath === $newPath) {
+            return;
+        }
+        try {
+            $collapse = $this->pdo->prepare('UPDATE catalog_redirects SET new_path = ? WHERE new_path = ?');
+            $collapse->execute([$newPath, $oldPath]);
+            $statement = $this->pdo->prepare('INSERT INTO catalog_redirects (old_path, new_path, entity_type, entity_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE new_path = VALUES(new_path), entity_type = VALUES(entity_type), entity_id = VALUES(entity_id)');
+            $statement->execute([$oldPath, $newPath, $type, $id]);
+        } catch (\Throwable) {
+            // Saving content must remain possible while an older installation awaits the migration.
+        }
     }
 
     private function encodeJson(array $value): string
