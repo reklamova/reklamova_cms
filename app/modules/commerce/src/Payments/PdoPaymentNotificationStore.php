@@ -50,7 +50,8 @@ final class PdoPaymentNotificationStore implements PaymentNotificationStoreInter
 
             return true;
         } catch (PDOException $exception) {
-            if ((string) $exception->getCode() === '23000') {
+            if ((string) $exception->getCode() === '23000'
+                && (int) ($exception->errorInfo[1] ?? 0) === 1062) {
                 return false;
             }
             throw $exception;

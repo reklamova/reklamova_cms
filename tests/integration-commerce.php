@@ -9,6 +9,7 @@ use Reklamova\Cms\Commerce\Checkout\CheckoutService;
 use Reklamova\Cms\Commerce\Checkout\CustomerAddress;
 use Reklamova\Cms\Commerce\Checkout\PdoCheckoutStore;
 use Reklamova\Cms\Commerce\Cart\CartService;
+use Reklamova\Cms\Commerce\Analytics\AnalyticsEventRepository;
 use Reklamova\Cms\Commerce\Cart\CartViewRepository;
 use Reklamova\Cms\Commerce\Cart\PdoCartRepository;
 use Reklamova\Cms\Commerce\Catalog\StorefrontRepository;
@@ -73,6 +74,8 @@ $assert(in_array('checkout_key', $columns, true), 'Checkout idempotency migratio
 $assert(in_array('consents_json', $columns, true), 'Checkout consent migration did not run.');
 $paymentTable = $pdo->query("SHOW TABLES LIKE 'commerce_payment_methods'")->fetchColumn();
 $assert($paymentTable === 'commerce_payment_methods', 'Payment methods migration did not run.');
+$analyticsTable = $pdo->query("SHOW TABLES LIKE 'commerce_analytics_events'")->fetchColumn();
+$assert($analyticsTable === 'commerce_analytics_events', 'Analytics events migration did not run.');
 
 $pdo->exec("INSERT INTO commerce_stores (code, name, currency) VALUES ('drukarnia', 'Drukarnia', 'PLN')");
 $storeId = (int) $pdo->lastInsertId();
@@ -137,10 +140,10 @@ $assert($catalogProduct['categories'][0]['is_primary'] === true, 'Storefront pri
 $assert($catalogProduct['file_requirements'][0]['allowed_extensions'] === ['pdf'], 'Storefront file requirements are wrong.');
 $shipping = $pdo->prepare(
     'INSERT INTO commerce_shipping_methods
-        (store_id, code, name, type, price_minor, tax_rate_bps, countries_json)
-     VALUES (?, "courier", "Kurier", "courier", 1219, 2300, ?)'
+        (store_id, code, name, type, price_minor, tax_rate_bps, countries_json, rules_json)
+     VALUES (?, "courier", "Kurier", "courier", 1219, 2300, ?, ?)'
 );
-$shipping->execute([$storeId, '["PL"]']);
+$shipping->execute([$storeId, '["PL"]', '{"free_from_minor":30000}']);
 $payment = $pdo->prepare(
     'INSERT INTO commerce_payment_methods (store_id, code, name, provider, type)
      VALUES (?, "integration_pay", "Płatność testowa", "integration_pay", "online")'
@@ -233,6 +236,27 @@ $assert($processor->process('integration_pay', $notification)->status === 'dupli
 $paymentStatus = $pdo->query("SELECT payment_status FROM commerce_orders WHERE id = {$result->orderId}")->fetchColumn();
 $assert($paymentStatus === 'paid', 'Order was not marked paid.');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_payment_events')->fetchColumn() === 1, 'Payment event was duplicated.');
+$analytics = new AnalyticsEventRepository($pdo);
+$assert($analytics->claimOnce('purchase', 'order', (string) $result->orderId, ['value' => 233.59]), 'Purchase event was not claimed.');
+$assert(!$analytics->claimOnce('purchase', 'order', (string) $result->orderId, ['value' => 233.59]), 'Purchase event was claimed twice.');
+
+$freeShippingCart = $cartService->create($storeId);
+$cartService->add($freeShippingCart['token'], $productId, null, 3);
+$freeShippingData = new CheckoutData(
+    'shipping@example.com',
+    new CustomerAddress('Ewa', 'Testowa', 'Próbna 2', '00-003', 'Warszawa'),
+    'courier',
+    'integration_pay',
+    true,
+    true,
+);
+$freeShippingOrder = $checkout->place(
+    $freeShippingCart['token'],
+    $freeShippingData,
+    'free-shipping-checkout-token-42',
+);
+$assert($freeShippingOrder->totals['subtotal_minor'] === 36900, 'Free-shipping subtotal is wrong.');
+$assert($freeShippingOrder->totals['shipping']['total_minor'] === 0, 'Free-shipping threshold was not applied.');
 
 $importSnapshot = [
     'source_system' => 'woocommerce',

@@ -18,6 +18,7 @@ Wszystkie istotne zmiany CMS Reklamova są dokumentowane w tym pliku.
 - Migracja klientów, adresów, kuponów, zamówień, pozycji i identyfikatorów płatności z legacy WooCommerce bez przenoszenia niekompatybilnych hashy haseł.
 - Publiczny read model storefrontu dla aktywnego sklepu, drzewa kategorii, listingu, wyszukiwania i pełnej konfiguracji produktu.
 - Konfigurowalne metody płatności per sklep, bezpieczny odczyt koszyka i tokenizowany dostęp gościa do potwierdzenia zamówienia.
+- Jednorazowe, trwałe claimy zdarzeń analitycznych, aby `purchase` nie był emitowany ponownie po odświeżeniu strony.
 
 ### Security
 

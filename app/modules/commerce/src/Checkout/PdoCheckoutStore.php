@@ -157,7 +157,7 @@ final class PdoCheckoutStore implements CheckoutStoreInterface
             $data,
             $lines,
         );
-        $shipping = $this->shippingMethod((int) $cart['store_id'], $data);
+        $shipping = $this->shippingMethod((int) $cart['store_id'], $data, $lines);
         $this->assertPaymentMethod((int) $cart['store_id'], $data->paymentMethodCode);
 
         return new CheckoutQuote(
@@ -629,10 +629,11 @@ final class PdoCheckoutStore implements CheckoutStoreInterface
     }
 
     /** @return array<string, mixed> */
-    private function shippingMethod(int $storeId, CheckoutData $data): array
+    /** @param array<int, CheckoutLine> $lines */
+    private function shippingMethod(int $storeId, CheckoutData $data, array $lines): array
     {
         $statement = $this->pdo->prepare(
-            'SELECT code, name, type, price_minor, tax_rate_bps, cod_allowed, countries_json
+            'SELECT code, name, type, price_minor, tax_rate_bps, cod_allowed, countries_json, rules_json
              FROM commerce_shipping_methods WHERE store_id = ? AND code = ? AND active = 1 LIMIT 1 FOR UPDATE'
         );
         $statement->execute([$storeId, $data->shippingMethodCode]);
@@ -655,6 +656,20 @@ final class PdoCheckoutStore implements CheckoutStoreInterface
         }
         if ($data->pickupPoint !== null && strlen($this->json($data->pickupPoint)) > 5000) {
             throw new \DomainException('Pickup point payload is too large.');
+        }
+        $rules = $this->decodeJsonObject($shipping['rules_json']);
+        $freeFrom = isset($rules['free_from_minor']) ? (int) $rules['free_from_minor'] : null;
+        if ($freeFrom !== null && $freeFrom >= 0) {
+            $discountedSubtotal = array_reduce(
+                $lines,
+                static fn (int $sum, CheckoutLine $line): int => $sum
+                    + ($line->unitPriceMinor * $line->quantity)
+                    - $line->discountMinor,
+                0,
+            );
+            if ($discountedSubtotal >= $freeFrom) {
+                $shipping['price_minor'] = 0;
+            }
         }
 
         return $shipping;
