@@ -9,6 +9,10 @@ use Reklamova\Cms\Auth\PermissionManager;
 use Reklamova\Cms\Commerce\Orders\OrderStatus;
 use Reklamova\Cms\Commerce\Orders\PaymentStatus;
 use Reklamova\Cms\Commerce\Orders\StatusTransitionGuard;
+use Reklamova\Cms\Commerce\Import\DecimalMoneyParser;
+use Reklamova\Cms\Commerce\Import\CommerceImportRepository;
+use Reklamova\Cms\Commerce\Import\ProductMediaMigrator;
+use Reklamova\Cms\Commerce\Import\WordPressImporter;
 use Reklamova\Cms\Commerce\Payments\PaymentRequest;
 use Reklamova\Cms\Commerce\Pricing\CartCalculator;
 use Reklamova\Cms\Commerce\Pricing\TaxCalculator;
@@ -114,6 +118,77 @@ $test('money rejects mixed currencies', static function (): void {
         return;
     }
     throw new RuntimeException('Mixed currencies were accepted.');
+});
+
+$test('decimal money parsing never uses floats', static function () use ($assert): void {
+    $parser = new DecimalMoneyParser();
+    $assert($parser->parse('12,19') === 1219);
+    $assert($parser->parse('12177') === 1217700);
+    $assert($parser->parse('1.235') === 124);
+    $assert($parser->parse(null) === null);
+});
+
+$test('WordPress importer dry-run reports without writing', static function () use ($assert): void {
+    $repository = (new ReflectionClass(CommerceImportRepository::class))->newInstanceWithoutConstructor();
+    $snapshot = [
+        'source_system' => 'woocommerce',
+        'source_version' => 'test',
+        'captured_at' => '2026-09-11T00:00:00Z',
+        'counts' => ['categories' => 1, 'attributes' => 0, 'products' => 1, 'variants' => 0, 'images' => 0],
+        'tax_rates' => [],
+        'categories' => [['external_id' => '1', 'parent_external_id' => null, 'slug' => 'test', 'name' => 'Test']],
+        'attributes' => [],
+        'products' => [['external_id' => '2', 'slug' => 'product', 'sku' => null]],
+        'variants' => [],
+    ];
+    $report = (new WordPressImporter($repository))->run($snapshot, [], true);
+    $assert($report['status'] === 'dry_run_ok');
+    $assert($report['planned']['products'] === 1);
+});
+
+$test('WordPress importer blocks duplicate source SKU', static function () use ($assert): void {
+    $repository = (new ReflectionClass(CommerceImportRepository::class))->newInstanceWithoutConstructor();
+    $product = ['slug' => 'one', 'sku' => 'SAME'];
+    $snapshot = [
+        'counts' => [],
+        'categories' => [],
+        'attributes' => [],
+        'products' => [
+            ['external_id' => '1'] + $product,
+            ['external_id' => '2', 'slug' => 'two', 'sku' => 'SAME'],
+        ],
+        'variants' => [],
+    ];
+    $report = (new WordPressImporter($repository))->run($snapshot, [], true);
+    $assert($report['status'] === 'blocked');
+    $assert($report['conflicts'][0]['code'] === 'duplicate_products_sku');
+});
+
+$test('product media migration verifies and reuses checksum', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/reklamova-media-' . bin2hex(random_bytes(4));
+    $source = $root . '/source/2026/09';
+    $public = $root . '/public';
+    mkdir($source, 0775, true);
+    mkdir($public, 0775, true);
+    $path = $source . '/pixel.png';
+    file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true));
+    try {
+        $migrator = new ProductMediaMigrator($root . '/source', $public);
+        $first = $migrator->migrate('2026/09/pixel.png');
+        $second = $migrator->migrate('2026/09/pixel.png');
+        $assert($first['copied'] === true);
+        $assert($second['copied'] === false);
+        $assert($first['checksum'] === $second['checksum']);
+    } finally {
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($files as $file) {
+            $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+        }
+        @rmdir($root);
+    }
 });
 
 $test('inclusive VAT calculation balances exactly', static function () use ($assert): void {

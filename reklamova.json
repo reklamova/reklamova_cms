@@ -28,6 +28,7 @@
     "app/modules/trust",
     "app/modules/updates",
     "public/assets/core",
+    "tools/commerce-import-wordpress.php",
     "docs",
     "app/config/placements.example.php"
   ]

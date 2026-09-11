@@ -33,6 +33,20 @@ Najważniejsze zasady:
 
 Włączenie modułu tworzy wyłącznie tabele z prefiksem `commerce_`. Wyłączenie modułu nie usuwa danych.
 
+## Import z WooCommerce
+
+Skopiuj `app/config/commerce-import.example.php` do ignorowanego przez Git pliku `app/config/commerce-import.php`. Użytkownik źródłowej bazy powinien mieć wyłącznie uprawnienia odczytu. `uploads_path` wskazuje istniejący katalog `wp-content/uploads`.
+
+Najpierw zawsze uruchom analizę:
+
+       php tools/commerce-import-wordpress.php --dry-run --report=app/storage/temp/commerce-import-dry-run.json
+
+Import zapisujący dane wymaga jawnej flagi:
+
+       php tools/commerce-import-wordpress.php --apply --report=app/storage/temp/commerce-import.json
+
+Importer pobiera dane bezpośrednio z bazy WooCommerce, kopiuje referencjonowane obrazy z kontrolą SHA-256 i wykonuje upsert przez unikalne mapowanie źródła. Ponowne uruchomienie nie tworzy duplikatów. Konflikt slugów lub SKU zatrzymuje import przed zapisem.
+
 ## Kalkulacja
 
 `Money` nie przyjmuje floatów. `TaxCalculator` liczy podatek deterministycznie z integerów. `CartCalculator` przyjmuje linie z ceną jednostkową, ilością, rabatem i stawką VAT oraz opcjonalną dostawę. Każdy wynik zawiera subtotal, rabat, netto, VAT i brutto.

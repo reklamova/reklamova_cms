@@ -188,6 +188,7 @@ return new class {
                 height_mm INT UNSIGNED NULL,
                 length_mm INT UNSIGNED NULL,
                 image VARCHAR(500) NULL,
+                attributes_json JSON NULL,
                 sort_order INT NOT NULL DEFAULT 100,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

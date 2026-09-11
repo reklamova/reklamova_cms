@@ -9,6 +9,7 @@ Wszystkie istotne zmiany CMS Reklamova są dokumentowane w tym pliku.
 - Przedwdrożeniowy audyt Drukarnia Reklamova 2.0 i mapa migracji SEO.
 - Opcjonalny, generyczny moduł Commerce ze wspólnymi typami pieniędzy, VAT, kalkulacją koszyka, statusami i kontraktem providerów płatności.
 - Minimalny runner testów uruchamiany przez `composer test`.
+- Idempotentny importer WooCommerce DB z trybem `dry-run`, raportem konfliktów i kopiowaniem mediów z kontrolą SHA-256.
 
 ### Security
 
