@@ -10,6 +10,7 @@ use Reklamova\Cms\Commerce\Checkout\CustomerAddress;
 use Reklamova\Cms\Commerce\Checkout\PdoCheckoutStore;
 use Reklamova\Cms\Commerce\Cart\CartService;
 use Reklamova\Cms\Commerce\Cart\PdoCartRepository;
+use Reklamova\Cms\Commerce\Catalog\StorefrontRepository;
 use Reklamova\Cms\Commerce\Payments\PaymentInitiationService;
 use Reklamova\Cms\Commerce\Payments\PaymentNotification;
 use Reklamova\Cms\Commerce\Payments\PaymentNotificationProcessor;
@@ -83,12 +84,53 @@ $pdo->exec(
      VALUES ({$storeId}, {$taxId}, 'simple', 'Baner', 'baner', 'BAN-1', 'published', 12300, 'PLN', 1, 10, 'in_stock')"
 );
 $productId = (int) $pdo->lastInsertId();
+$category = $pdo->prepare(
+    'INSERT INTO commerce_categories
+        (store_id, name, slug, full_path, status, sort_order)
+     VALUES (?, "Banery", "banery", "banery", "published", 10)'
+);
+$category->execute([$storeId]);
+$categoryId = (int) $pdo->lastInsertId();
+$pdo->exec(
+    "INSERT INTO commerce_product_categories (product_id, category_id, is_primary, sort_order)
+     VALUES ({$productId}, {$categoryId}, 1, 10)"
+);
+$variant = $pdo->prepare(
+    'INSERT INTO commerce_product_variants
+        (store_id, product_id, sku, name, price_minor, stock_status, attributes_json, sort_order)
+     VALUES (?, ?, "BAN-1-100", "100 × 100 cm", 12300, "in_stock", ?, 10)'
+);
+$variant->execute([$storeId, $productId, '{"format":"100x100"}']);
+$option = $pdo->prepare(
+    'INSERT INTO commerce_product_options
+        (product_id, code, name, input_type, required, affects_price, sort_order)
+     VALUES (?, "finish", "Wykończenie", "select", 0, 1, 10)'
+);
+$option->execute([$productId]);
+$optionId = (int) $pdo->lastInsertId();
+$pdo->exec(
+    "INSERT INTO commerce_product_option_values (option_id, code, label, price_delta_minor, sort_order)
+     VALUES ({$optionId}, 'eyelets', 'Oczkowanie', 500, 10)"
+);
 $fileRequirement = $pdo->prepare(
     'INSERT INTO commerce_product_file_requirements
         (product_id, label, allowed_extensions_json, allowed_mime_types_json, max_bytes)
      VALUES (?, "Plik do druku", ?, ?, 10485760)'
 );
 $fileRequirement->execute([$productId, '["pdf"]', '["application/pdf"]']);
+
+$storefront = new StorefrontRepository($pdo, 'drukarnia');
+$assert($storefront->store()['currency'] === 'PLN', 'Storefront did not load the active store.');
+$assert($storefront->categories()[0]['id'] === $categoryId, 'Storefront category tree root is wrong.');
+$assert($storefront->categoryByPath('/banery/')['id'] === $categoryId, 'Storefront category path lookup failed.');
+$assert(count($storefront->products($categoryId)) === 1, 'Storefront category listing is wrong.');
+$assert($storefront->search('Ban')[0]['effective_price_minor'] === 12300, 'Storefront search price is wrong.');
+$catalogProduct = $storefront->productBySlug('baner');
+$assert($catalogProduct !== null, 'Storefront product detail was not found.');
+$assert($catalogProduct['variants'][0]['attributes']['format'] === '100x100', 'Storefront variant attributes are wrong.');
+$assert($catalogProduct['options'][0]['values'][0]['price_delta_minor'] === 500, 'Storefront product options are wrong.');
+$assert($catalogProduct['categories'][0]['is_primary'] === true, 'Storefront primary category is wrong.');
+$assert($catalogProduct['file_requirements'][0]['allowed_extensions'] === ['pdf'], 'Storefront file requirements are wrong.');
 $shipping = $pdo->prepare(
     'INSERT INTO commerce_shipping_methods
         (store_id, code, name, type, price_minor, tax_rate_bps, countries_json)

@@ -16,6 +16,7 @@ Wszystkie istotne zmiany CMS Reklamova są dokumentowane w tym pliku.
 - Trwały koszyk z nieprzechowywanym wprost tokenem, wersjonowaniem i stabilnym hashem konfiguracji produktu.
 - Atomowy checkout gościnny lub kontowy z ponowną wyceną, VAT, dostawą, kuponami, kontrolą stanów i ochroną przed podwójnym złożeniem zamówienia.
 - Migracja klientów, adresów, kuponów, zamówień, pozycji i identyfikatorów płatności z legacy WooCommerce bez przenoszenia niekompatybilnych hashy haseł.
+- Publiczny read model storefrontu dla aktywnego sklepu, drzewa kategorii, listingu, wyszukiwania i pełnej konfiguracji produktu.
 
 ### Security
 
