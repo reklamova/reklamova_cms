@@ -158,6 +158,7 @@ final class PdoCheckoutStore implements CheckoutStoreInterface
             $lines,
         );
         $shipping = $this->shippingMethod((int) $cart['store_id'], $data);
+        $this->assertPaymentMethod((int) $cart['store_id'], $data->paymentMethodCode);
 
         return new CheckoutQuote(
             (int) $cart['store_id'],
@@ -657,6 +658,18 @@ final class PdoCheckoutStore implements CheckoutStoreInterface
         }
 
         return $shipping;
+    }
+
+    private function assertPaymentMethod(int $storeId, string $code): void
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT code FROM commerce_payment_methods
+             WHERE store_id = ? AND code = ? AND active = 1 LIMIT 1 FOR UPDATE'
+        );
+        $statement->execute([$storeId, $code]);
+        if (!$statement->fetchColumn()) {
+            throw new \DomainException('Payment method is unavailable.');
+        }
     }
 
     /** @param array<string, mixed> $row */

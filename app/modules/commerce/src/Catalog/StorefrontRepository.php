@@ -153,6 +153,54 @@ final class StorefrontRepository
     }
 
     /** @return array<int, array<string, mixed>> */
+    public function shippingMethods(string $countryCode = 'PL'): array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT sm.code, sm.name, sm.provider, sm.service_code, sm.type, sm.price_minor,
+                    sm.tax_rate_bps, sm.cod_allowed, sm.countries_json
+             FROM commerce_shipping_methods sm
+             INNER JOIN commerce_stores s ON s.id = sm.store_id
+             WHERE s.code = ? AND sm.active = 1 ORDER BY sm.sort_order, sm.name'
+        );
+        $statement->execute([$this->storeCode]);
+        $countryCode = strtoupper($countryCode);
+        $rows = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $countries = $this->json((string) ($row['countries_json'] ?? ''));
+            if ($countries !== [] && !in_array($countryCode, array_map('strtoupper', $countries), true)) {
+                continue;
+            }
+            $row['price_minor'] = (int) $row['price_minor'];
+            $row['tax_rate_bps'] = (int) $row['tax_rate_bps'];
+            $row['cod_allowed'] = (bool) $row['cod_allowed'];
+            $row['countries'] = $countries;
+            unset($row['countries_json']);
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public function paymentMethods(): array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT pm.code, pm.name, pm.provider, pm.type, pm.rules_json
+             FROM commerce_payment_methods pm
+             INNER JOIN commerce_stores s ON s.id = pm.store_id
+             WHERE s.code = ? AND pm.active = 1 ORDER BY pm.sort_order, pm.name'
+        );
+        $statement->execute([$this->storeCode]);
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['rules'] = $this->json((string) ($row['rules_json'] ?? ''));
+            unset($row['rules_json']);
+        }
+
+        return $rows;
+    }
+
+    /** @return array<int, array<string, mixed>> */
     private function variants(int $productId): array
     {
         $statement = $this->pdo->prepare(

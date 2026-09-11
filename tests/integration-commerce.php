@@ -9,6 +9,7 @@ use Reklamova\Cms\Commerce\Checkout\CheckoutService;
 use Reklamova\Cms\Commerce\Checkout\CustomerAddress;
 use Reklamova\Cms\Commerce\Checkout\PdoCheckoutStore;
 use Reklamova\Cms\Commerce\Cart\CartService;
+use Reklamova\Cms\Commerce\Cart\CartViewRepository;
 use Reklamova\Cms\Commerce\Cart\PdoCartRepository;
 use Reklamova\Cms\Commerce\Catalog\StorefrontRepository;
 use Reklamova\Cms\Commerce\Payments\PaymentInitiationService;
@@ -22,6 +23,7 @@ use Reklamova\Cms\Commerce\Payments\PdoPaymentNotificationStore;
 use Reklamova\Cms\Commerce\Shared\Money;
 use Reklamova\Cms\Commerce\Import\CommerceImportRepository;
 use Reklamova\Cms\Commerce\Import\WordPressImporter;
+use Reklamova\Cms\Commerce\Orders\OrderAccessRepository;
 use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Modules\ModuleManager;
@@ -69,6 +71,8 @@ $pdo = (new ConnectionFactory($container))->make();
 $columns = $pdo->query('SHOW COLUMNS FROM commerce_orders')->fetchAll(PDO::FETCH_COLUMN);
 $assert(in_array('checkout_key', $columns, true), 'Checkout idempotency migration did not run.');
 $assert(in_array('consents_json', $columns, true), 'Checkout consent migration did not run.');
+$paymentTable = $pdo->query("SHOW TABLES LIKE 'commerce_payment_methods'")->fetchColumn();
+$assert($paymentTable === 'commerce_payment_methods', 'Payment methods migration did not run.');
 
 $pdo->exec("INSERT INTO commerce_stores (code, name, currency) VALUES ('drukarnia', 'Drukarnia', 'PLN')");
 $storeId = (int) $pdo->lastInsertId();
@@ -137,6 +141,11 @@ $shipping = $pdo->prepare(
      VALUES (?, "courier", "Kurier", "courier", 1219, 2300, ?)'
 );
 $shipping->execute([$storeId, '["PL"]']);
+$payment = $pdo->prepare(
+    'INSERT INTO commerce_payment_methods (store_id, code, name, provider, type)
+     VALUES (?, "integration_pay", "Płatność testowa", "integration_pay", "online")'
+);
+$payment->execute([$storeId]);
 $coupon = $pdo->prepare(
     'INSERT INTO commerce_coupons
         (store_id, code, type, value_bps, usage_limit, usage_limit_per_customer)
@@ -151,6 +160,11 @@ $cartId = (int) $createdCart['cart']['id'];
 $cartSnapshot = $cartService->add($cartToken, $productId, null, 2);
 $assert($cartSnapshot['version'] === 2, 'Cart version was not incremented.');
 $assert($cartSnapshot['items'][0]['quantity'] === 2, 'Cart item was not persisted.');
+$cartView = (new CartViewRepository($pdo))->find($cartToken, 'drukarnia');
+$assert($cartView !== null && $cartView['subtotal_minor'] === 24600, 'Storefront cart total is wrong.');
+$assert($cartView['items'][0]['product_slug'] === 'baner', 'Storefront cart product is wrong.');
+$assert(count($storefront->shippingMethods()) === 1, 'Storefront shipping methods are wrong.');
+$assert($storefront->paymentMethods()[0]['code'] === 'integration_pay', 'Storefront payment methods are wrong.');
 
 $checkoutData = new CheckoutData(
     'buyer@example.com',
@@ -177,6 +191,20 @@ $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_orders')->fetchColumn()
 $assert((int) $pdo->query("SELECT stock_quantity FROM commerce_products WHERE id = {$productId}")->fetchColumn() === 8, 'Duplicate checkout decremented stock again.');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_coupon_redemptions')->fetchColumn() === 1, 'Coupon redemption was duplicated.');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_outbox')->fetchColumn() === 1, 'Order outbox event was duplicated.');
+$orderAccess = (new OrderAccessRepository($pdo))->findByCheckoutToken(
+    $result->orderId,
+    'integration-checkout-token-42',
+    'drukarnia',
+);
+$assert($orderAccess !== null && $orderAccess['order_number'] === $result->orderNumber, 'Order access token lookup failed.');
+$assert(
+    (new OrderAccessRepository($pdo))->findByCheckoutToken(
+        $result->orderId,
+        'wrong-token-value-42',
+        'drukarnia',
+    ) === null,
+    'Wrong order access token was accepted.',
+);
 
 $provider = new IntegrationPaymentProvider();
 $redirect = (new PaymentInitiationService(new PdoPaymentInitiationStore($pdo), $provider))->start(
