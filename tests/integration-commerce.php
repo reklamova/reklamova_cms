@@ -229,6 +229,13 @@ $uploaded = $fileService->upload(
     'projekt.pdf',
 );
 $assert($uploaded['id'] > 0, 'Order file was not persisted.');
+$orderWithFile = (new OrderAccessRepository($pdo))->findByCheckoutToken(
+    $result->orderId,
+    'integration-checkout-token-42',
+    'drukarnia',
+);
+$assert($orderWithFile['items'][0]['file_requirements'][0]['id'] > 0, 'Order file requirement is missing from order view.');
+$assert($orderWithFile['items'][0]['files'][0]['id'] === $uploaded['id'], 'Uploaded file is missing from order view.');
 $download = $fileService->download($uploaded['id'], 'integration-checkout-token-42', 'drukarnia');
 $assert($download !== null && is_file($download['path']), 'Authorized order file download failed.');
 $assert($fileService->download($uploaded['id'], 'wrong-token-value-42', 'drukarnia') === null, 'Wrong token accessed an order file.');
