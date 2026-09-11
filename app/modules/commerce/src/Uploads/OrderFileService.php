@@ -36,8 +36,11 @@ final class OrderFileService
         string $storeCode,
         string $temporaryPath,
         string $originalName,
+        ?int $customerId = null,
     ): array {
-        if ($orderId <= 0 || $orderItemId <= 0 || $requirementId <= 0 || strlen($checkoutToken) < 16) {
+        if ($orderId <= 0 || $orderItemId <= 0 || $requirementId <= 0
+            || ($customerId === null && strlen($checkoutToken) < 16)
+            || ($customerId !== null && $customerId <= 0)) {
             throw new \InvalidArgumentException('Order file identity is invalid.');
         }
         if ($originalName === '' || $originalName !== basename(str_replace('\\', '/', $originalName)) || strlen($originalName) > 255) {
@@ -67,14 +70,23 @@ final class OrderFileService
             $fileId = $this->repository->transaction(function () use (
                 $orderId, $orderItemId, $requirementId, $checkoutToken, $storeCode,
                 $extension, $size, $mime, $storageKey, $originalName, $checksum, $temporaryPath, $target,
+                $customerId,
             ): int {
-                $requirement = $this->repository->lockRequirement(
-                    $orderId,
-                    $orderItemId,
-                    $requirementId,
-                    hash('sha256', $checkoutToken),
-                    $storeCode,
-                );
+                $requirement = $customerId === null
+                    ? $this->repository->lockRequirement(
+                        $orderId,
+                        $orderItemId,
+                        $requirementId,
+                        hash('sha256', $checkoutToken),
+                        $storeCode,
+                    )
+                    : $this->repository->lockRequirementForCustomer(
+                        $orderId,
+                        $orderItemId,
+                        $requirementId,
+                        $customerId,
+                        $storeCode,
+                    );
                 $allowedExtensions = $this->list((string) $requirement['allowed_extensions_json']);
                 $allowedMimes = $this->list((string) $requirement['allowed_mime_types_json']);
                 if (!in_array($extension, $allowedExtensions, true) || !in_array(strtolower($mime), $allowedMimes, true)) {
@@ -113,12 +125,14 @@ final class OrderFileService
     }
 
     /** @return array{path:string,name:string,mime:string,size:int}|null */
-    public function download(int $fileId, string $checkoutToken, string $storeCode): ?array
+    public function download(int $fileId, string $checkoutToken, string $storeCode, ?int $customerId = null): ?array
     {
-        if ($fileId <= 0 || strlen($checkoutToken) < 16) {
+        if ($fileId <= 0 || ($customerId === null && strlen($checkoutToken) < 16) || ($customerId !== null && $customerId <= 0)) {
             return null;
         }
-        $file = $this->repository->accessibleFile($fileId, hash('sha256', $checkoutToken), $storeCode);
+        $file = $customerId === null
+            ? $this->repository->accessibleFile($fileId, hash('sha256', $checkoutToken), $storeCode)
+            : $this->repository->accessibleFileForCustomer($fileId, $customerId, $storeCode);
         if (!$file) {
             return null;
         }

@@ -37,6 +37,16 @@ Test integracyjny wymaga pustej, jednorazowej bazy MariaDB i jawnie ustawionych 
 
 Włączenie modułu tworzy wyłącznie tabele z prefiksem `commerce_`. Wyłączenie modułu nie usuwa danych.
 
+## Wiadomości transakcyjne
+
+Wiadomości transakcyjne są pobierane z trwałego outboxu. Uruchamiaj worker co minutę z crona:
+
+```bash
+php tools/process-commerce-notifications.php --limit=100
+```
+
+Nieudane dostawy są ponawiane z rosnącym opóźnieniem, maksymalnie pięć razy. Dane odbiorcy nie są zapisywane w tabeli audytowej — pozostaje w niej wyłącznie skrót SHA-256.
+
 ## Import z WooCommerce
 
 Skopiuj `app/config/commerce-import.example.php` do ignorowanego przez Git pliku `app/config/commerce-import.php`. Użytkownik źródłowej bazy powinien mieć wyłącznie uprawnienia odczytu. `uploads_path` wskazuje istniejący katalog `wp-content/uploads`.

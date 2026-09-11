@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Reklamova\Cms\Support;
 
-final class Mailer
+final class Mailer implements EmailSenderInterface
 {
     private array $mail;
     private array $app;

@@ -13,6 +13,8 @@ use Reklamova\Cms\Commerce\Analytics\AnalyticsEventRepository;
 use Reklamova\Cms\Commerce\Cart\CartViewRepository;
 use Reklamova\Cms\Commerce\Cart\PdoCartRepository;
 use Reklamova\Cms\Commerce\Catalog\StorefrontRepository;
+use Reklamova\Cms\Commerce\Customers\CustomerAccountRepository;
+use Reklamova\Cms\Commerce\Customers\CustomerAuthService;
 use Reklamova\Cms\Commerce\Payments\PaymentInitiationService;
 use Reklamova\Cms\Commerce\Payments\PaymentNotification;
 use Reklamova\Cms\Commerce\Payments\PaymentNotificationProcessor;
@@ -25,11 +27,14 @@ use Reklamova\Cms\Commerce\Shared\Money;
 use Reklamova\Cms\Commerce\Import\CommerceImportRepository;
 use Reklamova\Cms\Commerce\Import\WordPressImporter;
 use Reklamova\Cms\Commerce\Orders\OrderAccessRepository;
+use Reklamova\Cms\Commerce\Notifications\NotificationOutbox;
+use Reklamova\Cms\Commerce\Notifications\NotificationWorker;
 use Reklamova\Cms\Commerce\Uploads\OrderFileService;
 use Reklamova\Cms\Commerce\Uploads\PdoOrderFileRepository;
 use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Modules\ModuleManager;
+use Reklamova\Cms\Support\EmailSenderInterface;
 
 final class IntegrationPaymentProvider implements PaymentProviderInterface
 {
@@ -55,6 +60,19 @@ final class IntegrationPaymentProvider implements PaymentProviderInterface
 
     public function cancel(string $providerTransactionId): void
     {
+    }
+}
+
+final class IntegrationEmailSender implements EmailSenderInterface
+{
+    /** @var array<int, array{to: string, subject: string, message: string}> */
+    public array $messages = [];
+
+    public function send(string $to, string $subject, string $message): bool
+    {
+        $this->messages[] = compact('to', 'subject', 'message');
+
+        return true;
     }
 }
 
@@ -84,9 +102,45 @@ $paymentTable = $pdo->query("SHOW TABLES LIKE 'commerce_payment_methods'")->fetc
 $assert($paymentTable === 'commerce_payment_methods', 'Payment methods migration did not run.');
 $analyticsTable = $pdo->query("SHOW TABLES LIKE 'commerce_analytics_events'")->fetchColumn();
 $assert($analyticsTable === 'commerce_analytics_events', 'Analytics events migration did not run.');
+$customerTokensTable = $pdo->query("SHOW TABLES LIKE 'commerce_customer_tokens'")->fetchColumn();
+$assert($customerTokensTable === 'commerce_customer_tokens', 'Customer authentication migration did not run.');
 
 $pdo->exec("INSERT INTO commerce_stores (code, name, currency) VALUES ('drukarnia', 'Drukarnia', 'PLN')");
 $storeId = (int) $pdo->lastInsertId();
+$customerInsert = $pdo->prepare(
+    'INSERT INTO commerce_customers
+        (store_id, email, first_name, last_name, password_reset_required)
+     VALUES (?, "buyer@example.com", "Jan", "Kowalski", 1)'
+);
+$customerInsert->execute([$storeId]);
+$customerId = (int) $pdo->lastInsertId();
+$customerAuth = new CustomerAuthService($pdo, 'drukarnia', 'integration-auth-pepper-42');
+$passwordToken = $customerAuth->issuePasswordToken('buyer@example.com', '127.0.0.1');
+$assert($passwordToken !== null && $passwordToken['purpose'] === 'activate', 'Migrated account activation token was not issued.');
+$notificationOutbox = new NotificationOutbox($pdo);
+$notificationOutbox->enqueueCustomerPasswordLink(
+    $customerId,
+    (string) $passwordToken['purpose'],
+    (string) $passwordToken['token'],
+);
+$emailSender = new IntegrationEmailSender();
+$notificationWorker = new NotificationWorker($pdo, $emailSender, 'https://shop.example.com', 'Drukarnia');
+$assert($notificationWorker->processNext() === 'sent', 'Customer activation notification was not sent.');
+$assert(str_contains($emailSender->messages[0]['message'], '/moje-konto/haslo?token='), 'Activation email lacks its one-time link.');
+$activatedCustomer = $customerAuth->completePasswordToken($passwordToken['token'], 'BezpieczneHaslo2026');
+$assert($activatedCustomer['id'] === $customerId, 'Activation token did not activate the expected customer.');
+try {
+    $customerAuth->completePasswordToken($passwordToken['token'], 'InneBezpieczneHaslo2026');
+    throw new RuntimeException('Customer activation token was reusable.');
+} catch (DomainException) {
+}
+try {
+    $customerAuth->authenticate('buyer@example.com', 'zle-haslo', '127.0.0.2');
+    throw new RuntimeException('Wrong customer password was accepted.');
+} catch (DomainException) {
+}
+$authenticatedCustomer = $customerAuth->authenticate('BUYER@example.com', 'BezpieczneHaslo2026', '127.0.0.2');
+$assert($authenticatedCustomer['id'] === $customerId, 'Customer login failed after activation.');
 $pdo->exec(
     "INSERT INTO commerce_tax_classes (store_id, code, name, rate_bps)
      VALUES ({$storeId}, 'standard', '23%', 2300)"
@@ -185,6 +239,7 @@ $checkoutData = new CheckoutData(
     true,
     true,
     phone: '+48123123123',
+    customerId: $customerId,
     couponCode: 'START10',
 );
 $checkout = new CheckoutService(new PdoCheckoutStore($pdo));
@@ -201,7 +256,7 @@ $assert($duplicate->alreadyExisted, 'Duplicate checkout was not recognized.');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_orders')->fetchColumn() === 1, 'Duplicate checkout created another order.');
 $assert((int) $pdo->query("SELECT stock_quantity FROM commerce_products WHERE id = {$productId}")->fetchColumn() === 8, 'Duplicate checkout decremented stock again.');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_coupon_redemptions')->fetchColumn() === 1, 'Coupon redemption was duplicated.');
-$assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_outbox')->fetchColumn() === 1, 'Order outbox event was duplicated.');
+$assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_outbox WHERE event_type = "commerce.order.created"')->fetchColumn() === 1, 'Order outbox event was duplicated.');
 $orderAccess = (new OrderAccessRepository($pdo))->findByCheckoutToken(
     $result->orderId,
     'integration-checkout-token-42',
@@ -216,6 +271,19 @@ $assert(
     ) === null,
     'Wrong order access token was accepted.',
 );
+$assert($notificationWorker->processNext() === 'sent', 'Order confirmation notification was not sent.');
+$assert($notificationWorker->processNext() === 'empty', 'Notification queue did not drain.');
+$assert(count($emailSender->messages) === 2, 'Unexpected number of queued email messages was sent.');
+$assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_notification_deliveries WHERE status = "sent"')->fetchColumn() === 2, 'Notification delivery audit is incomplete.');
+$account = new CustomerAccountRepository($pdo, 'drukarnia');
+$assert($account->orders($customerId)[0]['id'] === $result->orderId, 'Customer order history is missing the order.');
+$assert($account->order($customerId, $result->orderId)['order_number'] === $result->orderNumber, 'Customer order detail access failed.');
+$otherCustomer = $pdo->prepare(
+    'INSERT INTO commerce_customers (store_id, email, status) VALUES (?, "other@example.com", "active")'
+);
+$otherCustomer->execute([$storeId]);
+$otherCustomerId = (int) $pdo->lastInsertId();
+$assert($account->order($otherCustomerId, $result->orderId) === null, 'Customer accessed another customer order.');
 $orderItemId = (int) $pdo->query("SELECT id FROM commerce_order_items WHERE order_id = {$result->orderId} LIMIT 1")->fetchColumn();
 $uploadRoot = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'reklamova-order-files-' . bin2hex(random_bytes(6));
 $sourceFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'reklamova-upload-' . bin2hex(random_bytes(6)) . '.pdf';
@@ -245,6 +313,8 @@ $assert($orderWithFile['items'][0]['files'][0]['id'] === $uploaded['id'], 'Uploa
 $download = $fileService->download($uploaded['id'], 'integration-checkout-token-42', 'drukarnia');
 $assert($download !== null && is_file($download['path']), 'Authorized order file download failed.');
 $assert($fileService->download($uploaded['id'], 'wrong-token-value-42', 'drukarnia') === null, 'Wrong token accessed an order file.');
+$assert($fileService->download($uploaded['id'], '', 'drukarnia', $customerId) !== null, 'Owning customer could not access an order file.');
+$assert($fileService->download($uploaded['id'], '', 'drukarnia', $otherCustomerId) === null, 'Another customer accessed an order file.');
 $secondSource = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'reklamova-upload-' . bin2hex(random_bytes(6)) . '.pdf';
 file_put_contents($secondSource, "%PDF-1.4\n%%EOF");
 try {
@@ -293,6 +363,8 @@ $assert($processor->process('integration_pay', $notification)->status === 'dupli
 $paymentStatus = $pdo->query("SELECT payment_status FROM commerce_orders WHERE id = {$result->orderId}")->fetchColumn();
 $assert($paymentStatus === 'paid', 'Order was not marked paid.');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_payment_events')->fetchColumn() === 1, 'Payment event was duplicated.');
+$assert($notificationWorker->processNext() === 'sent', 'Paid order notification was not sent.');
+$assert(str_contains($emailSender->messages[2]['subject'], 'Płatność'), 'Paid order email has the wrong template.');
 $analytics = new AnalyticsEventRepository($pdo);
 $assert($analytics->claimOnce('purchase', 'order', (string) $result->orderId, ['value' => 233.59]), 'Purchase event was not claimed.');
 $assert(!$analytics->claimOnce('purchase', 'order', (string) $result->orderId, ['value' => 233.59]), 'Purchase event was claimed twice.');

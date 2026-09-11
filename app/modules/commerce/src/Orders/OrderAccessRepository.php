@@ -32,6 +32,35 @@ final class OrderAccessRepository
         if (!$order) {
             return null;
         }
+        return $this->hydrateOrder($order);
+    }
+
+    /** @return array<string, mixed>|null */
+    public function findByCustomer(int $orderId, int $customerId, string $storeCode): ?array
+    {
+        if ($orderId <= 0 || $customerId <= 0 || trim($storeCode) === '') {
+            return null;
+        }
+        $statement = $this->pdo->prepare(
+            'SELECT o.id, o.order_number, o.order_status, o.payment_status, o.currency,
+                    o.subtotal_minor, o.discount_minor, o.shipping_minor, o.net_minor,
+                    o.tax_minor, o.total_minor, o.shipping_method_name, o.payment_method_code,
+                    o.coupon_code, o.placed_at, o.paid_at
+             FROM commerce_orders o
+             INNER JOIN commerce_stores s ON s.id = o.store_id
+             INNER JOIN commerce_customers c ON c.id = o.customer_id AND c.store_id = o.store_id
+             WHERE o.id = ? AND o.customer_id = ? AND c.status = "active" AND s.code = ? LIMIT 1'
+        );
+        $statement->execute([$orderId, $customerId, $storeCode]);
+        $order = $statement->fetch(PDO::FETCH_ASSOC);
+
+        return $order ? $this->hydrateOrder($order) : null;
+    }
+
+    /** @param array<string, mixed> $order @return array<string, mixed> */
+    private function hydrateOrder(array $order): array
+    {
+        $orderId = (int) $order['id'];
         foreach (['id', 'subtotal_minor', 'discount_minor', 'shipping_minor', 'net_minor', 'tax_minor', 'total_minor'] as $field) {
             $order[$field] = (int) $order[$field];
         }
