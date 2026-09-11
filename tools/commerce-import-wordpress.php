@@ -14,9 +14,13 @@ $arguments = array_slice($argv, 1);
 $apply = in_array('--apply', $arguments, true);
 $dryRun = !$apply;
 $reportPath = null;
+$snapshotPath = null;
 foreach ($arguments as $argument) {
     if (str_starts_with($argument, '--report=')) {
         $reportPath = substr($argument, strlen('--report='));
+    }
+    if (str_starts_with($argument, '--snapshot=')) {
+        $snapshotPath = substr($argument, strlen('--snapshot='));
     }
 }
 
@@ -28,10 +32,12 @@ if (!is_file($configPath)) {
 $config = require $configPath;
 $source = is_array($config['source'] ?? null) ? $config['source'] : [];
 $store = is_array($config['store'] ?? null) ? $config['store'] : [];
-foreach (['host', 'database', 'username', 'table_prefix'] as $required) {
-    if (trim((string) ($source[$required] ?? '')) === '') {
-        fwrite(STDERR, "Missing source configuration: {$required}\n");
-        exit(2);
+if ($snapshotPath === null) {
+    foreach (['host', 'database', 'username', 'table_prefix'] as $required) {
+        if (trim((string) ($source[$required] ?? '')) === '') {
+            fwrite(STDERR, "Missing source configuration: {$required}\n");
+            exit(2);
+        }
     }
 }
 foreach (['code', 'name', 'currency', 'country_code'] as $required) {
@@ -41,19 +47,31 @@ foreach (['code', 'name', 'currency', 'country_code'] as $required) {
     }
 }
 
-$dsn = sprintf(
-    'mysql:host=%s;port=%d;dbname=%s;charset=%s',
-    $source['host'],
-    (int) ($source['port'] ?? 3306),
-    $source['database'],
-    $source['charset'] ?? 'utf8mb4'
-);
-$sourcePdo = new PDO($dsn, (string) $source['username'], (string) ($source['password'] ?? ''), [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-]);
 $targetPdo = (new ConnectionFactory($container))->make();
-$snapshot = (new WordPressDatabaseReader($sourcePdo, (string) $source['table_prefix']))->snapshot();
+if ($snapshotPath !== null) {
+    if (!is_file($snapshotPath) || filesize($snapshotPath) > 1073741824) {
+        fwrite(STDERR, "Snapshot is missing or too large.\n");
+        exit(2);
+    }
+    $snapshot = json_decode((string) file_get_contents($snapshotPath), true, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($snapshot) || ($snapshot['source_system'] ?? null) !== 'woocommerce') {
+        fwrite(STDERR, "Snapshot format is invalid.\n");
+        exit(2);
+    }
+} else {
+    $dsn = sprintf(
+        'mysql:host=%s;port=%d;dbname=%s;charset=%s',
+        $source['host'],
+        (int) ($source['port'] ?? 3306),
+        $source['database'],
+        $source['charset'] ?? 'utf8mb4'
+    );
+    $sourcePdo = new PDO($dsn, (string) $source['username'], (string) ($source['password'] ?? ''), [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+    $snapshot = (new WordPressDatabaseReader($sourcePdo, (string) $source['table_prefix']))->snapshot();
+}
 $media = null;
 if ($apply) {
     $uploadsPath = (string) ($source['uploads_path'] ?? '');

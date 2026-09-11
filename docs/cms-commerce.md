@@ -55,6 +55,12 @@ Najpierw zawsze uruchom analizę:
 
        php tools/commerce-import-wordpress.php --dry-run --report=app/storage/temp/commerce-import-dry-run.json
 
+Snapshot można przygotować na hoście WordPressa bez wypisywania danych osobowych na terminal i przenieść do odizolowanego stagingu:
+
+       php tools/commerce-export-wordpress.php --output=app/storage/private-import/woocommerce-snapshot.json
+
+       php tools/commerce-import-wordpress.php --snapshot=/bezpieczna/sciezka/woocommerce-snapshot.json --dry-run
+
 Import zapisujący dane wymaga jawnej flagi:
 
        php tools/commerce-import-wordpress.php --apply --report=app/storage/temp/commerce-import.json
