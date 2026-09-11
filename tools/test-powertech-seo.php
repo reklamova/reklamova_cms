@@ -21,6 +21,10 @@ $required = [
     "'<h1 class=\"pt-sr-only\">'",
     "mb_strlen(\$description, 'UTF-8') > 160",
     "mb_substr(\$description, 0, 157, 'UTF-8')",
+    "!str_starts_with(\$path, \$legacyPrefix . '/')",
+    "trim(\$currentPrefix . \$suffix, '/')",
+    "header('Location: /' . \$base",
+    "true, 301",
 ];
 
 foreach ($required as $markup) {

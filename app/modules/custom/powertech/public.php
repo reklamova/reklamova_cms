@@ -465,8 +465,12 @@ return static function (array $container, PDO $pdo, array $module): array {
             'przyrzady-pomiarowe/mikroskopy-i-lupy' => 'pomiary-optyczne',
             'przyrzady-pomiarowe/twardosciomierze' => 'twardosciomierze',
         ];
-        if (isset($aliases[$path])) {
-            header('Location: /' . $base . '/' . $aliases[$path] . '/', true, 301);
+        foreach ($aliases as $legacyPrefix => $currentPrefix) {
+            if ($path !== $legacyPrefix && !str_starts_with($path, $legacyPrefix . '/')) {
+                continue;
+            }
+            $suffix = substr($path, strlen($legacyPrefix));
+            header('Location: /' . $base . '/' . trim($currentPrefix . $suffix, '/') . '/', true, 301);
             return true;
         }
 
