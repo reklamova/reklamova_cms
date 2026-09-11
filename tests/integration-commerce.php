@@ -19,6 +19,8 @@ use Reklamova\Cms\Commerce\Payments\PaymentRequest;
 use Reklamova\Cms\Commerce\Payments\PdoPaymentInitiationStore;
 use Reklamova\Cms\Commerce\Payments\PdoPaymentNotificationStore;
 use Reklamova\Cms\Commerce\Shared\Money;
+use Reklamova\Cms\Commerce\Import\CommerceImportRepository;
+use Reklamova\Cms\Commerce\Import\WordPressImporter;
 use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Modules\ModuleManager;
@@ -162,4 +164,163 @@ $paymentStatus = $pdo->query("SELECT payment_status FROM commerce_orders WHERE i
 $assert($paymentStatus === 'paid', 'Order was not marked paid.');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_payment_events')->fetchColumn() === 1, 'Payment event was duplicated.');
 
-echo "PASS commerce migrations and checkout/payment database integration\n";
+$importSnapshot = [
+    'source_system' => 'woocommerce',
+    'source_version' => 'integration',
+    'captured_at' => '2026-09-11T12:00:00Z',
+    'counts' => [
+        'categories' => 0,
+        'attributes' => 0,
+        'tax_rates' => 1,
+        'products' => 1,
+        'variants' => 0,
+        'images' => 0,
+        'customers' => 1,
+        'coupons' => 1,
+        'orders' => 1,
+        'order_items' => 1,
+    ],
+    'tax_rates' => [[
+        'external_id' => '1',
+        'class' => 'standard',
+        'name' => 'VAT 23%',
+        'rate_bps' => 2300,
+        'shipping' => true,
+    ]],
+    'categories' => [],
+    'attributes' => [],
+    'products' => [[
+        'external_id' => '100',
+        'status' => 'publish',
+        'type' => 'simple',
+        'slug' => 'imported-product',
+        'name' => 'Imported product',
+        'sku' => 'IMP-100',
+        'summary' => '',
+        'description' => '',
+        'regular_price_minor' => 12300,
+        'sale_price_minor' => null,
+        'current_price_minor' => 12300,
+        'stock_status' => 'instock',
+        'track_stock' => false,
+        'stock_quantity' => null,
+        'weight_grams' => null,
+        'width_mm' => null,
+        'height_mm' => null,
+        'length_mm' => null,
+        'featured_image_relative' => null,
+        'gallery_relative' => [],
+        'category_external_ids' => [],
+        'attributes' => [],
+        'tax_class' => '',
+        'sort_order' => 0,
+    ]],
+    'variants' => [],
+    'customers' => [[
+        'external_id' => '7',
+        'email' => 'legacy@example.com',
+        'first_name' => 'Anna',
+        'last_name' => 'Nowak',
+        'phone' => '+48111222333',
+        'company' => null,
+        'tax_id' => null,
+        'registered_at' => '2025-01-01 12:00:00',
+        'password_reset_required' => true,
+        'addresses' => [[
+            'type' => 'billing',
+            'first_name' => 'Anna',
+            'last_name' => 'Nowak',
+            'company' => null,
+            'tax_id' => null,
+            'address_line1' => 'Stara 1',
+            'address_line2' => null,
+            'postal_code' => '00-002',
+            'city' => 'Warszawa',
+            'country_code' => 'PL',
+            'phone' => '+48111222333',
+        ]],
+    ]],
+    'coupons' => [[
+        'external_id' => '8',
+        'code' => 'LEGACY10',
+        'status' => 'publish',
+        'type' => 'percent',
+        'value_minor' => null,
+        'value_bps' => 1000,
+        'minimum_minor' => null,
+        'maximum_discount_minor' => null,
+        'usage_limit' => null,
+        'usage_limit_per_customer' => 1,
+        'starts_at' => '2025-01-01 12:00:00',
+        'ends_at' => null,
+        'individual_use' => false,
+        'exclude_sale_items' => false,
+        'free_shipping' => false,
+    ]],
+    'orders' => [[
+        'external_id' => '900',
+        'order_number' => '900',
+        'source_status' => 'wc-completed',
+        'currency' => 'PLN',
+        'customer_external_id' => '7',
+        'customer_email' => 'legacy@example.com',
+        'customer_phone' => '+48111222333',
+        'billing_address' => ['first_name' => 'Anna', 'last_name' => 'Nowak'],
+        'shipping_address' => ['first_name' => 'Anna', 'last_name' => 'Nowak'],
+        'subtotal_minor' => 12300,
+        'discount_minor' => 0,
+        'shipping_minor' => 0,
+        'net_minor' => 10000,
+        'tax_minor' => 2300,
+        'total_minor' => 12300,
+        'shipping_method_code' => 'legacy_shipping',
+        'shipping_method_name' => 'Legacy shipping',
+        'pickup_point' => null,
+        'payment_method_code' => 'imoje',
+        'provider_transaction_id' => 'legacy-provider-transaction',
+        'coupon_codes' => [],
+        'customer_note' => null,
+        'created_at' => '2025-02-01 12:00:00',
+        'updated_at' => '2025-02-02 12:00:00',
+        'paid_at' => '2025-02-01 12:05:00',
+        'completed_at' => '2025-02-02 12:00:00',
+        'items' => [[
+            'external_id' => '901',
+            'name' => 'Imported product',
+            'product_external_id' => '100',
+            'variant_external_id' => null,
+            'quantity' => 1,
+            'unit_price_minor' => 12300,
+            'subtotal_minor' => 10000,
+            'subtotal_tax_minor' => 2300,
+            'discount_minor' => 0,
+            'net_minor' => 10000,
+            'tax_minor' => 2300,
+            'total_minor' => 12300,
+            'attributes' => [],
+        ]],
+    ]],
+];
+$importer = new WordPressImporter(new CommerceImportRepository($pdo));
+$importStore = [
+    'code' => 'import-test',
+    'name' => 'Import test',
+    'currency' => 'PLN',
+    'country_code' => 'PL',
+    'prices_include_tax' => true,
+];
+$firstImport = $importer->run($importSnapshot, $importStore, false);
+$assert($firstImport['status'] === 'imported', 'WooCommerce history import failed.');
+$secondImport = $importer->run($importSnapshot, $importStore, false);
+$assert($secondImport['status'] === 'imported', 'WooCommerce idempotent rerun failed.');
+$importStoreId = (int) $pdo->query("SELECT id FROM commerce_stores WHERE code = 'import-test'")->fetchColumn();
+$assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_customers WHERE store_id = {$importStoreId}")->fetchColumn() === 1, 'Imported customer was duplicated.');
+$assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_coupons WHERE store_id = {$importStoreId}")->fetchColumn() === 1, 'Imported coupon was duplicated.');
+$assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_orders WHERE store_id = {$importStoreId}")->fetchColumn() === 1, 'Imported order was duplicated.');
+$importedOrderId = (int) $pdo->query("SELECT id FROM commerce_orders WHERE store_id = {$importStoreId}")->fetchColumn();
+$assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_order_items WHERE order_id = {$importedOrderId}")->fetchColumn() === 1, 'Imported order item was duplicated.');
+$assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_payment_attempts WHERE order_id = {$importedOrderId}")->fetchColumn() === 1, 'Imported payment was duplicated.');
+$resetRequired = (int) $pdo->query("SELECT password_reset_required FROM commerce_customers WHERE store_id = {$importStoreId}")->fetchColumn();
+$assert($resetRequired === 1, 'Imported customer was not forced through password reset.');
+
+echo "PASS commerce migrations, checkout/payment and WooCommerce history integration\n";

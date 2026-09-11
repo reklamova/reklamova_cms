@@ -347,6 +347,191 @@ final class CommerceImportRepository
         return (int) $this->pdo->lastInsertId();
     }
 
+    /** @param array<string, mixed> $customer */
+    public function saveCustomer(int $storeId, array $customer, ?int $localId): int
+    {
+        $values = [
+            strtolower((string) $customer['email']),
+            $customer['first_name'],
+            $customer['last_name'],
+            $customer['phone'],
+            $customer['company'],
+            $customer['tax_id'],
+            !empty($customer['password_reset_required']) ? 1 : 0,
+        ];
+        if ($localId) {
+            $statement = $this->pdo->prepare(
+                'UPDATE commerce_customers
+                 SET email = ?, first_name = ?, last_name = ?, phone = ?, company = ?, tax_id = ?,
+                     password_reset_required = ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ? AND store_id = ?'
+            );
+            $statement->execute([...$values, $localId, $storeId]);
+
+            return $localId;
+        }
+        $statement = $this->pdo->prepare(
+            'INSERT INTO commerce_customers
+                (store_id, email, password_hash, first_name, last_name, phone, company, tax_id,
+                 password_reset_required, created_at)
+             VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))'
+        );
+        $statement->execute([
+            $storeId,
+            ...$values,
+            $customer['registered_at'],
+        ]);
+
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    /** @param array<int, array<string, mixed>> $addresses */
+    public function replaceCustomerAddresses(int $customerId, array $addresses): void
+    {
+        $this->pdo->prepare('DELETE FROM commerce_customer_addresses WHERE customer_id = ?')->execute([$customerId]);
+        $insert = $this->pdo->prepare(
+            'INSERT INTO commerce_customer_addresses
+                (customer_id, type, first_name, last_name, company, tax_id, address_line1, address_line2,
+                 postal_code, city, country_code, phone, is_default)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)'
+        );
+        foreach ($addresses as $address) {
+            $insert->execute([
+                $customerId,
+                $address['type'],
+                $address['first_name'],
+                $address['last_name'],
+                $address['company'],
+                $address['tax_id'],
+                $address['address_line1'],
+                $address['address_line2'],
+                $address['postal_code'],
+                $address['city'],
+                $address['country_code'],
+                $address['phone'],
+            ]);
+        }
+    }
+
+    /** @param array<string, mixed> $coupon */
+    public function saveCoupon(int $storeId, array $coupon, ?int $localId): int
+    {
+        $fields = [
+            'code', 'type', 'value_minor', 'value_bps', 'minimum_minor', 'maximum_discount_minor',
+            'usage_limit', 'usage_limit_per_customer', 'starts_at', 'ends_at', 'active', 'rules_json',
+        ];
+        $values = array_map(static fn (string $field): mixed => $coupon[$field] ?? null, $fields);
+        if ($localId) {
+            $sets = implode(', ', array_map(static fn (string $field): string => "{$field} = ?", $fields));
+            $statement = $this->pdo->prepare(
+                "UPDATE commerce_coupons SET {$sets}, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ? AND store_id = ?"
+            );
+            $statement->execute([...$values, $localId, $storeId]);
+
+            return $localId;
+        }
+        $columns = implode(', ', $fields);
+        $placeholders = implode(', ', array_fill(0, count($fields) + 1, '?'));
+        $statement = $this->pdo->prepare(
+            "INSERT INTO commerce_coupons (store_id, {$columns}) VALUES ({$placeholders})"
+        );
+        $statement->execute([$storeId, ...$values]);
+
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    /** @param array<string, mixed> $order */
+    public function saveOrder(int $storeId, array $order, ?int $localId): int
+    {
+        $fields = [
+            'customer_id', 'order_number', 'order_status', 'payment_status', 'currency', 'subtotal_minor',
+            'discount_minor', 'shipping_minor', 'net_minor', 'tax_minor', 'total_minor', 'customer_email',
+            'customer_phone', 'billing_address_json', 'shipping_address_json', 'shipping_method_code',
+            'shipping_method_name', 'pickup_point_json', 'payment_method_code', 'coupon_code', 'customer_note',
+            'internal_note', 'placed_at', 'paid_at', 'cancelled_at', 'completed_at',
+        ];
+        $values = array_map(static fn (string $field): mixed => $order[$field] ?? null, $fields);
+        if ($localId) {
+            $sets = implode(', ', array_map(static fn (string $field): string => "{$field} = ?", $fields));
+            $statement = $this->pdo->prepare(
+                "UPDATE commerce_orders SET {$sets}, updated_at = ? WHERE id = ? AND store_id = ?"
+            );
+            $statement->execute([...$values, $order['updated_at'], $localId, $storeId]);
+
+            return $localId;
+        }
+        $columns = implode(', ', $fields);
+        $placeholders = implode(', ', array_fill(0, count($fields) + 1, '?'));
+        $statement = $this->pdo->prepare(
+            "INSERT INTO commerce_orders (store_id, {$columns}, created_at, updated_at)
+             VALUES ({$placeholders}, ?, ?)"
+        );
+        $statement->execute([$storeId, ...$values, $order['created_at'], $order['updated_at']]);
+
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    /** @param array<int, array<string, mixed>> $items */
+    public function replaceOrderItems(int $orderId, array $items): void
+    {
+        $this->pdo->prepare('DELETE FROM commerce_order_items WHERE order_id = ?')->execute([$orderId]);
+        $insert = $this->pdo->prepare(
+            'INSERT INTO commerce_order_items
+                (order_id, product_id, variant_id, product_name, variant_name, sku, quantity,
+                 unit_price_minor, discount_minor, net_minor, tax_minor, total_minor, tax_rate_bps,
+                 options_json, product_snapshot_json, requires_files)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        foreach ($items as $item) {
+            $insert->execute([
+                $orderId,
+                $item['product_id'],
+                $item['variant_id'],
+                $item['product_name'],
+                $item['variant_name'],
+                $item['sku'],
+                $item['quantity'],
+                $item['unit_price_minor'],
+                $item['discount_minor'],
+                $item['net_minor'],
+                $item['tax_minor'],
+                $item['total_minor'],
+                $item['tax_rate_bps'],
+                $item['options_json'],
+                $item['product_snapshot_json'],
+                !empty($item['requires_files']) ? 1 : 0,
+            ]);
+        }
+    }
+
+    /** @param array<string, mixed> $payment */
+    public function upsertImportedPayment(int $orderId, array $payment): void
+    {
+        $statement = $this->pdo->prepare(
+            'INSERT INTO commerce_payment_attempts
+                (order_id, provider, environment, idempotency_key, provider_transaction_id, status,
+                 amount_minor, currency, settled_at, response_meta_json)
+             VALUES (?, ?, "production", ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                provider_transaction_id = VALUES(provider_transaction_id), status = VALUES(status),
+                amount_minor = VALUES(amount_minor), currency = VALUES(currency),
+                settled_at = VALUES(settled_at), response_meta_json = VALUES(response_meta_json),
+                updated_at = CURRENT_TIMESTAMP'
+        );
+        $statement->execute([
+            $orderId,
+            $payment['provider'],
+            $payment['idempotency_key'],
+            $payment['provider_transaction_id'],
+            $payment['status'],
+            $payment['amount_minor'],
+            $payment['currency'],
+            $payment['settled_at'],
+            $this->json(['source' => 'woocommerce_import']),
+        ]);
+    }
+
     public function json(mixed $value): string
     {
         return json_encode(

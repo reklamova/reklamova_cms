@@ -49,7 +49,9 @@ Import zapisujący dane wymaga jawnej flagi:
 
        php tools/commerce-import-wordpress.php --apply --report=app/storage/temp/commerce-import.json
 
-Importer pobiera dane bezpośrednio z bazy WooCommerce, kopiuje referencjonowane obrazy z kontrolą SHA-256 i wykonuje upsert przez unikalne mapowanie źródła. Ponowne uruchomienie nie tworzy duplikatów. Konflikt slugów lub SKU zatrzymuje import przed zapisem.
+Importer pobiera dane bezpośrednio z bazy WooCommerce, kopiuje referencjonowane obrazy z kontrolą SHA-256 i wykonuje upsert przez unikalne mapowanie źródła. Obejmuje katalog, klientów z adresami, kupony, zamówienia z immutable pozycjami oraz istniejące identyfikatory transakcji. Ponowne uruchomienie nie tworzy duplikatów. Konflikt slugów lub SKU zatrzymuje import przed zapisem.
+
+Hashy haseł WordPress nie kopiujemy. Konto klienta jest migrowane z pustym hasłem oraz `password_reset_required = 1`; pierwsze bezpieczne ustanowienie hasła musi przejść przez mechanizm resetu CMS. Zamówienia gościnne pozostają gościnne. Import historii nie zmniejsza ponownie stanów magazynowych ani nie emituje maili transakcyjnych.
 
 ## Kalkulacja
 

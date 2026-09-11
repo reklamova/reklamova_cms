@@ -547,6 +547,9 @@ final class PdoCheckoutStore implements CheckoutStoreInterface
             throw new \DomainException('Coupon is outside its validity period.');
         }
         $rules = $this->decodeJsonObject($coupon['rules_json']);
+        // Checkout accepts one coupon code, so WooCommerce's individual-use rule
+        // is already satisfied. Other legacy rules need an explicit adapter.
+        unset($rules['individual_use']);
         if ($rules !== []) {
             throw new \DomainException('Coupon uses rules not supported by this checkout version.');
         }
