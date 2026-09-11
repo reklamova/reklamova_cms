@@ -7,6 +7,7 @@ use Reklamova\Cms\Commerce\Import\ProductMediaMigrator;
 use Reklamova\Cms\Commerce\Import\WordPressDatabaseReader;
 use Reklamova\Cms\Commerce\Import\WordPressImporter;
 use Reklamova\Cms\Database\ConnectionFactory;
+use Reklamova\Cms\Pages\PageRepository;
 
 require dirname(__DIR__) . '/app/bootstrap.php';
 
@@ -82,7 +83,7 @@ if ($apply) {
     $media = new ProductMediaMigrator($uploadsPath, $container['public_path']);
 }
 
-$report = (new WordPressImporter(new CommerceImportRepository($targetPdo), $media))
+$report = (new WordPressImporter(new CommerceImportRepository($targetPdo), $media, new PageRepository($targetPdo)))
     ->run($snapshot, $store + ['prices_include_tax' => true], $dryRun);
 $json = json_encode(
     $report,

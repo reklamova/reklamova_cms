@@ -26,6 +26,7 @@ final class WordPressDatabaseReader
      */
     public function snapshot(): array
     {
+        $pages = $this->pages();
         $categories = $this->categories();
         $attributes = $this->attributes();
         $taxRates = $this->taxRates();
@@ -38,6 +39,11 @@ final class WordPressDatabaseReader
             array_push($images, ...$product['gallery_relative']);
         }
         array_push($images, ...array_column($variants, 'featured_image_relative'));
+        foreach ($pages as $page) {
+            foreach ($page['image_references'] ?? [] as $reference) {
+                $images[] = (string) ($reference['relative_path'] ?? '');
+            }
+        }
 
         return [
             'source_system' => 'woocommerce',
@@ -45,6 +51,7 @@ final class WordPressDatabaseReader
             'site_url' => $this->option('siteurl'),
             'currency' => $this->option('woocommerce_currency') ?: 'PLN',
             'captured_at' => gmdate(DATE_ATOM),
+            'pages' => $pages,
             'categories' => $categories,
             'attributes' => $attributes,
             'tax_rates' => $taxRates,
@@ -54,6 +61,7 @@ final class WordPressDatabaseReader
             'coupons' => $coupons,
             'orders' => $orders,
             'counts' => [
+                'pages' => count($pages),
                 'categories' => count($categories),
                 'attributes' => count($attributes),
                 'tax_rates' => count($taxRates),
@@ -71,6 +79,74 @@ final class WordPressDatabaseReader
                 )),
             ],
         ];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public function pages(): array
+    {
+        $rows = $this->pdo->query(
+            "SELECT ID, post_parent, post_status, post_name, post_title, post_excerpt, post_content,
+                    post_date_gmt, post_modified_gmt, menu_order
+             FROM {$this->prefix}posts
+             WHERE post_type = 'page' AND post_status = 'publish' AND post_name <> ''
+             ORDER BY menu_order, ID"
+        )->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows === []) {
+            return [];
+        }
+        $ids = array_map(static fn (array $row): int => (int) $row['ID'], $rows);
+        $meta = $this->metaForPostIds($ids);
+        $attachmentIds = [];
+        foreach ($rows as $row) {
+            $thumbnailId = (int) (($meta[(int) $row['ID']]['_thumbnail_id'] ?? 0));
+            if ($thumbnailId > 0) {
+                $attachmentIds[] = $thumbnailId;
+            }
+        }
+        $attachments = $this->attachments(array_values(array_unique($attachmentIds)));
+        $frontPageId = (int) $this->option('page_on_front');
+
+        return array_map(function (array $row) use ($meta, $attachments, $frontPageId): array {
+            $id = (int) $row['ID'];
+            $pageMeta = $meta[$id] ?? [];
+            $content = (string) ($row['post_content'] ?? '');
+            $references = $this->embeddedImageReferences($content);
+            $thumbnail = $attachments[(int) ($pageMeta['_thumbnail_id'] ?? 0)] ?? null;
+            if (is_array($thumbnail)) {
+                $references[] = [
+                    'source_url' => (string) $thumbnail['url'],
+                    'relative_path' => (string) $thumbnail['relative_path'],
+                ];
+            }
+            $uniqueReferences = [];
+            foreach ($references as $reference) {
+                $relative = (string) ($reference['relative_path'] ?? '');
+                if ($relative !== '') {
+                    $uniqueReferences[$relative] = $reference;
+                }
+            }
+            $noIndex = $this->firstNonEmpty($pageMeta, ['_yoast_wpseo_meta-robots-noindex', 'rank_math_robots']);
+
+            return [
+                'external_id' => (string) $id,
+                'parent_external_id' => (int) $row['post_parent'] > 0 ? (string) $row['post_parent'] : null,
+                'slug' => $id === $frontPageId ? 'home' : (string) $row['post_name'],
+                'source_slug' => (string) $row['post_name'],
+                'title' => (string) $row['post_title'],
+                'excerpt' => (string) ($row['post_excerpt'] ?? ''),
+                'content' => $content,
+                'status' => (string) $row['post_status'],
+                'meta_title' => $this->firstNonEmpty($pageMeta, ['_yoast_wpseo_title', 'rank_math_title']) ?? '',
+                'meta_description' => $this->firstNonEmpty($pageMeta, ['_yoast_wpseo_metadesc', 'rank_math_description']) ?? '',
+                'canonical_url' => $this->firstNonEmpty($pageMeta, ['_yoast_wpseo_canonical', 'rank_math_canonical_url']) ?? '',
+                'robots' => in_array(strtolower((string) $noIndex), ['1', 'noindex'], true) ? 'noindex,follow' : 'index,follow',
+                'featured_image_relative' => is_array($thumbnail) ? (string) $thumbnail['relative_path'] : null,
+                'image_references' => array_values($uniqueReferences),
+                'sort_order' => (int) $row['menu_order'],
+                'published_at' => $this->date($row['post_date_gmt'] ?? null),
+                'updated_at' => $this->date($row['post_modified_gmt'] ?? null),
+            ];
+        }, $rows);
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -745,6 +821,31 @@ final class WordPressDatabaseReader
         }
 
         return $result;
+    }
+
+    /** @return array<int, array{source_url: string, relative_path: string}> */
+    private function embeddedImageReferences(string $content): array
+    {
+        preg_match_all(
+            '~(?P<url>(?:https?:)?//[^"\'\s<>()]+/wp-content/uploads/(?P<absolute>[^"\'\s<>()?,#]+)|/wp-content/uploads/(?P<relative>[^"\'\s<>()?,#]+))~iu',
+            html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            $matches,
+            PREG_SET_ORDER,
+        );
+        $references = [];
+        foreach ($matches as $match) {
+            $relative = rawurldecode((string) (($match['absolute'] ?? '') ?: ($match['relative'] ?? '')));
+            $relative = ltrim(str_replace('\\', '/', $relative), '/');
+            if ($relative === '' || str_contains($relative, '..')) {
+                continue;
+            }
+            $references[$relative] = [
+                'source_url' => (string) $match['url'],
+                'relative_path' => $relative,
+            ];
+        }
+
+        return array_values($references);
     }
 
     /**

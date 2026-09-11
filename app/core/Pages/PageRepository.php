@@ -69,6 +69,21 @@ final class PageRepository
             ->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /** @return array<int, array{slug: string, updated_at: string}> */
+    public function publishedSeoEntries(): array
+    {
+        $statement = $this->pdo->query(
+            'SELECT slug, updated_at FROM cms_pages
+             WHERE status = "published" AND slug <> ""
+             ORDER BY slug'
+        );
+
+        return array_map(static fn (array $row): array => [
+            'slug' => trim((string) $row['slug'], '/'),
+            'updated_at' => (string) $row['updated_at'],
+        ], $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     public function save(array $data, ?int $id, ?int $userId = null): int
     {
         $title = trim((string) ($data['title'] ?? ''));
@@ -312,9 +327,10 @@ final class PageRepository
             return (string) $data['form_config_json'];
         }
 
+        $type = (string) ($data['page_form_type'] ?? 'contact');
         $config = [
             'enabled' => !empty($data['page_form_enabled']),
-            'type' => in_array((string) ($data['page_form_type'] ?? 'contact'), ['contact', 'offer', 'newsletter', 'order'], true) ? (string) $data['page_form_type'] : 'contact',
+            'type' => in_array($type, ['contact', 'offer', 'newsletter', 'order'], true) ? $type : 'contact',
             'title' => trim((string) ($data['page_form_title'] ?? '')),
             'target_email' => trim((string) ($data['page_form_target_email'] ?? '')),
             'marketing_consent' => !empty($data['page_form_marketing_consent']),
@@ -329,13 +345,14 @@ final class PageRepository
             return (string) $data['cta_config_json'];
         }
 
+        $variant = (string) ($data['page_cta_variant'] ?? 'standard');
         $config = [
             'enabled' => !empty($data['page_cta_enabled']),
             'title' => trim((string) ($data['page_cta_title'] ?? '')),
             'text' => trim((string) ($data['page_cta_text'] ?? '')),
             'button_label' => trim((string) ($data['page_cta_button_label'] ?? '')),
             'button_url' => trim((string) ($data['page_cta_button_url'] ?? '')),
-            'variant' => in_array((string) ($data['page_cta_variant'] ?? 'standard'), ['standard', 'soft', 'dark'], true) ? (string) $data['page_cta_variant'] : 'standard',
+            'variant' => in_array($variant, ['standard', 'soft', 'dark'], true) ? $variant : 'standard',
         ];
 
         return json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

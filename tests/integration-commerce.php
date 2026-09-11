@@ -37,6 +37,7 @@ use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Modules\ModuleManager;
 use Reklamova\Cms\Support\EmailSenderInterface;
+use Reklamova\Cms\Pages\PageRepository;
 
 final class IntegrationPaymentProvider implements PaymentProviderInterface
 {
@@ -236,8 +237,14 @@ $assert(count($storefront->shippingMethods()) === 1, 'Storefront shipping method
 $assert($storefront->paymentMethods()[0]['code'] === 'integration_pay', 'Storefront payment methods are wrong.');
 $seoEntries = $storefront->seoEntries();
 $assert(count($seoEntries) === 2, 'Storefront SEO entries are incomplete.');
-$assert(in_array('/produkt/baner', array_column($seoEntries, 'path'), true), 'Product is missing from SEO entries.');
-$assert(in_array('/kategoria-produktu/banery', array_column($seoEntries, 'path'), true), 'Category is missing from SEO entries.');
+$assert(in_array(['type' => 'product', 'slug' => 'baner'], array_map(
+    static fn (array $entry): array => ['type' => $entry['type'], 'slug' => $entry['slug']],
+    $seoEntries,
+), true), 'Product is missing from SEO entries.');
+$assert(in_array(['type' => 'category', 'slug' => 'banery'], array_map(
+    static fn (array $entry): array => ['type' => $entry['type'], 'slug' => $entry['slug']],
+    $seoEntries,
+), true), 'Category is missing from SEO entries.');
 
 $checkoutData = new CheckoutData(
     'buyer@example.com',
@@ -409,7 +416,8 @@ $importSnapshot = [
     'source_version' => 'integration',
     'captured_at' => '2026-09-11T12:00:00Z',
     'counts' => [
-        'categories' => 0,
+        'pages' => 1,
+        'categories' => 1,
         'attributes' => 0,
         'tax_rates' => 1,
         'products' => 1,
@@ -420,6 +428,25 @@ $importSnapshot = [
         'orders' => 1,
         'order_items' => 1,
     ],
+    'pages' => [[
+        'external_id' => '99',
+        'parent_external_id' => null,
+        'slug' => 'regulamin-importu',
+        'source_slug' => 'regulamin-importu',
+        'title' => 'Regulamin importu',
+        'excerpt' => 'Zasady testowe.',
+        'content' => '<p>Treść regulaminu.</p>',
+        'status' => 'publish',
+        'meta_title' => 'Regulamin importu',
+        'meta_description' => 'Zasady testowe.',
+        'canonical_url' => '',
+        'robots' => 'index,follow',
+        'featured_image_relative' => null,
+        'image_references' => [],
+        'sort_order' => 10,
+        'published_at' => '2025-01-01 12:00:00',
+        'updated_at' => '2025-01-02 12:00:00',
+    ]],
     'tax_rates' => [[
         'external_id' => '1',
         'class' => 'standard',
@@ -427,7 +454,14 @@ $importSnapshot = [
         'rate_bps' => 2300,
         'shipping' => true,
     ]],
-    'categories' => [],
+    'categories' => [[
+        'external_id' => '23',
+        'parent_external_id' => null,
+        'name' => 'Importowane',
+        'slug' => 'importowane',
+        'description' => '',
+        'count' => 1,
+    ]],
     'attributes' => [],
     'products' => [[
         'external_id' => '100',
@@ -450,7 +484,7 @@ $importSnapshot = [
         'length_mm' => null,
         'featured_image_relative' => null,
         'gallery_relative' => [],
-        'category_external_ids' => [],
+        'category_external_ids' => ['23'],
         'attributes' => [],
         'tax_class' => '',
         'sort_order' => 0,
@@ -541,7 +575,7 @@ $importSnapshot = [
         ]],
     ]],
 ];
-$importer = new WordPressImporter(new CommerceImportRepository($pdo));
+$importer = new WordPressImporter(new CommerceImportRepository($pdo), null, new PageRepository($pdo));
 $importStore = [
     'code' => 'import-test',
     'name' => 'Import test',
@@ -557,6 +591,8 @@ $importStoreId = (int) $pdo->query("SELECT id FROM commerce_stores WHERE code = 
 $assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_customers WHERE store_id = {$importStoreId}")->fetchColumn() === 1, 'Imported customer was duplicated.');
 $assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_coupons WHERE store_id = {$importStoreId}")->fetchColumn() === 1, 'Imported coupon was duplicated.');
 $assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_orders WHERE store_id = {$importStoreId}")->fetchColumn() === 1, 'Imported order was duplicated.');
+$assert((int) $pdo->query("SELECT COUNT(*) FROM cms_pages WHERE slug = 'regulamin-importu'")->fetchColumn() === 1, 'Imported page was duplicated.');
+$assert((string) $pdo->query("SELECT meta_description FROM cms_pages WHERE slug = 'regulamin-importu'")->fetchColumn() === 'Zasady testowe.', 'Imported page SEO metadata is wrong.');
 $importedOrderId = (int) $pdo->query("SELECT id FROM commerce_orders WHERE store_id = {$importStoreId}")->fetchColumn();
 $assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_order_items WHERE order_id = {$importedOrderId}")->fetchColumn() === 1, 'Imported order item was duplicated.');
 $assert((int) $pdo->query("SELECT COUNT(*) FROM commerce_payment_attempts WHERE order_id = {$importedOrderId}")->fetchColumn() === 1, 'Imported payment was duplicated.');

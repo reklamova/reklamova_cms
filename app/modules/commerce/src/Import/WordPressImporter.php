@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Reklamova\Cms\Commerce\Import;
 
+use Reklamova\Cms\Pages\PageRepository;
+
 final class WordPressImporter
 {
     public function __construct(
         private CommerceImportRepository $repository,
         private ?ProductMediaMigrator $mediaMigrator = null,
+        private ?PageRepository $pageRepository = null,
     ) {
     }
 
@@ -31,6 +34,7 @@ final class WordPressImporter
             'source_counts' => $snapshot['counts'],
             'planned' => [
                 'store' => 1,
+                'pages' => count($snapshot['pages'] ?? []),
                 'tax_classes' => count($snapshot['tax_rates'] ?? []),
                 'categories' => count($snapshot['categories']),
                 'attributes' => count($snapshot['attributes']),
@@ -66,6 +70,7 @@ final class WordPressImporter
                 $runId = $this->repository->startRun($storeId, 'import', $snapshot);
                 $report['result']['stores']['updated']++;
 
+                $this->importPages($storeId, $snapshot['pages'] ?? [], $runId, $report);
                 $taxClasses = $this->importTaxes($storeId, $snapshot['tax_rates'] ?? [], $report);
                 $categories = $this->importCategories($storeId, $snapshot['categories'], $runId, $report);
                 $attributes = $this->importAttributes($storeId, $snapshot['attributes'], $runId, $report);
@@ -104,6 +109,90 @@ final class WordPressImporter
         }
 
         return $report;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @param array<string, mixed> $report
+     */
+    private function importPages(int $storeId, array $rows, int $runId, array &$report): void
+    {
+        if ($rows === []) {
+            return;
+        }
+        if ($this->pageRepository === null) {
+            throw new \RuntimeException('A page repository is required to import WordPress pages.');
+        }
+        $migratedMedia = [];
+        foreach ($rows as $row) {
+            $externalId = (string) $row['external_id'];
+            $hash = $this->hash($row + ['page_transform_version' => 1]);
+            $mapping = $this->repository->mapping($storeId, 'page', $externalId);
+            $state = $this->state($mapping, $hash);
+            $localId = isset($mapping['local_id']) ? (int) $mapping['local_id'] : null;
+            if ($localId === null) {
+                $existing = $this->pageRepository->findPublishedBySlug((string) $row['slug']);
+                if ($existing !== null) {
+                    $localId = (int) $existing['id'];
+                    $state = 'updated';
+                }
+            }
+            if ($state !== 'unchanged') {
+                $content = $this->pageContent((string) ($row['content'] ?? ''));
+                foreach ($row['image_references'] ?? [] as $reference) {
+                    if (!is_array($reference)) {
+                        continue;
+                    }
+                    $relative = (string) ($reference['relative_path'] ?? '');
+                    if ($relative === '') {
+                        continue;
+                    }
+                    if (!isset($migratedMedia[$relative])) {
+                        $migratedMedia[$relative] = $this->media($relative, $report);
+                    }
+                    $sourceUrl = (string) ($reference['source_url'] ?? '');
+                    if ($sourceUrl !== '' && is_string($migratedMedia[$relative])) {
+                        $content = str_replace($sourceUrl, $migratedMedia[$relative], $content);
+                    }
+                }
+                $featuredImage = '';
+                $featuredRelative = (string) ($row['featured_image_relative'] ?? '');
+                if ($featuredRelative !== '') {
+                    if (!isset($migratedMedia[$featuredRelative])) {
+                        $migratedMedia[$featuredRelative] = $this->media($featuredRelative, $report);
+                    }
+                    $featuredImage = (string) ($migratedMedia[$featuredRelative] ?? '');
+                }
+                $localId = $this->pageRepository->save([
+                    'title' => (string) $row['title'],
+                    'slug' => (string) $row['slug'],
+                    'excerpt' => (string) ($row['excerpt'] ?? ''),
+                    'content' => $content,
+                    'status' => 'published',
+                    'template' => 'default',
+                    'meta_title' => (string) ($row['meta_title'] ?? ''),
+                    'meta_description' => (string) ($row['meta_description'] ?? ''),
+                    'canonical_url' => (string) ($row['canonical_url'] ?? ''),
+                    'robots' => (string) ($row['robots'] ?? 'index,follow'),
+                    'featured_image' => $featuredImage,
+                    'sort_order' => (int) ($row['sort_order'] ?? 100),
+                    'show_in_menu' => false,
+                    'published_at' => (string) ($row['published_at'] ?? ''),
+                    'source_html' => (string) ($row['content'] ?? ''),
+                ], $localId);
+                $this->repository->saveMapping($storeId, 'page', $externalId, 'cms_page', $localId, $hash, $runId);
+            }
+            $report['result']['pages'][$state]++;
+        }
+    }
+
+    private function pageContent(string $content): string
+    {
+        return (string) preg_replace(
+            '/\[\/?(?:trustindex|woocommerce_[a-z0-9_-]+)\b[^\]]*\]/i',
+            '',
+            $content,
+        );
     }
 
     /**
@@ -149,6 +238,7 @@ final class WordPressImporter
         while ($pending !== []) {
             $progress = false;
             foreach ($pending as $externalId => $row) {
+                $externalId = (string) $externalId;
                 $parentExternalId = $row['parent_external_id'] ?? null;
                 if ($parentExternalId !== null && !isset($imported[$parentExternalId])) {
                     continue;
@@ -708,7 +798,7 @@ final class WordPressImporter
     {
         $counters = [];
         foreach ([
-            'stores', 'tax_classes', 'categories', 'attributes', 'products', 'variants', 'images',
+            'stores', 'pages', 'tax_classes', 'categories', 'attributes', 'products', 'variants', 'images',
             'customers', 'coupons', 'orders', 'order_items',
         ] as $type) {
             $counters[$type] = ['created' => 0, 'updated' => 0, 'unchanged' => 0];

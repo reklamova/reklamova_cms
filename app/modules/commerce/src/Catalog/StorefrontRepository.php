@@ -200,7 +200,7 @@ final class StorefrontRepository
         return $rows;
     }
 
-    /** @return array<int, array{path: string, updated_at: string}> */
+    /** @return array<int, array{type: string, slug: string, updated_at: string}> */
     public function seoEntries(): array
     {
         $entries = [];
@@ -214,7 +214,8 @@ final class StorefrontRepository
         $categories->execute([$this->storeCode]);
         foreach ($categories->fetchAll(PDO::FETCH_ASSOC) as $category) {
             $entries[] = [
-                'path' => '/kategoria-produktu/' . trim((string) $category['full_path'], '/'),
+                'type' => 'category',
+                'slug' => trim((string) $category['full_path'], '/'),
                 'updated_at' => (string) $category['updated_at'],
             ];
         }
@@ -228,7 +229,8 @@ final class StorefrontRepository
         $products->execute([$this->storeCode]);
         foreach ($products->fetchAll(PDO::FETCH_ASSOC) as $product) {
             $entries[] = [
-                'path' => '/produkt/' . rawurlencode((string) $product['slug']),
+                'type' => 'product',
+                'slug' => (string) $product['slug'],
                 'updated_at' => (string) $product['updated_at'],
             ];
         }
