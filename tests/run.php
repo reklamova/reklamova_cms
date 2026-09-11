@@ -9,6 +9,16 @@ use Reklamova\Cms\Auth\PermissionManager;
 use Reklamova\Cms\Commerce\Orders\OrderStatus;
 use Reklamova\Cms\Commerce\Orders\PaymentStatus;
 use Reklamova\Cms\Commerce\Orders\StatusTransitionGuard;
+use Reklamova\Cms\Commerce\Checkout\CheckoutData;
+use Reklamova\Cms\Commerce\Checkout\CheckoutLine;
+use Reklamova\Cms\Commerce\Checkout\CheckoutQuote;
+use Reklamova\Cms\Commerce\Checkout\CheckoutResult;
+use Reklamova\Cms\Commerce\Checkout\CheckoutService;
+use Reklamova\Cms\Commerce\Checkout\CheckoutStoreInterface;
+use Reklamova\Cms\Commerce\Checkout\CustomerAddress;
+use Reklamova\Cms\Commerce\Checkout\OrderNumberGeneratorInterface;
+use Reklamova\Cms\Commerce\Cart\CartRepositoryInterface;
+use Reklamova\Cms\Commerce\Cart\CartService;
 use Reklamova\Cms\Commerce\Import\DecimalMoneyParser;
 use Reklamova\Cms\Commerce\Import\CommerceImportRepository;
 use Reklamova\Cms\Commerce\Import\ProductMediaMigrator;
@@ -21,6 +31,11 @@ use Reklamova\Cms\Commerce\Payments\PaymentAttempt;
 use Reklamova\Cms\Commerce\Payments\PaymentNotification;
 use Reklamova\Cms\Commerce\Payments\PaymentNotificationProcessor;
 use Reklamova\Cms\Commerce\Payments\PaymentNotificationStoreInterface;
+use Reklamova\Cms\Commerce\Payments\PaymentInitiationService;
+use Reklamova\Cms\Commerce\Payments\PaymentInitiationStoreInterface;
+use Reklamova\Cms\Commerce\Payments\PaymentProviderInterface;
+use Reklamova\Cms\Commerce\Payments\PaymentRedirect;
+use Reklamova\Cms\Commerce\Payments\PaymentReservation;
 use Reklamova\Cms\Commerce\Pricing\CartCalculator;
 use Reklamova\Cms\Commerce\Pricing\TaxCalculator;
 use Reklamova\Cms\Commerce\Shared\Money;
@@ -96,6 +111,222 @@ final class FakePaymentNotificationStore implements PaymentNotificationStoreInte
         PaymentStatus $newStatus,
     ): void {
         $this->applications[] = compact('provider', 'notification', 'attempt', 'newStatus');
+    }
+}
+
+final class FakePaymentProvider implements PaymentProviderInterface
+{
+    public int $initiateCalls = 0;
+    public ?Throwable $initiateException = null;
+
+    public function __construct(public PaymentRedirect $redirect)
+    {
+    }
+
+    public function name(): string
+    {
+        return 'fake_pay';
+    }
+
+    public function initiate(PaymentRequest $request): PaymentRedirect
+    {
+        $this->initiateCalls++;
+        if ($this->initiateException !== null) {
+            throw $this->initiateException;
+        }
+
+        return $this->redirect;
+    }
+
+    public function parseNotification(string $rawBody, array $headers): PaymentNotification
+    {
+        throw new BadMethodCallException('Not used by this fake.');
+    }
+
+    public function query(string $providerTransactionId): PaymentNotification
+    {
+        throw new BadMethodCallException('Not used by this fake.');
+    }
+
+    public function cancel(string $providerTransactionId): void
+    {
+        throw new BadMethodCallException('Not used by this fake.');
+    }
+}
+
+final class FakePaymentInitiationStore implements PaymentInitiationStoreInterface
+{
+    /** @var array<string, mixed>|null */
+    public ?array $reserved = null;
+    public ?int $completedAttemptId = null;
+    public ?int $failedAttemptId = null;
+    public ?string $failureCode = null;
+
+    public function __construct(public ?PaymentRedirect $existingRedirect = null)
+    {
+    }
+
+    public function transaction(callable $callback): mixed
+    {
+        return $callback();
+    }
+
+    public function reserve(
+        int $orderId,
+        string $provider,
+        string $environment,
+        string $idempotencyKey,
+    ): PaymentReservation {
+        $this->reserved = compact('orderId', 'provider', 'environment', 'idempotencyKey');
+
+        return new PaymentReservation(
+            17,
+            $orderId,
+            'DR-2026-42',
+            new Money(1299, 'PLN'),
+            'buyer@example.com',
+            'Jan',
+            'Kowalski',
+            $idempotencyKey,
+            $this->existingRedirect,
+        );
+    }
+
+    public function complete(int $attemptId, PaymentRedirect $redirect): void
+    {
+        $this->completedAttemptId = $attemptId;
+    }
+
+    public function fail(int $attemptId, string $errorCode): void
+    {
+        $this->failedAttemptId = $attemptId;
+        $this->failureCode = $errorCode;
+    }
+}
+
+final class FakeCheckoutStore implements CheckoutStoreInterface
+{
+    public ?CheckoutResult $existingResult = null;
+    public int $quoteCalls = 0;
+    public ?array $created = null;
+    public ?array $completedCart = null;
+
+    public function __construct(public CheckoutQuote $quote)
+    {
+    }
+
+    public function transaction(callable $callback): mixed
+    {
+        return $callback();
+    }
+
+    public function existing(string $checkoutKey): ?CheckoutResult
+    {
+        return $this->existingResult;
+    }
+
+    public function lockQuote(string $cartToken, CheckoutData $data): CheckoutQuote
+    {
+        $this->quoteCalls++;
+
+        return $this->quote;
+    }
+
+    public function createOrder(
+        string $checkoutKey,
+        string $orderNumber,
+        CheckoutQuote $quote,
+        CheckoutData $data,
+        array $calculation,
+    ): CheckoutResult {
+        $this->created = compact('checkoutKey', 'orderNumber', 'quote', 'data', 'calculation');
+        $requiresFiles = array_reduce(
+            $quote->lines,
+            static fn (bool $required, CheckoutLine $line): bool => $required || $line->requiresFiles,
+            false,
+        );
+
+        return new CheckoutResult(
+            42,
+            $orderNumber,
+            $requiresFiles ? 'awaiting_files' : 'new',
+            'unpaid',
+            $calculation,
+        );
+    }
+
+    public function completeCart(int $cartId, int $expectedVersion): void
+    {
+        $this->completedCart = compact('cartId', 'expectedVersion');
+    }
+}
+
+final class FixedOrderNumberGenerator implements OrderNumberGeneratorInterface
+{
+    public function generate(string $storeCode): string
+    {
+        return strtoupper($storeCode) . '-FIXED-42';
+    }
+}
+
+final class FakeCartRepository implements CartRepositoryInterface
+{
+    /** @var array<int, array<string, mixed>> */
+    public array $added = [];
+
+    public function transaction(callable $callback): mixed
+    {
+        return $callback();
+    }
+
+    public function create(int $storeId, ?int $customerId, string $tokenHash, string $expiresAt): array
+    {
+        return [
+            'id' => 1,
+            'store_id' => $storeId,
+            'customer_id' => $customerId,
+            'currency' => 'PLN',
+            'status' => 'active',
+            'version' => 1,
+            'expires_at' => $expiresAt,
+            'items' => [],
+            'token_hash' => $tokenHash,
+        ];
+    }
+
+    public function addItem(
+        string $tokenHash,
+        int $productId,
+        ?int $variantId,
+        int $quantity,
+        array $options,
+        string $configurationHash,
+    ): array {
+        $this->added[] = compact(
+            'tokenHash',
+            'productId',
+            'variantId',
+            'quantity',
+            'options',
+            'configurationHash',
+        );
+
+        return ['version' => count($this->added) + 1, 'items' => $this->added];
+    }
+
+    public function setQuantity(string $tokenHash, int $itemId, int $quantity): array
+    {
+        return compact('tokenHash', 'itemId', 'quantity');
+    }
+
+    public function removeItem(string $tokenHash, int $itemId): array
+    {
+        return compact('tokenHash', 'itemId');
+    }
+
+    public function snapshot(string $tokenHash): array
+    {
+        return ['token_hash' => $tokenHash, 'items' => $this->added];
     }
 }
 
@@ -312,6 +543,144 @@ $test('cart rejects discount greater than line value', static function (): void 
     throw new RuntimeException('Invalid discount was accepted.');
 });
 
+$test('cart issues an opaque token and stores only its hash', static function () use ($assert): void {
+    $repository = new FakeCartRepository();
+    $created = (new CartService($repository))->create(4);
+    $assert(strlen($created['token']) >= 43);
+    $assert($created['cart']['token_hash'] === hash('sha256', $created['token']));
+    $assert($created['cart']['token_hash'] !== $created['token']);
+});
+
+$test('cart configuration hash is independent of option key order', static function () use ($assert): void {
+    $repository = new FakeCartRepository();
+    $service = new CartService($repository);
+    $token = str_repeat('t', 43);
+    $service->add($token, 5, 7, 1, ['finish' => 'matte', 'size' => ['width' => 10, 'height' => 20]]);
+    $service->add($token, 5, 7, 1, ['size' => ['height' => 20, 'width' => 10], 'finish' => 'matte']);
+    $assert($repository->added[0]['configurationHash'] === $repository->added[1]['configurationHash']);
+    $assert(array_keys($repository->added[0]['options']) === ['finish', 'size']);
+});
+
+$checkoutQuote = static function (): CheckoutQuote {
+    return new CheckoutQuote(
+        1,
+        'drukarnia',
+        9,
+        3,
+        'PLN',
+        true,
+        [
+            new CheckoutLine(
+                5,
+                15,
+                'Baner',
+                '100 x 200 cm',
+                'BAN-100-200',
+                2,
+                1000,
+                100,
+                2300,
+                ['finish' => 'eyelets'],
+                ['configuration_hash' => str_repeat('a', 64)],
+                true,
+            ),
+        ],
+        'courier',
+        'Kurier',
+        1219,
+        2300,
+        2,
+        'START10',
+    );
+};
+
+$checkoutData = static function (): CheckoutData {
+    return new CheckoutData(
+        'buyer@example.com',
+        new CustomerAddress('Jan', 'Kowalski', 'Testowa 1', '00-001', 'Warszawa'),
+        'courier',
+        'ing_pay',
+        true,
+        true,
+        phone: '+48123123123',
+        couponCode: 'START10',
+    );
+};
+
+$test('checkout atomically calculates and creates an awaiting-files order', static function () use ($assert, $checkoutQuote, $checkoutData): void {
+    $store = new FakeCheckoutStore($checkoutQuote());
+    $result = (new CheckoutService($store, null, new FixedOrderNumberGenerator()))->place(
+        'cart-token-long-enough-123456',
+        $checkoutData(),
+        'checkout-submit-token-42',
+    );
+    $assert($result->orderNumber === 'DRUKARNIA-FIXED-42');
+    $assert($result->orderStatus === 'awaiting_files');
+    $assert($result->totals['subtotal_minor'] === 2000);
+    $assert($result->totals['discount_minor'] === 100);
+    $assert($result->totals['shipping']['total_minor'] === 1219);
+    $assert($result->totals['total_minor'] === 3119);
+    $assert($store->created['checkoutKey'] === hash('sha256', 'checkout-submit-token-42'));
+    $assert($store->completedCart === ['cartId' => 9, 'expectedVersion' => 3]);
+});
+
+$test('checkout duplicate returns existing order without converting cart again', static function () use ($assert, $checkoutQuote, $checkoutData): void {
+    $store = new FakeCheckoutStore($checkoutQuote());
+    $store->existingResult = new CheckoutResult(42, 'DRUKARNIA-OLD', 'new', 'unpaid', ['total_minor' => 1000]);
+    $result = (new CheckoutService($store, null, new FixedOrderNumberGenerator()))->place(
+        'cart-token-long-enough-123456',
+        $checkoutData(),
+        'checkout-submit-token-42',
+    );
+    $assert($result->alreadyExisted);
+    $assert($result->orderNumber === 'DRUKARNIA-OLD');
+    $assert($store->quoteCalls === 0);
+    $assert($store->created === null);
+    $assert($store->completedCart === null);
+});
+
+$test('checkout requires legal consents', static function (): void {
+    try {
+        new CheckoutData(
+            'buyer@example.com',
+            new CustomerAddress('Jan', 'Kowalski', 'Testowa 1', '00-001', 'Warszawa'),
+            'courier',
+            'ing_pay',
+            false,
+            true,
+        );
+    } catch (DomainException) {
+        return;
+    }
+    throw new RuntimeException('Checkout without terms consent was accepted.');
+});
+
+$test('checkout validates Polish company tax ID', static function (): void {
+    new CustomerAddress(
+        'Jan',
+        'Kowalski',
+        'Testowa 1',
+        '00-001',
+        'Warszawa',
+        company: 'Reklamova',
+        taxId: '8567346215',
+    );
+    try {
+        new CustomerAddress(
+            'Jan',
+            'Kowalski',
+            'Testowa 1',
+            '00-001',
+            'Warszawa',
+            company: 'Reklamova',
+            taxId: '1234567890',
+        );
+    } catch (InvalidArgumentException) {
+        return;
+    }
+    throw new RuntimeException('Invalid Polish tax ID was accepted.');
+});
+
 $test('order and payment transitions are explicit', static function () use ($assert): void {
     $guard = new StatusTransitionGuard();
     $assert($guard->canChangePayment(PaymentStatus::Pending, PaymentStatus::Paid));
@@ -366,6 +735,69 @@ $test('ING Pay initiation uses sandbox API and minor units', static function () 
     $assert($payload['amount'] === 1219);
     $assert($payload['orderId'] === 'DR-42');
     $assert($result->providerTransactionId === '0f0cc3d0-aae8-410b-bf5c-358955c348e3');
+});
+
+$test('payment initiation reserves server order and stores provider redirect', static function () use ($assert): void {
+    $redirect = new PaymentRedirect('provider-payment', 'https://pay.example.com/redirect');
+    $provider = new FakePaymentProvider($redirect);
+    $store = new FakePaymentInitiationStore();
+    $result = (new PaymentInitiationService($store, $provider))->start(
+        42,
+        'https://shop.example.com/payment/return',
+        'https://shop.example.com/payment/notify',
+        'checkout-attempt-token-42',
+    );
+    $assert($result === $redirect);
+    $assert($provider->initiateCalls === 1);
+    $assert($store->reserved['provider'] === 'fake_pay');
+    $assert($store->reserved['idempotencyKey'] === hash('sha256', 'checkout-attempt-token-42'));
+    $assert($store->completedAttemptId === 17);
+    $assert($store->failedAttemptId === null);
+});
+
+$test('payment initiation returns an existing redirect idempotently', static function () use ($assert): void {
+    $redirect = new PaymentRedirect('provider-payment', 'https://pay.example.com/redirect');
+    $provider = new FakePaymentProvider($redirect);
+    $store = new FakePaymentInitiationStore($redirect);
+    $result = (new PaymentInitiationService($store, $provider))->start(
+        42,
+        'https://shop.example.com/payment/return',
+        'https://shop.example.com/payment/notify',
+        'checkout-attempt-token-42',
+    );
+    $assert($result === $redirect);
+    $assert($provider->initiateCalls === 0);
+    $assert($store->completedAttemptId === null);
+});
+
+$test('payment initiation failure marks the reserved attempt', static function () use ($assert): void {
+    $provider = new FakePaymentProvider(new PaymentRedirect('unused', 'https://pay.example.com/unused'));
+    $provider->initiateException = new RuntimeException('Network unavailable.');
+    $store = new FakePaymentInitiationStore();
+    try {
+        (new PaymentInitiationService($store, $provider))->start(
+            42,
+            'https://shop.example.com/payment/return',
+            'https://shop.example.com/payment/notify',
+            'checkout-attempt-token-42',
+        );
+    } catch (RuntimeException) {
+        $assert($store->failedAttemptId === 17);
+        $assert($store->failureCode === 'provider_request_failed');
+        $assert($store->completedAttemptId === null);
+
+        return;
+    }
+    throw new RuntimeException('Provider exception was swallowed.');
+});
+
+$test('payment redirect requires HTTPS', static function (): void {
+    try {
+        new PaymentRedirect('provider-payment', 'http://pay.example.com/redirect');
+    } catch (InvalidArgumentException) {
+        return;
+    }
+    throw new RuntimeException('Insecure provider redirect was accepted.');
 });
 
 $test('ING Pay notification validates raw-body signature', static function () use ($assert): void {

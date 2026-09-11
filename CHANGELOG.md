@@ -12,6 +12,9 @@ Wszystkie istotne zmiany CMS Reklamova są dokumentowane w tym pliku.
 - Idempotentny importer WooCommerce DB z trybem `dry-run`, raportem konfliktów i kopiowaniem mediów z kontrolą SHA-256.
 - Natywny provider ING Pay z obsługą sandbox/production, tworzeniem i odpytywaniem płatności, anulowaniem oraz weryfikacją podpisu notyfikacji.
 - Atomowe i idempotentne przetwarzanie notyfikacji płatniczych z kontrolą transakcji, zamówienia, kwoty, waluty i przejść statusów.
+- Idempotentne rozpoczynanie i ponawianie płatności z trwałym payment attempt i bez zaufania do kwoty przesłanej przez klienta.
+- Trwały koszyk z nieprzechowywanym wprost tokenem, wersjonowaniem i stabilnym hashem konfiguracji produktu.
+- Atomowy checkout gościnny lub kontowy z ponowną wyceną, VAT, dostawą, kuponami, kontrolą stanów i ochroną przed podwójnym złożeniem zamówienia.
 
 ### Security
 

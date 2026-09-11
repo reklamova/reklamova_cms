@@ -31,6 +31,10 @@ Najważniejsze zasady:
 
        composer test
 
+Test integracyjny wymaga pustej, jednorazowej bazy MariaDB i jawnie ustawionych zmiennych `REKLAMOVA_DATABASE_*`:
+
+       composer test:integration
+
 Włączenie modułu tworzy wyłącznie tabele z prefiksem `commerce_`. Wyłączenie modułu nie usuwa danych.
 
 ## Import z WooCommerce
@@ -51,11 +55,21 @@ Importer pobiera dane bezpośrednio z bazy WooCommerce, kopiuje referencjonowane
 
 `Money` nie przyjmuje floatów. `TaxCalculator` liczy podatek deterministycznie z integerów. `CartCalculator` przyjmuje linie z ceną jednostkową, ilością, rabatem i stawką VAT oraz opcjonalną dostawę. Każdy wynik zawiera subtotal, rabat, netto, VAT i brutto.
 
+## Koszyk i checkout
+
+`CartService` wydaje losowy token o entropii 256 bitów; w bazie przechowywany jest tylko SHA-256. Identyczne konfiguracje produktu otrzymują ten sam hash niezależnie od kolejności kluczy opcji, więc ponowne dodanie zwiększa ilość istniejącej pozycji. Każda mutacja zwiększa wersję koszyka.
+
+`CheckoutService` nie przyjmuje cen z przeglądarki. `PdoCheckoutStore` blokuje koszyk i ponownie pobiera opublikowany produkt, aktywny wariant, opcje, cenę, VAT, stan, wymagania plikowe, kupon i metodę dostawy. Utworzenie zamówienia, immutable snapshotów pozycji, wykorzystania kuponu, zmiany stanu, historii i zdarzenia outbox odbywa się w jednej transakcji. `checkout_key` uniemożliwia podwójne zamówienie po ponowieniu requestu.
+
+Checkout obsługuje gościa lub konto należące do tego samego sklepu i adresu e-mail, osobny adres wysyłki, dane firmy/NIP, fakturę, punkt odbioru i obowiązkowe zgody. Limit kuponu per klient jest liczony po hashu e-mail także dla gościa. Stan jest zmniejszany pod blokadą; produkt wymagający pliku rozpoczyna od `awaiting_files`.
+
 ## Płatności
 
 `PaymentProviderInterface` oddziela domenę zamówień od operatora. Provider zwraca obiekt przekierowania i przekształca surową notyfikację w `PaymentNotification`. `PaymentNotificationProcessor` przyjmuje wyłącznie prawidłowo podpisane zdarzenia, atomowo rezerwuje ich klucz i porównuje transaction ID, order ID, kwotę oraz walutę z zablokowanym rekordem payment attempt. Duplikat nie wykonuje ponownie aktualizacji, a niedozwolone cofnięcie statusu jest odrzucane.
 
 Powrót użytkownika z bramki jest tylko ekranem informacyjnym. Status `paid` może ustawić wyłącznie zweryfikowana notyfikacja albo jawne odpytanie API poddane tym samym kontrolom zgodności.
+
+`PaymentInitiationService` rezerwuje próbę płatności w bazie przed wywołaniem operatora. Kwota, waluta, numer zamówienia i dane płatnika pochodzą z zablokowanego rekordu zamówienia, nie z formularza. Ten sam token ponowionego żądania zwraca już zapisany URL operatora; po jednoznacznym błędzie nowa próba wymaga nowego tokenu.
 
 ING Pay musi mieć osobną konfigurację sandbox/production. Identyfikatory i sekrety są dostarczane przez konfigurację środowiska, nie przez manifest modułu.
 

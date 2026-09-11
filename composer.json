@@ -25,6 +25,9 @@
     ],
     "test": [
       "@php tests/run.php"
+    ],
+    "test:integration": [
+      "@php tests/integration-commerce.php"
     ]
   },
   "config": {
