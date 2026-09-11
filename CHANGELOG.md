@@ -20,6 +20,7 @@ Wszystkie istotne zmiany CMS Reklamova są dokumentowane w tym pliku.
 - Konfigurowalne metody płatności per sklep, bezpieczny odczyt koszyka i tokenizowany dostęp gościa do potwierdzenia zamówienia.
 - Jednorazowe, trwałe claimy zdarzeń analitycznych, aby `purchase` nie był emitowany ponownie po odświeżeniu strony.
 - Bezpieczny `OrderFiles`: storage poza webrootem, autoryzacja tokenem zamówienia, limity, MIME, rozszerzenia, losowe klucze i kontrolowany download z checksumą.
+- Panel Commerce z pulpitem sprzedaży, filtrowaną listą i detalem zamówienia, kontrolowanymi zmianami statusu, edycją podstaw produktu i listą klientów.
 
 ### Security
 

@@ -70,6 +70,12 @@ $pdo = (new ConnectionFactory($container))->make();
 (new Migrator($container))->runActiveModuleMigrations();
 (new Migrator($container))->runCoreMigrations();
 (new Migrator($container))->runActiveModuleMigrations();
+$adminExtensions = (new ModuleManager($container))->adminExtensions($pdo);
+$assert(isset($adminExtensions['routes']['/admin/commerce/orders']), 'Commerce admin order route is missing.');
+$assert(
+    ($adminExtensions['route_permissions']['/admin/commerce/orders']['POST'] ?? null) === 'manage_orders',
+    'Commerce admin order permission is wrong.',
+);
 
 $columns = $pdo->query('SHOW COLUMNS FROM commerce_orders')->fetchAll(PDO::FETCH_COLUMN);
 $assert(in_array('checkout_key', $columns, true), 'Checkout idempotency migration did not run.');
