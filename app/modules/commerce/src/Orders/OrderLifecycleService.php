@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Reklamova\Cms\Commerce\Orders;
 
 use PDO;
+use Reklamova\Cms\Commerce\Notifications\NotificationOutbox;
 
 final class OrderLifecycleService
 {
@@ -62,7 +63,11 @@ final class OrderLifecycleService
                  VALUES (?, "order", ?, ?, ?, ?, ?)'
             )->execute([$orderId, $current->value, $target->value, $actorType, $actorId, substr($reason, 0, 500)]);
             if ($target === OrderStatus::Cancelled) {
-                $this->enqueueCancelled($orderId);
+                (new NotificationOutbox($this->pdo))->enqueueOrder($orderId, 'commerce.order.cancelled');
+            } elseif ($target === OrderStatus::Shipped) {
+                (new NotificationOutbox($this->pdo))->enqueueOrder($orderId, 'commerce.order.shipped', ['status' => $target->value]);
+            } else {
+                (new NotificationOutbox($this->pdo))->enqueueOrder($orderId, 'commerce.order.status_changed', ['status' => $target->value]);
             }
             $this->pdo->commit();
 
@@ -105,22 +110,4 @@ final class OrderLifecycleService
         }
     }
 
-    private function enqueueCancelled(int $orderId): void
-    {
-        $bytes = random_bytes(16);
-        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
-        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
-        $hex = bin2hex($bytes);
-        $eventId = substr($hex, 0, 8) . '-' . substr($hex, 8, 4) . '-' . substr($hex, 12, 4)
-            . '-' . substr($hex, 16, 4) . '-' . substr($hex, 20);
-        $this->pdo->prepare(
-            'INSERT INTO commerce_outbox
-                (event_id, event_type, aggregate_type, aggregate_id, payload_json)
-             VALUES (?, "commerce.order.cancelled", "order", ?, ?)'
-        )->execute([
-            $eventId,
-            (string) $orderId,
-            json_encode(['order_id' => $orderId], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-        ]);
-    }
 }

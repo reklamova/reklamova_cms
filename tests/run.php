@@ -41,6 +41,7 @@ use Reklamova\Cms\Commerce\Pricing\TaxCalculator;
 use Reklamova\Cms\Commerce\Shared\Money;
 use Reklamova\Cms\Media\MediaUploadPolicy;
 use Reklamova\Cms\Support\Config;
+use Reklamova\Cms\Support\EmailTemplate;
 
 final class FakePaymentHttpClient implements HttpClientInterface
 {
@@ -358,6 +359,22 @@ $test('admin session cookies use secure defaults', static function () use ($asse
     $assert($params['httponly'] === true);
     $assert(($params['samesite'] ?? '') === 'Lax');
     $assert(ini_get('session.use_strict_mode') === '1');
+});
+
+$test('responsive email template escapes content and validates action URL', static function () use ($assert): void {
+    $html = (new EmailTemplate())->render(
+        'Drukarnia',
+        'Krótki podgląd',
+        'Zamówienie <123>',
+        ['Treść & szczegóły'],
+        ['Status' => 'Opłacone'],
+        ['label' => 'Otwórz', 'url' => 'javascript:alert(1)'],
+    );
+    $assert(str_starts_with($html, '<!doctype html>'));
+    $assert(str_contains($html, 'Zamówienie &lt;123&gt;'));
+    $assert(str_contains($html, 'Treść &amp; szczegóły'));
+    $assert(!str_contains($html, 'javascript:alert'));
+    $assert(str_contains($html, '@media(max-width:620px)'));
 });
 
 $test('environment overrides typed configuration', static function () use ($assert): void {

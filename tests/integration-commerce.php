@@ -138,6 +138,7 @@ $emailSender = new IntegrationEmailSender();
 $notificationWorker = new NotificationWorker($pdo, $emailSender, 'https://shop.example.com', 'Drukarnia');
 $assert($notificationWorker->processNext() === 'sent', 'Customer activation notification was not sent.');
 $assert(str_contains($emailSender->messages[0]['message'], '/moje-konto/haslo?token='), 'Activation email lacks its one-time link.');
+$assert(str_starts_with($emailSender->messages[0]['message'], '<!doctype html>'), 'Activation email is not rendered with the responsive CMS template.');
 $storedTokenPayload = (string) $pdo->query('SELECT payload_json FROM commerce_outbox WHERE event_type = "commerce.customer.activate_requested"')->fetchColumn();
 $assert($storedTokenPayload === '{}', 'Delivered activation token was not removed from the outbox.');
 $activatedCustomer = $customerAuth->completePasswordToken($passwordToken['token'], 'BezpieczneHaslo2026');
@@ -295,6 +296,8 @@ $assert(
     'Wrong order access token was accepted.',
 );
 $assert($notificationWorker->processNext() === 'sent', 'Order confirmation notification was not sent.');
+$assert(str_starts_with($emailSender->messages[1]['message'], '<!doctype html>'), 'Order confirmation email is not HTML.');
+$assert(str_contains($emailSender->messages[1]['subject'], 'oczekuje na płatność'), 'Pending order email has the wrong template.');
 $assert($notificationWorker->processNext() === 'empty', 'Notification queue did not drain.');
 $assert(count($emailSender->messages) === 2, 'Unexpected number of queued email messages was sent.');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_notification_deliveries WHERE status = "sent"')->fetchColumn() === 2, 'Notification delivery audit is incomplete.');
@@ -419,6 +422,18 @@ $assert($paymentStatus === 'paid', 'Order was not marked paid.');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM commerce_payment_events')->fetchColumn() === 1, 'Payment event was duplicated.');
 $assert($notificationWorker->processNext() === 'sent', 'Paid order notification was not sent.');
 $assert(str_contains($emailSender->messages[2]['subject'], 'Płatność'), 'Paid order email has the wrong template.');
+$mailLifecycle = new OrderLifecycleService($pdo);
+$assert($mailLifecycle->changeOrderStatus($result->orderId, $storeId, OrderStatus::FilesReceived, 'admin', 1, 'mail_status_test'), 'Files-received status was not changed.');
+$assert($mailLifecycle->changeOrderStatus($result->orderId, $storeId, OrderStatus::InProduction, 'admin', 1, 'mail_status_test'), 'Production status was not changed.');
+$assert($mailLifecycle->changeOrderStatus($result->orderId, $storeId, OrderStatus::Ready, 'admin', 1, 'mail_status_test'), 'Ready status was not changed.');
+$pdo->prepare('INSERT INTO commerce_order_shipments (order_id, status, tracking_number, tracking_url, shipped_at) VALUES (?, "shipped", "TRACK-123", "https://carrier.example/track/TRACK-123", CURRENT_TIMESTAMP)')->execute([$result->orderId]);
+$assert($mailLifecycle->changeOrderStatus($result->orderId, $storeId, OrderStatus::Shipped, 'admin', 1, 'mail_shipped_test'), 'Shipped status was not changed.');
+$assert($notificationWorker->processNext() === 'sent', 'Files-received status notification was not sent.');
+$assert($notificationWorker->processNext() === 'sent', 'Production status notification was not sent.');
+$assert($notificationWorker->processNext() === 'sent', 'Ready status notification was not sent.');
+$assert($notificationWorker->processNext() === 'sent', 'Shipped notification was not sent.');
+$assert(str_contains($emailSender->messages[array_key_last($emailSender->messages)]['subject'], 'wysłane'), 'Shipped email has the wrong template.');
+$assert(str_contains($emailSender->messages[array_key_last($emailSender->messages)]['message'], 'TRACK-123'), 'Shipped email lacks tracking data.');
 $analytics = new AnalyticsEventRepository($pdo);
 $assert($analytics->claimOnce('purchase', 'order', (string) $result->orderId, ['value' => 233.59]), 'Purchase event was not claimed.');
 $assert(!$analytics->claimOnce('purchase', 'order', (string) $result->orderId, ['value' => 233.59]), 'Purchase event was claimed twice.');
@@ -448,7 +463,10 @@ $assert(!$lifecycle->changeOrderStatus($freeShippingOrder->orderId, $storeId, Or
 $assert((int) $pdo->query("SELECT stock_quantity FROM commerce_products WHERE id = {$productId}")->fetchColumn() === 8, 'Duplicate cancellation released stock twice.');
 $assert($notificationWorker->processNext() === 'sent', 'Second order confirmation notification was not sent.');
 $assert($notificationWorker->processNext() === 'sent', 'Cancellation notification was not sent.');
-$assert(str_contains($emailSender->messages[4]['subject'], 'anulowane'), 'Cancellation email has the wrong template.');
+$assert(str_contains($emailSender->messages[array_key_last($emailSender->messages)]['subject'], 'anulowane'), 'Cancellation email has the wrong template.');
+(new NotificationOutbox($pdo))->enqueueOrder($freeShippingOrder->orderId, 'commerce.order.payment_failed', ['source' => 'integration']);
+$assert($notificationWorker->processNext() === 'sent', 'Payment failure notification was not sent.');
+$assert(str_contains($emailSender->messages[array_key_last($emailSender->messages)]['subject'], 'Problem z płatnością'), 'Payment failure email has the wrong template.');
 
 $importSnapshot = [
     'source_system' => 'woocommerce',

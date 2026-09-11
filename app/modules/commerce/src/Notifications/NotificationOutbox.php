@@ -8,6 +8,15 @@ use PDO;
 
 final class NotificationOutbox
 {
+    private const ORDER_EVENTS = [
+        'commerce.order.created',
+        'commerce.order.paid',
+        'commerce.order.payment_failed',
+        'commerce.order.status_changed',
+        'commerce.order.shipped',
+        'commerce.order.cancelled',
+    ];
+
     public function __construct(private PDO $pdo)
     {
     }
@@ -32,6 +41,25 @@ final class NotificationOutbox
                 : 'commerce.customer.reset_requested',
             (string) $customerId,
             json_encode(['token' => $rawToken], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+
+    /** @param array<string, mixed> $payload */
+    public function enqueueOrder(int $orderId, string $eventType, array $payload = []): void
+    {
+        if ($orderId <= 0 || !in_array($eventType, self::ORDER_EVENTS, true)) {
+            throw new \InvalidArgumentException('Invalid order notification.');
+        }
+        $payload['order_id'] = $orderId;
+        $this->pdo->prepare(
+            'INSERT INTO commerce_outbox
+                (event_id, event_type, aggregate_type, aggregate_id, payload_json)
+             VALUES (?, ?, "order", ?, ?)'
+        )->execute([
+            $this->uuid(),
+            $eventType,
+            (string) $orderId,
+            json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ]);
     }
 

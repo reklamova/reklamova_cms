@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Reklamova\Cms\Commerce\Payments;
 
 use PDO;
+use Reklamova\Cms\Commerce\Notifications\NotificationOutbox;
 use Reklamova\Cms\Commerce\Orders\PaymentStatus;
 use Reklamova\Cms\Commerce\Shared\Money;
 
@@ -169,6 +170,11 @@ final class PdoPaymentInitiationStore implements PaymentInitiationStoreInterface
                 $status,
                 PaymentStatus::Failed->value,
                 $errorCode,
+            );
+            (new NotificationOutbox($this->pdo))->enqueueOrder(
+                (int) $row['order_id'],
+                'commerce.order.payment_failed',
+                ['source' => 'payment_initiation'],
             );
         }
     }

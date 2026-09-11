@@ -6,6 +6,7 @@ namespace Reklamova\Cms\Commerce\Payments;
 
 use PDO;
 use PDOException;
+use Reklamova\Cms\Commerce\Notifications\NotificationOutbox;
 use Reklamova\Cms\Commerce\Orders\PaymentStatus;
 use Reklamova\Cms\Commerce\Shared\Money;
 
@@ -142,21 +143,13 @@ final class PdoPaymentNotificationStore implements PaymentNotificationStoreInter
             ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
         ]);
         if ($newStatus === PaymentStatus::Paid && $attempt->paymentStatus !== PaymentStatus::Paid) {
-            $bytes = random_bytes(16);
-            $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
-            $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
-            $hex = bin2hex($bytes);
-            $eventId = substr($hex, 0, 8) . '-' . substr($hex, 8, 4) . '-' . substr($hex, 12, 4)
-                . '-' . substr($hex, 16, 4) . '-' . substr($hex, 20);
-            $this->pdo->prepare(
-                'INSERT INTO commerce_outbox
-                    (event_id, event_type, aggregate_type, aggregate_id, payload_json)
-                 VALUES (?, "commerce.order.paid", "order", ?, ?)'
-            )->execute([
-                $eventId,
-                (string) $attempt->orderId,
-                json_encode(['order_id' => $attempt->orderId], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-            ]);
+            (new NotificationOutbox($this->pdo))->enqueueOrder($attempt->orderId, 'commerce.order.paid');
+        } elseif ($newStatus === PaymentStatus::Failed && $attempt->paymentStatus !== PaymentStatus::Failed) {
+            (new NotificationOutbox($this->pdo))->enqueueOrder(
+                $attempt->orderId,
+                'commerce.order.payment_failed',
+                ['source' => 'provider_notification'],
+            );
         }
     }
 

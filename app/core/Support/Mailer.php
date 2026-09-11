@@ -24,9 +24,10 @@ final class Mailer implements EmailSenderInterface
 
         $from = $this->fromAddress();
         $fromName = (string) ($this->mail['from_name'] ?? $this->app['name'] ?? 'Reklamova CMS');
+        $html = preg_match('/^\s*<!doctype html>/i', $message) === 1;
         $headers = [
             'MIME-Version: 1.0',
-            'Content-Type: text/plain; charset=UTF-8',
+            'Content-Type: ' . ($html ? 'text/html' : 'text/plain') . '; charset=UTF-8',
             'From: ' . $this->encodeHeader($fromName) . ' <' . $from . '>',
             'Reply-To: ' . $from,
             'X-Mailer: Reklamova CMS',
@@ -50,10 +51,11 @@ final class Mailer implements EmailSenderInterface
 
     private function encodeHeader(string $value): string
     {
-        if (preg_match('/[^\x20-\x7E]/', $value) !== 1) {
+        $value = str_replace(["\r", "\n"], '', $value);
+        if (preg_match('/[^\x20-\x7E]/', $value) === 1) {
             return '=?UTF-8?B?' . base64_encode($value) . '?=';
         }
 
-        return str_replace(["\r", "\n"], '', $value);
+        return $value;
     }
 }

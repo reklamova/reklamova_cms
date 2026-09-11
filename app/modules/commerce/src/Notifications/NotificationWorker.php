@@ -5,18 +5,23 @@ declare(strict_types=1);
 namespace Reklamova\Cms\Commerce\Notifications;
 
 use PDO;
+use Reklamova\Cms\Support\EmailTemplate;
 use Reklamova\Cms\Support\EmailSenderInterface;
 
 final class NotificationWorker
 {
+    private EmailTemplate $template;
+
     public function __construct(
         private PDO $pdo,
         private EmailSenderInterface $sender,
         private string $siteUrl,
         private string $siteName,
+        ?EmailTemplate $template = null,
     ) {
         $this->siteUrl = rtrim($this->siteUrl, '/');
         $this->siteName = trim($this->siteName) ?: 'Sklep Reklamova';
+        $this->template = $template ?? new EmailTemplate();
     }
 
     public function processNext(): string
@@ -86,11 +91,19 @@ final class NotificationWorker
     private function notification(array $event): ?array
     {
         $type = (string) $event['event_type'];
-        if (in_array($type, ['commerce.order.created', 'commerce.order.paid', 'commerce.order.cancelled'], true)) {
-            return $this->orderNotification((int) $event['aggregate_id'], $type);
+        $payload = json_decode((string) $event['payload_json'], true, 16, JSON_THROW_ON_ERROR);
+        $payload = is_array($payload) ? $payload : [];
+        if (in_array($type, [
+            'commerce.order.created',
+            'commerce.order.paid',
+            'commerce.order.payment_failed',
+            'commerce.order.status_changed',
+            'commerce.order.shipped',
+            'commerce.order.cancelled',
+        ], true)) {
+            return $this->orderNotification((int) $event['aggregate_id'], $type, $payload);
         }
         if ($type === 'commerce.customer.activate_requested' || $type === 'commerce.customer.reset_requested') {
-            $payload = json_decode((string) $event['payload_json'], true, 16, JSON_THROW_ON_ERROR);
             return $this->passwordNotification(
                 (int) $event['aggregate_id'],
                 $type,
@@ -102,11 +115,13 @@ final class NotificationWorker
     }
 
     /** @return array<string, string>|null */
-    private function orderNotification(int $orderId, string $eventType): ?array
+    private function orderNotification(int $orderId, string $eventType, array $payload = []): ?array
     {
         $statement = $this->pdo->prepare(
             'SELECT o.order_number, o.customer_email, o.total_minor, o.currency,
-                    o.order_status, o.payment_status, o.customer_id
+                    o.order_status, o.payment_status, o.customer_id,
+                    (SELECT s.tracking_number FROM commerce_order_shipments s WHERE s.order_id=o.id ORDER BY s.id DESC LIMIT 1) AS tracking_number,
+                    (SELECT s.tracking_url FROM commerce_order_shipments s WHERE s.order_id=o.id ORDER BY s.id DESC LIMIT 1) AS tracking_url
              FROM commerce_orders o WHERE o.id = ? LIMIT 1'
         );
         $statement->execute([$orderId]);
@@ -116,32 +131,77 @@ final class NotificationWorker
         }
         $number = (string) $order['order_number'];
         $total = number_format((int) $order['total_minor'] / 100, 2, ',', ' ') . ' ' . strtoupper((string) $order['currency']);
-        $accountLine = $order['customer_id'] === null
-            ? "Status zamówienia sprawdzisz na urządzeniu, na którym zostało złożone.\n"
-            : "Historia zamówień: {$this->siteUrl}/moje-konto\n";
+        $action = $order['customer_id'] === null
+            ? ['label' => 'Przejdź do sklepu', 'url' => $this->siteUrl]
+            : ['label' => 'Zobacz swoje zamówienia', 'url' => $this->siteUrl . '/moje-konto'];
+        $facts = [
+            'Numer zamówienia' => $number,
+            'Kwota' => $total,
+            'Płatność' => $this->status((string) $order['payment_status']),
+            'Realizacja' => $this->status((string) ($payload['status'] ?? $order['order_status'])),
+        ];
 
         if ($eventType === 'commerce.order.paid') {
             return [
                 'to' => (string) $order['customer_email'],
                 'subject' => "Płatność za zamówienie {$number} potwierdzona",
-                'body' => "Dzień dobry,\n\npotwierdzamy płatność za zamówienie {$number}.\nKwota: {$total}\n{$accountLine}\nRozpoczynamy obsługę zamówienia.\n\n{$this->siteName}",
+                'body' => $this->template->render($this->siteName, 'Płatność została przyjęta.', 'Płatność potwierdzona', ['Dziękujemy. Płatność dotarła prawidłowo i możemy rozpocząć obsługę zamówienia.'], $facts, $action),
                 'template' => 'order_paid',
+            ];
+        }
+        if ($eventType === 'commerce.order.payment_failed') {
+            return [
+                'to' => (string) $order['customer_email'],
+                'subject' => "Problem z płatnością za zamówienie {$number}",
+                'body' => $this->template->render($this->siteName, 'Płatność wymaga ponowienia.', 'Nie udało się potwierdzić płatności', ['Zamówienie jest zapisane, ale operator nie potwierdził płatności. Zaloguj się do konta i bezpiecznie ponów próbę.'], $facts, $action, 'Nie przesyłaj danych karty ani danych logowania w odpowiedzi na tę wiadomość.'),
+                'template' => 'order_payment_failed',
+            ];
+        }
+        if ($eventType === 'commerce.order.shipped') {
+            if (!empty($order['tracking_number'])) {
+                $facts['Numer przesyłki'] = (string) $order['tracking_number'];
+            }
+            $trackingAction = !empty($order['tracking_url'])
+                ? ['label' => 'Śledź przesyłkę', 'url' => (string) $order['tracking_url']]
+                : $action;
+            return [
+                'to' => (string) $order['customer_email'],
+                'subject' => "Zamówienie {$number} zostało wysłane",
+                'body' => $this->template->render($this->siteName, 'Twoje zamówienie jest w drodze.', 'Zamówienie wysłane', ['Gotowe materiały zostały przekazane do doręczenia.'], $facts, $trackingAction),
+                'template' => 'order_shipped',
             ];
         }
         if ($eventType === 'commerce.order.cancelled') {
             return [
                 'to' => (string) $order['customer_email'],
                 'subject' => "Zamówienie {$number} zostało anulowane",
-                'body' => "Dzień dobry,\n\nzamówienie {$number} zostało anulowane.\nKwota zamówienia: {$total}\n{$accountLine}\nW razie pytań odpowiedz na tę wiadomość.\n\n{$this->siteName}",
+                'body' => $this->template->render($this->siteName, 'Zamówienie zostało anulowane.', 'Zamówienie anulowane', ['Wstrzymaliśmy realizację tego zamówienia. Jeśli masz pytania, odpowiedz na tę wiadomość.'], $facts, $action),
                 'template' => 'order_cancelled',
             ];
         }
+        if ($eventType === 'commerce.order.status_changed') {
+            return [
+                'to' => (string) $order['customer_email'],
+                'subject' => "Nowy status zamówienia {$number}",
+                'body' => $this->template->render($this->siteName, 'Status zamówienia został zaktualizowany.', 'Zamówienie zmieniło status', ['Aktualny etap realizacji znajdziesz poniżej oraz na swoim koncie klienta.'], $facts, $action),
+                'template' => 'order_status_changed',
+            ];
+        }
+
+        $awaiting = in_array((string) $order['payment_status'], ['unpaid', 'pending'], true);
 
         return [
             'to' => (string) $order['customer_email'],
-            'subject' => "Potwierdzenie zamówienia {$number}",
-            'body' => "Dzień dobry,\n\nzapisaliśmy zamówienie {$number}.\nKwota: {$total}\nStatus płatności: {$order['payment_status']}\n{$accountLine}\nDziękujemy za zamówienie.\n\n{$this->siteName}",
-            'template' => 'order_created',
+            'subject' => $awaiting ? "Zamówienie {$number} oczekuje na płatność" : "Potwierdzenie zamówienia {$number}",
+            'body' => $this->template->render(
+                $this->siteName,
+                $awaiting ? 'Zamówienie jest zapisane i oczekuje na płatność.' : 'Zamówienie zostało zapisane.',
+                $awaiting ? 'Czekamy na potwierdzenie płatności' : 'Dziękujemy za zamówienie',
+                [$awaiting ? 'Operator płatności potwierdzi wynik niezależnie. Sam powrót do sklepu nie oznacza jeszcze opłacenia.' : 'Przyjęliśmy zamówienie do dalszej obsługi.'],
+                $facts,
+                $action,
+            ),
+            'template' => $awaiting ? 'order_awaiting_payment' : 'order_created',
         ];
     }
 
@@ -166,12 +226,36 @@ final class NotificationWorker
         return [
             'to' => (string) $customer['email'],
             'subject' => $activation ? 'Aktywuj konto klienta' : 'Ustaw nowe hasło do konta',
-            'body' => "{$name},\n\n" . ($activation
-                ? "ustaw nowe hasło, aby aktywować konto po migracji sklepu:\n"
-                : "otrzymaliśmy prośbę o ustawienie nowego hasła:\n")
-                . "{$link}\n\nLink jest jednorazowy i wygaśnie po godzinie. Jeśli to nie Ty wysyłasz prośbę, zignoruj tę wiadomość.\n\n{$this->siteName}",
+            'body' => $this->template->render(
+                $this->siteName,
+                $activation ? 'Aktywuj konto po migracji sklepu.' : 'Ustaw nowe hasło do konta.',
+                $activation ? 'Aktywuj swoje konto' : 'Ustaw nowe hasło',
+                ["{$name}, " . ($activation ? 'ustaw własne hasło, aby bezpiecznie korzystać z konta po migracji sklepu.' : 'otrzymaliśmy prośbę o ustawienie nowego hasła.')],
+                ['Ważność linku' => '1 godzina', 'Użycie' => 'jednorazowe'],
+                ['label' => $activation ? 'Aktywuj konto' : 'Ustaw nowe hasło', 'url' => $link],
+                'Jeśli to nie Ty wysyłasz prośbę, zignoruj tę wiadomość.',
+            ),
             'template' => $activation ? 'customer_activate' : 'customer_reset',
         ];
+    }
+
+    private function status(string $status): string
+    {
+        return [
+            'unpaid' => 'nieopłacona',
+            'pending' => 'weryfikowana',
+            'paid' => 'opłacona',
+            'failed' => 'nieudana',
+            'cancelled' => 'anulowana',
+            'refunded' => 'zwrócona',
+            'new' => 'nowe',
+            'awaiting_files' => 'oczekuje na pliki',
+            'files_received' => 'pliki przyjęte',
+            'in_production' => 'w produkcji',
+            'ready' => 'gotowe',
+            'shipped' => 'wysłane',
+            'completed' => 'zakończone',
+        ][$status] ?? $status;
     }
 
     /** @param array<string, mixed> $event @param array<string, string> $notification */
