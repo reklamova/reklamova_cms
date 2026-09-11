@@ -66,7 +66,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '<label class="field field--half">Tytuł<input name="title" required value="' . $h($edit['title'] ?? '') . '"></label>'
             . '<label class="field">Podtytuł / podpis<input name="subtitle" value="' . $h($edit['subtitle'] ?? '') . '"></label>'
             . '<label class="field">Wartość / liczba / ocena<input name="value" value="' . $h($edit['value'] ?? '') . '"></label>'
-            . '<label class="field field--wide">Opis / treść opinii<textarea name="description">' . $h($edit['description'] ?? '') . '</textarea></label>'
+            . '<label class="field field--wide">Opis / treść opinii<textarea name="description" data-content-editor>' . $h($edit['description'] ?? '') . '</textarea></label>'
             . '<label class="field field--half">Obraz albo logo<input name="image" value="' . $h($edit['image'] ?? '') . '"></label>'
             . '<label class="field field--half">Plik PDF / download<input name="file_url" value="' . $h($edit['file_url'] ?? '') . '"></label>'
             . '<label class="field field--half">Link zewnętrzny<input name="external_url" value="' . $h($edit['external_url'] ?? '') . '"></label>'

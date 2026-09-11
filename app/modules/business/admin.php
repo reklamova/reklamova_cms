@@ -24,7 +24,7 @@ return static function (array $container, PDO $pdo, array $module): array {
                 'title' => ['label' => 'Nazwa usługi', 'type' => 'text', 'required' => true],
                 'slug' => ['label' => 'Adres URL', 'type' => 'text'],
                 'summary' => ['label' => 'Krótki opis', 'type' => 'textarea'],
-                'description' => ['label' => 'Pełny opis', 'type' => 'textarea'],
+                'description' => ['label' => 'Pełny opis', 'type' => 'textarea', 'content_editor' => true],
                 'icon' => ['label' => 'Ikona / identyfikator', 'type' => 'text'],
                 'featured_image' => ['label' => 'Obraz wyróżniający', 'type' => 'text'],
                 'meta_title' => ['label' => 'Meta title', 'type' => 'text'],
@@ -44,7 +44,7 @@ return static function (array $container, PDO $pdo, array $module): array {
                 'slug' => ['label' => 'Adres URL', 'type' => 'text'],
                 'region' => ['label' => 'Region', 'type' => 'text'],
                 'summary' => ['label' => 'Krótki opis lokalny', 'type' => 'textarea'],
-                'description' => ['label' => 'Treść lokalnej podstrony', 'type' => 'textarea'],
+                'description' => ['label' => 'Treść lokalnej podstrony', 'type' => 'textarea', 'content_editor' => true],
                 'meta_title' => ['label' => 'Meta title', 'type' => 'text'],
                 'meta_description' => ['label' => 'Meta description', 'type' => 'textarea'],
                 'status' => ['label' => 'Status', 'type' => 'status'],
@@ -63,9 +63,9 @@ return static function (array $container, PDO $pdo, array $module): array {
                 'client_name' => ['label' => 'Klient', 'type' => 'text'],
                 'industry' => ['label' => 'Branża', 'type' => 'text'],
                 'summary' => ['label' => 'Krótki opis', 'type' => 'textarea'],
-                'challenge' => ['label' => 'Wyzwanie', 'type' => 'textarea'],
-                'solution' => ['label' => 'Rozwiązanie', 'type' => 'textarea'],
-                'result' => ['label' => 'Efekt / rezultat', 'type' => 'textarea'],
+                'challenge' => ['label' => 'Wyzwanie', 'type' => 'textarea', 'content_editor' => true],
+                'solution' => ['label' => 'Rozwiązanie', 'type' => 'textarea', 'content_editor' => true],
+                'result' => ['label' => 'Efekt / rezultat', 'type' => 'textarea', 'content_editor' => true],
                 'cover_image' => ['label' => 'Obraz okładki', 'type' => 'text'],
                 'meta_title' => ['label' => 'Meta title', 'type' => 'text'],
                 'meta_description' => ['label' => 'Meta description', 'type' => 'textarea'],
@@ -83,7 +83,7 @@ return static function (array $container, PDO $pdo, array $module): array {
                 'author' => ['label' => 'Autor', 'type' => 'text', 'required' => true],
                 'company' => ['label' => 'Firma', 'type' => 'text'],
                 'role' => ['label' => 'Stanowisko / opis', 'type' => 'text'],
-                'quote' => ['label' => 'Treść opinii', 'type' => 'textarea', 'required' => true],
+                'quote' => ['label' => 'Treść opinii', 'type' => 'textarea', 'required' => true, 'content_editor' => true],
                 'rating' => ['label' => 'Ocena 1-5', 'type' => 'number'],
                 'source_url' => ['label' => 'Link źródłowy', 'type' => 'text'],
                 'is_featured' => ['label' => 'Wyróżniona opinia', 'type' => 'checkbox'],
@@ -99,7 +99,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             'columns' => ['question' => 'Pytanie', 'scope_type' => 'Zakres', 'scope_slug' => 'Adres URL', 'status' => 'Status'],
             'fields' => [
                 'question' => ['label' => 'Pytanie', 'type' => 'text', 'required' => true],
-                'answer' => ['label' => 'Odpowiedź', 'type' => 'textarea', 'required' => true],
+                'answer' => ['label' => 'Odpowiedź', 'type' => 'textarea', 'required' => true, 'content_editor' => true],
                 'scope_type' => ['label' => 'Zakres: global/service/area/case', 'type' => 'text'],
                 'scope_slug' => ['label' => 'Adres URL elementu zakresu', 'type' => 'text'],
                 'status' => ['label' => 'Status', 'type' => 'status'],
@@ -115,7 +115,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             'fields' => [
                 'name' => ['label' => 'Imię i nazwisko', 'type' => 'text', 'required' => true],
                 'role' => ['label' => 'Rola', 'type' => 'text'],
-                'bio' => ['label' => 'Bio', 'type' => 'textarea'],
+                'bio' => ['label' => 'Bio', 'type' => 'textarea', 'content_editor' => true],
                 'photo' => ['label' => 'Zdjęcie', 'type' => 'text'],
                 'email' => ['label' => 'E-mail', 'type' => 'text'],
                 'phone' => ['label' => 'Telefon', 'type' => 'text'],
@@ -133,7 +133,7 @@ return static function (array $container, PDO $pdo, array $module): array {
                 'name' => ['label' => 'Nazwa wewnętrzna', 'type' => 'text', 'required' => true],
                 'placement' => ['label' => 'Miejsce: global/service/area/case', 'type' => 'text'],
                 'headline' => ['label' => 'Nagłówek', 'type' => 'text', 'required' => true],
-                'text' => ['label' => 'Tekst', 'type' => 'textarea'],
+                'text' => ['label' => 'Tekst', 'type' => 'textarea', 'content_editor' => true],
                 'button_label' => ['label' => 'Tekst przycisku', 'type' => 'text'],
                 'button_url' => ['label' => 'Adres przycisku', 'type' => 'text'],
                 'status' => ['label' => 'Status', 'type' => 'status'],
@@ -156,7 +156,8 @@ return static function (array $container, PDO $pdo, array $module): array {
         $required = !empty($field['required']) ? ' required' : '';
         $label = $h($field['label']);
         if ($field['type'] === 'textarea') {
-            return '<label class="field field--wide">' . $label . '<textarea name="' . $h($name) . '"' . $required . '>' . $h($value) . '</textarea></label>';
+            $contentEditor = !empty($field['content_editor']) ? ' data-content-editor' : '';
+            return '<label class="field field--wide">' . $label . '<textarea name="' . $h($name) . '"' . $contentEditor . $required . '>' . $h($value) . '</textarea></label>';
         }
         if ($field['type'] === 'status') {
             return '<label class="field">Status<select name="' . $h($name) . '"><option value="draft"' . ((string) $value === 'draft' ? ' selected' : '') . '>Szkic</option><option value="published"' . ((string) $value === 'published' ? ' selected' : '') . '>Opublikowane</option></select></label>';

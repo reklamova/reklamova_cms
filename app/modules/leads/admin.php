@@ -36,12 +36,18 @@ return static function (array $container, PDO $pdo, array $module): array {
 
         $rows = '';
         foreach ($repo->all() as $lead) {
+            $leadId = (int) $lead['id'];
+            $leadLabel = trim((string) ($lead['name'] ?: $lead['email'] ?: ('zapytanie ' . $leadId)));
+            $statusId = 'lead-status-' . $leadId;
+            $noteId = 'lead-note-' . $leadId;
             $statusOptions = '';
             foreach ($statuses as $value => $label) {
                 $statusOptions .= '<option value="' . $h($value) . '"' . ((string) $lead['status'] === $value ? ' selected' : '') . '>' . $h($label) . '</option>';
             }
             $statusCell = $canManage
-                ? '<form method="post" class="lead-status-form">' . Csrf::field() . '<input type="hidden" name="id" value="' . (int) $lead['id'] . '"><select name="status">' . $statusOptions . '</select><textarea name="note" placeholder="Notatka">' . $h($lead['note']) . '</textarea><button>Zapisz</button></form>'
+                ? '<form method="post" class="lead-status-form">' . Csrf::field() . '<input type="hidden" name="id" value="' . $leadId . '">'
+                    . '<label class="sr-only" for="' . $statusId . '">Status: ' . $h($leadLabel) . '</label><select id="' . $statusId . '" name="status">' . $statusOptions . '</select>'
+                    . '<label class="sr-only" for="' . $noteId . '">Notatka: ' . $h($leadLabel) . '</label><textarea id="' . $noteId . '" name="note" placeholder="Notatka">' . $h($lead['note']) . '</textarea><button>Zapisz</button></form>'
                 : '<b>' . $h($statuses[(string) $lead['status']] ?? $lead['status']) . '</b><br><small>' . $h($lead['note']) . '</small>';
             $rows .= '<tr><td><b>' . $h($lead['name'] ?: 'Bez nazwy') . '</b><br>' . $h($lead['email']) . '<br>' . $h($lead['phone']) . '</td>'
                 . '<td>' . $h($lead['form_type']) . '<br><small>' . $h($lead['source']) . '</small></td>'

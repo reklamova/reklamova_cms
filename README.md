@@ -33,6 +33,17 @@ Core update nie moze zmieniac:
 - `app/storage/backups`
 - `app/storage/logs`
 
+## Warstwy klientów
+
+Wspólny core pozostaje identyczny na każdej instalacji. Kod specyficzny dla
+klienta jest wersjonowany osobno w protected paths:
+
+- MERO: `app/modules/custom/mero`,
+- PowerTech: `app/modules/custom/powertech` i `app/themes/powertech`.
+
+Aktualny raport rozdzielenia instalacji, backupów i testów znajduje się w
+[`docs/operations/client-separation-2026-08-12.md`](./docs/operations/client-separation-2026-08-12.md).
+
 ## Lokalna struktura
 
 ```text

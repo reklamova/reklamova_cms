@@ -6,6 +6,7 @@ namespace Reklamova\Cms\Install;
 
 use PDO;
 use Reklamova\Cms\Auth\Csrf;
+use Reklamova\Cms\Auth\SuperAdminIdentity;
 use Reklamova\Cms\Database\ConnectionFactory;
 use Reklamova\Cms\Database\Migrator;
 use Reklamova\Cms\Health\HealthCheck;
@@ -105,10 +106,10 @@ final class InstallController
 
     private function createAdmin(PDO $pdo, array $input): void
     {
-        $statement = $pdo->prepare('INSERT INTO cms_users (email, name, password_hash, role, active) VALUES (?, ?, ?, "client_admin", 1)');
+        $statement = $pdo->prepare('INSERT INTO cms_users (email, name, password_hash, role, active) VALUES (?, ?, ?, "super_admin", 1)');
         $statement->execute([
-            trim((string) $input['admin_email']),
-            trim((string) ($input['admin_name'] ?: 'Administrator')),
+            SuperAdminIdentity::EMAIL,
+            trim((string) ($input['admin_name'] ?: 'Reklamova Admin')),
             password_hash((string) $input['admin_password'], PASSWORD_DEFAULT),
         ]);
     }
@@ -146,7 +147,7 @@ final class InstallController
             . '<label>Site key<input name="site_key"></label>'
             . '<label>Aktywne moduly<input name="active_modules" placeholder="np. mero"></label>'
             . '<label>Imie administratora<input name="admin_name" value="Administrator"></label>'
-            . '<label>Email administratora<input type="email" name="admin_email"></label>'
+            . '<label>Email superadministratora<input type="email" name="admin_email" value="' . SuperAdminIdentity::EMAIL . '" readonly></label>'
             . '<label>Hasło administratora<input type="password" name="admin_password"></label>'
             . '<button>Uruchom CMS</button></form></section>'
             . '<section class="panel"><h2>Health check</h2><pre>' . $healthHtml . '</pre></section></main></body></html>';

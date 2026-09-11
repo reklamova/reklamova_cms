@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Reklamova\Cms\Modules\Knowledge\KnowledgeRepository;
+use Reklamova\Cms\Content\TextFormatter;
 use Reklamova\Cms\Support\Config;
 
 require_once __DIR__ . '/src/KnowledgeRepository.php';
@@ -46,7 +47,7 @@ return static function (array $container, PDO $pdo, array $module): array {
                 'datePublished' => $article['published_at'] ?? $article['created_at'],
                 'author' => ['@type' => 'Person', 'name' => $article['author_name'] ?: 'Reklamova CMS'],
             ];
-            $body = '<article class="kh-article"><p class="muted">' . $h($article['category_name'] ?? '') . '</p><h1>' . $h($article['title']) . '</h1><p class="muted">' . $h($article['excerpt'] ?? '') . '</p><hr>' . nl2br($h($article['content'] ?? '')) . '</article>';
+            $body = '<article class="kh-article"><p class="muted">' . $h($article['category_name'] ?? '') . '</p><h1>' . $h($article['title']) . '</h1><p class="muted">' . $h($article['excerpt'] ?? '') . '</p><hr>' . TextFormatter::withLinks((string) ($article['content'] ?? '')) . '</article>';
             $layout($title, $body, $schema);
             return true;
         }

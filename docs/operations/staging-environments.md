@@ -1,6 +1,11 @@
 # Środowiska stagingowe Reklamova CMS
 
-Stan na 2026-07-30.
+Stan bazowy: 2026-07-30. Ostatnia ponowna walidacja: 2026-08-12.
+
+Oba stagingi klientów mają stabilny rdzeń 0.8.0 zgodny 108/108 plików z
+aktualnym `main`. Kanał `rc` pozostaje ustawieniem przyszłych aktualizacji, a
+nie oznaczeniem aktualnie zainstalowanego core. Szczegóły:
+[`client-separation-2026-08-12.md`](./client-separation-2026-08-12.md).
 
 ## Stały staging CMS
 
@@ -29,6 +34,9 @@ stagingu. Backup manifestu znajduje się poza document root w:
 - produkcyjne trackery w konfiguracji i motywie: nie znaleziono,
 - realna poczta core i formularza MERO: blokowana,
 - lint stagingowego bridge poczty: zaliczony na PHP 8.5.
+- core stable 0.8.0: zgodny 108/108 plików z GitHub,
+- aktywne funkcje: `mero`, `knowledge`, `privacy`,
+- puste moduły biznesowe: wyłączone bez usuwania tabel.
 
 Backup pliku custom sprzed dodania hostowego warunku blokującego pocztę znajduje
 się poza document root w:
@@ -43,7 +51,10 @@ się poza document root w:
 - `X-Robots-Tag`: `noindex, nofollow, noarchive`,
 - osobna baza: potwierdzona podczas walidacji RC,
 - blokada realnej poczty: potwierdzona podczas walidacji RC,
-- bieżąca ponowna kontrola plików: oczekuje na autoryzowany dostęp SSH do LH.
+- blokada realnej poczty: ponownie potwierdzona 2026-08-12,
+- core stable 0.8.0: zgodny 108/108 plików z GitHub,
+- warstwa klienta: `app/modules/custom/powertech` i `app/themes/powertech`,
+- moduł MERO: nieobecny w plikach, konfiguracji i bazie.
 
 Staging nie jest obecnie usuwany. Najwcześniejszy termin przeglądu pod kątem
 archiwizacji to 2026-08-06. Brak automatycznego usuwania w tej dacie.
