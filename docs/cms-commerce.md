@@ -57,6 +57,14 @@ Importer pobiera dane bezpośrednio z bazy WooCommerce, kopiuje referencjonowane
 
 ING Pay musi mieć osobną konfigurację sandbox/production. Identyfikatory i sekrety są dostarczane przez konfigurację środowiska, nie przez manifest modułu.
 
+Implementacja `IngPayProvider` używa oficjalnych endpointów `/{merchantId}/payment`. Autoryzacja jest przekazywana jako Bearer token. Podpis notyfikacji jest liczony wyłącznie na niezmienionym body jako `hash(raw_body + service_key, alg)`; akceptowane algorytmy to SHA-224/256/384/512. Provider dopuszcza dodatkowe pola odpowiedzi, aby pozostać zgodny z rozszerzeniami API.
+
+Dokumentacja referencyjna:
+
+- https://bump.sh/pgw/doc/imoje-api/
+- https://bump.sh/pgw/doc/imoje-api/operation/operation-post-parameter-payment
+- https://bump.sh/pgw/doc/imoje-api/topic/topic-notyfikacje
+
 ## Migracje i kompatybilność
 
 Commerce nie rozszerza tabel obecnego katalogu ofertowego, aby nie zmieniać semantyki działających stron. Dane sklepowe mają oddzielny schemat. Adaptery mogą później publikować wybrane dane commerce do istniejących komponentów frontu.

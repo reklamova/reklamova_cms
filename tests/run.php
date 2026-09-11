@@ -14,11 +14,32 @@ use Reklamova\Cms\Commerce\Import\CommerceImportRepository;
 use Reklamova\Cms\Commerce\Import\ProductMediaMigrator;
 use Reklamova\Cms\Commerce\Import\WordPressImporter;
 use Reklamova\Cms\Commerce\Payments\PaymentRequest;
+use Reklamova\Cms\Commerce\Payments\HttpClientInterface;
+use Reklamova\Cms\Commerce\Payments\HttpResponse;
+use Reklamova\Cms\Commerce\Payments\IngPayProvider;
 use Reklamova\Cms\Commerce\Pricing\CartCalculator;
 use Reklamova\Cms\Commerce\Pricing\TaxCalculator;
 use Reklamova\Cms\Commerce\Shared\Money;
 use Reklamova\Cms\Media\MediaUploadPolicy;
 use Reklamova\Cms\Support\Config;
+
+final class FakePaymentHttpClient implements HttpClientInterface
+{
+    /** @var array<int, HttpResponse> */
+    public array $responses = [];
+    /** @var array<int, array<string, mixed>> */
+    public array $requests = [];
+
+    public function request(string $method, string $url, array $headers = [], ?string $body = null): HttpResponse
+    {
+        $this->requests[] = compact('method', 'url', 'headers', 'body');
+        if ($this->responses === []) {
+            throw new RuntimeException('No fake HTTP response queued.');
+        }
+
+        return array_shift($this->responses);
+    }
+}
 
 $passed = 0;
 $failed = 0;
@@ -256,6 +277,72 @@ $test('payment requests require HTTPS callbacks', static function (): void {
         return;
     }
     throw new RuntimeException('Insecure payment callback was accepted.');
+});
+
+$test('ING Pay initiation uses sandbox API and minor units', static function () use ($assert): void {
+    $http = new FakePaymentHttpClient();
+    $http->responses[] = new HttpResponse(200, json_encode([
+        'payment' => [
+            'id' => '0f0cc3d0-aae8-410b-bf5c-358955c348e3',
+            'url' => 'https://paywall.pay.ing.pl/s/test',
+            'status' => 'new',
+            'futureField' => true,
+        ],
+    ], JSON_THROW_ON_ERROR));
+    $provider = new IngPayProvider($http, 'merchant', 'service', 'service-secret', 'bearer-token', 'sandbox');
+    $result = $provider->initiate(new PaymentRequest(
+        '42',
+        'DR-42',
+        new Money(1219, 'PLN'),
+        'buyer@example.com',
+        'https://shop.example.com/payment/return',
+        'https://shop.example.com/payment/notify',
+        'attempt-42',
+        'Jan',
+        'Kowalski',
+    ));
+    $request = $http->requests[0];
+    $payload = json_decode((string) $request['body'], true, 512, JSON_THROW_ON_ERROR);
+    $assert(str_starts_with($request['url'], 'https://api.sandbox.pay.ing.pl/'));
+    $assert($request['headers']['Authorization'] === 'Bearer bearer-token');
+    $assert($payload['amount'] === 1219);
+    $assert($payload['orderId'] === 'DR-42');
+    $assert($result->providerTransactionId === '0f0cc3d0-aae8-410b-bf5c-358955c348e3');
+});
+
+$test('ING Pay notification validates raw-body signature', static function () use ($assert): void {
+    $provider = new IngPayProvider(
+        new FakePaymentHttpClient(),
+        'merchant',
+        'service',
+        'service-secret',
+        'bearer-token',
+        'sandbox'
+    );
+    $body = json_encode([
+        'transaction' => [
+            'id' => 'transaction',
+            'status' => 'settled',
+            'modified' => 123,
+            'serviceId' => 'service',
+            'amount' => 4999,
+            'currency' => 'PLN',
+            'orderId' => 'DR-99',
+        ],
+        'payment' => ['id' => 'payment-link'],
+        'additionalFutureObject' => ['safe' => true],
+    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+    $signature = hash('sha256', $body . 'service-secret');
+    $header = "merchantid=merchant;serviceid=service;signature={$signature};alg=sha256";
+    $notification = $provider->parseNotification($body, ['X-Imoje-Signature' => $header]);
+    $assert($notification->signatureValid);
+    $assert($notification->providerTransactionId === 'payment-link');
+    $assert($notification->orderId === 'DR-99');
+    $assert($notification->amount->amountMinor === 4999);
+
+    $tampered = str_replace('4999', '5000', $body);
+    $invalid = $provider->parseNotification($tampered, ['X-Imoje-Signature' => $header]);
+    $assert(!$invalid->signatureValid);
 });
 
 echo "\n{$passed} passed, {$failed} failed\n";

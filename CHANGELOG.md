@@ -10,6 +10,7 @@ Wszystkie istotne zmiany CMS Reklamova są dokumentowane w tym pliku.
 - Opcjonalny, generyczny moduł Commerce ze wspólnymi typami pieniędzy, VAT, kalkulacją koszyka, statusami i kontraktem providerów płatności.
 - Minimalny runner testów uruchamiany przez `composer test`.
 - Idempotentny importer WooCommerce DB z trybem `dry-run`, raportem konfliktów i kopiowaniem mediów z kontrolą SHA-256.
+- Natywny provider ING Pay z obsługą sandbox/production, tworzeniem i odpytywaniem płatności, anulowaniem oraz weryfikacją podpisu notyfikacji.
 
 ### Security
 

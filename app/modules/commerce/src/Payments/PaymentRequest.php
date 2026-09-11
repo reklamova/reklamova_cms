@@ -16,6 +16,9 @@ final readonly class PaymentRequest
         public string $returnUrl,
         public string $notificationUrl,
         public string $idempotencyKey,
+        public string $customerFirstName = 'Klient',
+        public string $customerLastName = 'Reklamova',
+        public string $title = '',
     ) {
         if ($orderId === '' || $orderNumber === '' || $idempotencyKey === '') {
             throw new \InvalidArgumentException('Payment order identifiers are required.');
@@ -30,6 +33,9 @@ final readonly class PaymentRequest
             if (!filter_var($url, FILTER_VALIDATE_URL) || strtolower((string) parse_url($url, PHP_URL_SCHEME)) !== 'https') {
                 throw new \InvalidArgumentException('Payment callback URLs must use HTTPS.');
             }
+        }
+        if (trim($customerFirstName) === '' || trim($customerLastName) === '') {
+            throw new \InvalidArgumentException('Customer first and last name are required.');
         }
     }
 }
