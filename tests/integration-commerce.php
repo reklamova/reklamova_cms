@@ -102,7 +102,10 @@ $assert(
         && ($adminExtensions['route_permissions']['/admin/commerce/shipping']['POST'] ?? null) === 'manage_shipping'
         && ($adminExtensions['route_permissions']['/admin/commerce/payments']['POST'] ?? null) === 'manage_payments'
         && ($adminExtensions['route_permissions']['/admin/commerce/coupons']['POST'] ?? null) === 'manage_discounts'
-        && ($adminExtensions['route_permissions']['/admin/commerce/order-file']['GET'] ?? null) === 'manage_order_files',
+        && ($adminExtensions['route_permissions']['/admin/commerce/order-file']['GET'] ?? null) === 'manage_order_files'
+        && ($adminExtensions['route_permissions']['/admin/commerce/order-file-status']['POST'] ?? null) === 'manage_order_files'
+        && ($adminExtensions['route_permissions']['/admin/commerce/order-shipment']['POST'] ?? null) === 'manage_shipping'
+        && ($adminExtensions['route_permissions']['/admin/commerce/customers']['POST'] ?? null) === 'manage_customers',
     'Commerce configuration routes are missing permission boundaries.',
 );
 
@@ -428,6 +431,26 @@ $assert($mailLifecycle->changeOrderStatus($result->orderId, $storeId, OrderStatu
 $assert($mailLifecycle->changeOrderStatus($result->orderId, $storeId, OrderStatus::Ready, 'admin', 1, 'mail_status_test'), 'Ready status was not changed.');
 $pdo->prepare('INSERT INTO commerce_order_shipments (order_id, status, tracking_number, tracking_url, shipped_at) VALUES (?, "shipped", "TRACK-123", "https://carrier.example/track/TRACK-123", CURRENT_TIMESTAMP)')->execute([$result->orderId]);
 $assert($mailLifecycle->changeOrderStatus($result->orderId, $storeId, OrderStatus::Shipped, 'admin', 1, 'mail_shipped_test'), 'Shipped status was not changed.');
+$adminExtensions = (new ModuleManager($container))->adminExtensions($pdo);
+$previousGet = $_GET;
+$previousMethod = $_SERVER['REQUEST_METHOD'] ?? null;
+$_GET = ['id' => $result->orderId];
+$_SERVER['REQUEST_METHOD'] = 'GET';
+ob_start();
+($adminExtensions['routes']['/admin/commerce/orders'])(new \Reklamova\Cms\Admin\AdminView(), []);
+$adminOrderHtml = (string) ob_get_clean();
+$assert(str_contains($adminOrderHtml, 'TRACK-123') && str_contains($adminOrderHtml, 'projekt.pdf'), 'Admin order detail lacks shipment or customer file controls.');
+$_GET = ['id' => $customerId];
+ob_start();
+($adminExtensions['routes']['/admin/commerce/customers'])(new \Reklamova\Cms\Admin\AdminView(), []);
+$adminCustomerHtml = (string) ob_get_clean();
+$assert(str_contains($adminCustomerHtml, 'Testowa 1') && str_contains($adminCustomerHtml, $result->orderNumber), 'Admin customer detail lacks addresses or order history.');
+$_GET = $previousGet;
+if ($previousMethod === null) {
+    unset($_SERVER['REQUEST_METHOD']);
+} else {
+    $_SERVER['REQUEST_METHOD'] = $previousMethod;
+}
 $assert($notificationWorker->processNext() === 'sent', 'Files-received status notification was not sent.');
 $assert($notificationWorker->processNext() === 'sent', 'Production status notification was not sent.');
 $assert($notificationWorker->processNext() === 'sent', 'Ready status notification was not sent.');

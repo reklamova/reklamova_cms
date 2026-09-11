@@ -20,7 +20,8 @@ Wszystkie istotne zmiany CMS Reklamova są dokumentowane w tym pliku.
 - Konfigurowalne metody płatności per sklep, bezpieczny odczyt koszyka i tokenizowany dostęp gościa do potwierdzenia zamówienia.
 - Jednorazowe, trwałe claimy zdarzeń analitycznych, aby `purchase` nie był emitowany ponownie po odświeżeniu strony.
 - Bezpieczny `OrderFiles`: storage poza webrootem, autoryzacja tokenem zamówienia, limity, MIME, rozszerzenia, losowe klucze i kontrolowany download z checksumą.
-- Panel Commerce z pulpitem sprzedaży, filtrowaną listą i detalem zamówienia, kontrolowanymi zmianami statusu, pełną edycją produktów i wariantów, kategoriami, dostawami, płatnościami, rabatami oraz listą klientów.
+- Panel Commerce z pulpitem sprzedaży, filtrowaną listą i detalem zamówienia, kontrolowanymi zmianami statusu, pełną edycją produktów i wariantów, kategoriami, dostawami, płatnościami, rabatami oraz kartą klienta z adresami i historią.
+- Operacyjna obsługa zamówienia w panelu: akceptacja lub odrzucenie pliku do druku oraz tworzenie i edycja wysyłek z trackingiem.
 - Książka adresowa klienta z adresami rozliczeniowymi i dostawy, domyślnymi wpisami oraz kontrolą właściciela rekordu.
 - Wspólny responsywny szablon e-mail CMS i komplet wiadomości commerce: zamówienie oczekujące na płatność, płatność przyjęta lub nieudana, zmiana statusu, wysyłka, anulowanie i link hasłowy.
 - Powiadomienia o zmianie statusu i wysyłce kolejkowane atomowo razem ze zmianą zamówienia.
