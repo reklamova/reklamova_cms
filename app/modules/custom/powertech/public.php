@@ -224,7 +224,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             $schemaHtml .= '<script type="application/ld+json">' . json_encode($item, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '</script>';
         }
         $nav = $powertechNavigation();
-        echo '<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        echo '<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="google-site-verification" content="5KGPmcaCsTa4_k5HMxJ5bHlB5o7234ZUDhwluakYl-8">'
             . '<title>' . $h($pageTitle) . '</title>'
             . ($description !== '' ? '<meta name="description" content="' . $h($description) . '">' : '')
             . '<meta name="robots" content="index,follow">'
@@ -510,7 +510,7 @@ return static function (array $container, PDO $pdo, array $module): array {
                 : '<h1 class="pt-sr-only">' . $h($pageHeading) . '</h1>');
 
         header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
+        echo '<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="google-site-verification" content="5KGPmcaCsTa4_k5HMxJ5bHlB5o7234ZUDhwluakYl-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>' . $h($title) . '</title>'
             . ($description !== '' ? '<meta name="description" content="' . $h($description) . '">' : '')

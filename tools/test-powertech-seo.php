@@ -8,6 +8,7 @@ if (!is_string($source)) {
 }
 
 $required = [
+    '<meta name="google-site-verification" content="5KGPmcaCsTa4_k5HMxJ5bHlB5o7234ZUDhwluakYl-8">',
     '<meta name="robots" content="index,follow">',
     '<link rel="canonical"',
     '<meta property="og:title"',
