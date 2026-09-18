@@ -26,6 +26,7 @@ return new class {
             'silomierze-i-przyrzady-pwytrzymalosciowe' => 'maszyny-do-badan-wytrzymalosciowych',
             'przyrzady-pomiarowe/mikroskopy-i-lupy' => 'pomiary-optyczne',
             'przyrzady-pomiarowe/twardosciomierze' => 'twardosciomierze-rockwell-super-rockwell',
+            'twardosciomierze' => 'twardosciomierze-rockwell-super-rockwell',
         ];
         $insert = $pdo->prepare('INSERT INTO catalog_redirects (old_path, new_path, entity_type, entity_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE new_path = VALUES(new_path), entity_type = VALUES(entity_type), entity_id = VALUES(entity_id)');
         foreach (['catalog_categories' => 'category', 'catalog_products' => 'product'] as $table => $type) {
