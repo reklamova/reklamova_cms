@@ -2970,6 +2970,13 @@ body.powertech-catalog {
     }
 }
 
+@media (max-width: 760px) {
+    .catalog-hero,
+    .catalog-product {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 @media (max-width: 520px) {
     .catalog-shell,
     .catalog-shell > *,
