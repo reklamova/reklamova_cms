@@ -236,7 +236,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . ($image !== '' ? '<meta property="og:image" content="' . $h($image) . '">' : '')
             . '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
             . '<link rel="stylesheet" href="/assets/core/page.css">'
-            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260929-responsive1">'
+            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260929-responsive2">'
             . '<script src="/assets/js/powertech.js?v=20260901-product-media1" defer></script>'
             . $schemaHtml . '</head><body class="powertech-catalog">'
             . '<div class="pt-topbar"><div class="pt-wrap"><div class="pt-topbar__block"><span>PowerTech s.c.</span><span>ul. Beskidzka 23, 32-615 Grojec</span></div><div class="pt-topbar__block"><a href="tel:+48334871447">+48 33 487 14 47</a><a href="mailto:biuro@powertechsc.pl">biuro@powertechsc.pl</a></div></div></div>'
@@ -531,7 +531,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . ($image !== '' ? '<meta property="og:image" content="' . $h($image) . '">' : '')
             . '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
             . '<link rel="stylesheet" href="/assets/core/page.css">'
-            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260929-responsive1">'
+            . '<link rel="stylesheet" href="/assets/css/powertech.css?v=20260929-responsive2">'
             . '<script src="/assets/js/powertech.js?v=20260901-product-media1" defer></script>'
             . $schema
             . '</head><body class="powertech-catalog">'
