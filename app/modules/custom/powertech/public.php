@@ -502,6 +502,15 @@ return static function (array $container, PDO $pdo, array $module): array {
         $image = (string) ($meta['image'] ?? '');
         $schema = (string) ($meta['schema'] ?? '');
         $body = $pageRenderer->render($page);
+        $pageSlug = trim((string) ($page['slug'] ?? $slug), '/');
+        if ($pageSlug === '' || $pageSlug === 'home') {
+            $body = preg_replace(
+                '/<main class="cms-page\b/',
+                '<main class="cms-page cms-page--powertech-home',
+                $body,
+                1
+            ) ?? $body;
+        }
         $pageHeading = (string) (($page['title'] ?? '') ?: $title);
         $bodyHasHeading = preg_match('/<h1\b/i', $body) === 1;
         $headingHtml = $bodyHasHeading
