@@ -2971,6 +2971,25 @@ body.powertech-catalog {
 }
 
 @media (max-width: 520px) {
+    .catalog-shell,
+    .catalog-shell > *,
+    .catalog-hero,
+    .catalog-hero > * {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .catalog-hero {
+        width: 100%;
+        padding-inline: 18px;
+    }
+
+    .catalog-hero h1,
+    .catalog-hero h2 {
+        font-size: clamp(24px, 8vw, 30px);
+        overflow-wrap: anywhere;
+    }
+
     .pt-footer__credit .pt-footer__credit-inner {
         flex-wrap: wrap;
         gap: 8px 10px;
