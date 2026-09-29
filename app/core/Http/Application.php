@@ -78,7 +78,8 @@ final class Application
         $renderer = new PageRenderer();
         $page = $repo->findPublishedBySlug($slug);
 
-        if (!$page) {
+        $notFound = !$page;
+        if ($notFound) {
             http_response_code(404);
             $page = [
                 'title' => 'Nie znaleziono',
@@ -91,6 +92,10 @@ final class Application
 
         $siteName = (string) $config->get('app', 'name', 'Reklamova CMS');
         $meta = $renderer->meta($page, $siteName, (string) $config->get('app', 'url', ''));
+        if ($notFound) {
+            $meta['robots'] = 'noindex,nofollow';
+            $meta['canonical'] = '';
+        }
         $this->respondRawHtml(
             $meta,
             $renderer->render($page),

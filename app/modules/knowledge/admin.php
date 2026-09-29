@@ -55,7 +55,7 @@ return static function (array $container, PDO $pdo, array $module): array {
             . '<label class="field">Status<select name="status"><option value="draft">Szkic</option><option value="published"' . (($edit['status'] ?? '') === 'published' ? ' selected' : '') . '>Opublikowany</option></select></label>'
             . '<label class="field">Data publikacji<input name="published_at" value="' . $h($edit['published_at'] ?? '') . '" placeholder="YYYY-MM-DD HH:MM:SS"></label>'
             . '<label class="field field--wide">Zajawka<textarea name="excerpt">' . $h($edit['excerpt'] ?? '') . '</textarea></label>'
-            . '<label class="field field--wide">Treść<textarea name="content">' . $h($edit['content'] ?? '') . '</textarea></label>'
+            . '<label class="field field--wide">Treść<textarea name="content" data-content-editor>' . $h($edit['content'] ?? '') . '</textarea></label>'
             . '<label class="field field--half">Obraz okładki<input name="cover_image" value="' . $h($edit['cover_image'] ?? '') . '"></label>'
             . '<label class="field field--half">Tagi po przecinku<input name="tags" value="' . $h($tags) . '"></label>'
             . '<label class="field">Powiązana usługa - adres URL<input name="related_service_slug" value="' . $h($edit['related_service_slug'] ?? '') . '"></label>'
@@ -93,7 +93,7 @@ return static function (array $container, PDO $pdo, array $module): array {
         if ($type === 'categories') {
             $form .= '<label class="field field--wide">Opis<textarea name="description">' . $h($edit['description'] ?? '') . '</textarea></label><label class="field">Kolejność<input type="number" name="sort_order" value="' . $h($edit['sort_order'] ?? 100) . '"></label>';
         } else {
-            $form .= '<label class="field">Rola<input name="role" value="' . $h($edit['role'] ?? '') . '"></label><label class="field">Zdjęcie<input name="photo" value="' . $h($edit['photo'] ?? '') . '"></label><label class="field field--wide">Bio<textarea name="bio">' . $h($edit['bio'] ?? '') . '</textarea></label>';
+            $form .= '<label class="field">Rola<input name="role" value="' . $h($edit['role'] ?? '') . '"></label><label class="field">Zdjęcie<input name="photo" value="' . $h($edit['photo'] ?? '') . '"></label><label class="field field--wide">Bio<textarea name="bio" data-content-editor>' . $h($edit['bio'] ?? '') . '</textarea></label>';
         }
         $form .= '<div class="field field--wide"><button>Zapisz</button></div></form></section>';
         $items = $type === 'categories' ? $repo->categories() : $repo->authors();

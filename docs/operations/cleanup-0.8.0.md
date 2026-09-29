@@ -1,5 +1,9 @@
 # Finalne porządki po Reklamova CMS 0.8.0
 
+> Ten raport opisuje stan z 2026-07-30. Otwarte wtedy zadania PowerTech i MERO
+> zostały zamknięte 2026-08-12. Bieżący stan oraz nowe backupy opisuje
+> [`client-separation-2026-08-12.md`](./client-separation-2026-08-12.md).
+
 Data: 2026-07-30
 
 Zakres obejmował repozytorium, lokalny workspace, update server, produkcję MERO,
